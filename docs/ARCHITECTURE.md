@@ -380,7 +380,7 @@ export const PromptSchemaV1 = z.object({
   // 2 目标
   objective: z.object({
     goal: z.string().min(4),                     // 要达成什么
-    successCriteria: z.array(z.string()).min(1), // 怎样算成功，必须可核对
+    successCriteria: z.array(z.string()).default([]), // 允许为空，R004 负责提示
     nonGoals: z.array(z.string()).default([]),   // 明确不追求什么
   }),
 
@@ -410,10 +410,10 @@ export const PromptSchemaV1 = z.object({
     must: z.array(z.string()).default([]),
     mustNot: z.array(z.string()).default([]),
     boundaries: z.object({
-      scopeIn: z.array(z.string()).min(1),       // 范围内
-      scopeOut: z.array(z.string()).min(1),      // 明确不做（最容易被忽略、也最值钱）
-      knowledgePolicy: z.string().min(1),        // 知识不足/不确定时怎么办
-      ambiguityPolicy: z.string().min(1),        // 输入有歧义时怎么办
+      scopeIn: z.array(z.string()).default([]),        // 范围内
+      scopeOut: z.array(z.string()).default([]),       // 明确不做（最容易被忽略、也最值钱）
+      knowledgePolicy: z.string().default(''),         // 知识不足/不确定时怎么办
+      ambiguityPolicy: z.string().default(''),         // 输入有歧义时怎么办
       formatBoundary: z.string().optional(),     // 长度、语言、结构硬约束
       safetyBoundary: z.string().optional(),     // 隐私、合规、敏感话题
     }),
@@ -460,6 +460,7 @@ export type PromptSchema = z.infer<typeof PromptSchemaV1>;
 1. `examples` 与 `selfCheck` 整对象带默认值，模型漏字段时不至于整份解析失败；它们的内部数组同样有默认值。
 2. `linter` 整对象带默认值，用户从没触发过诊断时也能正常保存。
 3. `meta.mode` 与 `assumptions` 是**生成期元信息**，不属于提示词正文，放在顶层而不是 `context` 里。这是 M0 落地时对原设计的修正：假设 chip 要按 `path` 精确重算某个字段，放进 `context` 会让语义和重算粒度都错位。
+4. **草稿容忍**：`successCriteria`、`scopeIn`、`scopeOut`、`knowledgePolicy`、`ambiguityPolicy` 五个字段原先带 `.min(1)`，导致 R004/R005/R006/R007 在解析成功的文档上不可达，且用户清空最后一条边界时保存会直接报解析错误。现已改为允许为空，完整性交给诊断引擎提示并一键修复。原则：**解析层只拒绝结构不对，不拒绝还没写完**。
 
 八字段仍然全部必填（`role`/`objective`/`context`/`input`/`constraints`/`output`/`examples`/`selfCheck`），只是其中后两个允许省略内容。
 

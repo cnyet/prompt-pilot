@@ -10,6 +10,12 @@ import { z } from 'zod'
  * 1. 八个字段，缺一不可（有默认值的除外）。
  * 2. 「边界清晰」不是一句话，而是 constraints.boundaries 下六个必须回答的问题。
  * 3. assumptions 是生成期的决定，必须显式，可事后纠正；它与 context.knownFacts 不是一回事。
+ *
+ * 草稿容忍原则（v1 内约定，不升版本）：
+ * 结构必须齐全，内容允许不完整。空的 successCriteria、scopeIn/Out、
+ * knowledgePolicy、ambiguityPolicy 都能通过解析，由诊断引擎（R004/R005/R006/R007）
+ * 提示并一键修复。解析层只拒绝「结构不对」，不拒绝「还没写完」。
+ * 这样用户清空最后一条边界时看到的是可修的问题，而不是一句解析错误。
  */
 
 export const TASK_TYPES = [
@@ -101,7 +107,8 @@ export const PromptPilotSchemaV1 = z.object({
   // 2 目标
   objective: z.object({
     goal: z.string().min(4),
-    successCriteria: z.array(z.string().min(1)).min(1),
+    // 允许为空：完整性由诊断引擎（R004）提示，而不是解析层整份拒绝。
+    successCriteria: z.array(z.string().min(1)).default([]),
     nonGoals: z.array(z.string()).default([]),
   }),
 
@@ -123,10 +130,12 @@ export const PromptPilotSchemaV1 = z.object({
     must: z.array(z.string()).default([]),
     mustNot: z.array(z.string()).default([]),
     boundaries: z.object({
-      scopeIn: z.array(z.string().min(1)).min(1),
-      scopeOut: z.array(z.string().min(1)).min(1),
-      knowledgePolicy: z.string().min(1),
-      ambiguityPolicy: z.string().min(1),
+      // 四个边界字段都允许为空。草稿态必须能保存，
+      // 「缺边界」应当由 R005 / R006 / R007 提示并一键修复，而不是让保存直接失败。
+      scopeIn: z.array(z.string().min(1)).default([]),
+      scopeOut: z.array(z.string().min(1)).default([]),
+      knowledgePolicy: z.string().default(''),
+      ambiguityPolicy: z.string().default(''),
       formatBoundary: z.string().optional(),
       safetyBoundary: z.string().optional(),
     }),

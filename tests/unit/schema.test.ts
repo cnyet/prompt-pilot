@@ -4,6 +4,7 @@ import {
   PromptPilotSchemaV1,
   createSkeletonSchema,
 } from '@/lib/engine/schema'
+import { diagnose } from '@/lib/engine/lint/engine'
 
 describe('PromptPilot Schema v1', () => {
   it('骨架能解析，且八个字段齐全', () => {
@@ -14,20 +15,27 @@ describe('PromptPilot Schema v1', () => {
     expect(FIELD_KEYS).toHaveLength(8)
   })
 
-  it('缺「明确不做」时解析失败，边界不能只有一半', () => {
+  it('草稿容忍：清空「明确不做」仍可保存，由诊断报 R005', () => {
     const raw = structuredClone(createSkeletonSchema('周报生成'))
     raw.constraints.boundaries.scopeOut = []
 
-    const result = PromptPilotSchemaV1.safeParse(raw)
-    expect(result.success).toBe(false)
+    // 不抛异常即表示草稿可保存
+    const doc = PromptPilotSchemaV1.parse(raw)
+
+    const issues = diagnose(doc)
+    const r005 = issues.find((issue) => issue.ruleId === 'R005')
+    expect(r005?.level).toBe('error')
+    expect(r005?.fixable).toBe(true)
   })
 
-  it('缺「知识不足时怎么办」时解析失败', () => {
+  it('草稿容忍：清空「知识不足策略」仍可保存，由诊断报 R006', () => {
     const raw = structuredClone(createSkeletonSchema('周报生成'))
     raw.constraints.boundaries.knowledgePolicy = ''
 
-    const result = PromptPilotSchemaV1.safeParse(raw)
-    expect(result.success).toBe(false)
+    const doc = PromptPilotSchemaV1.parse(raw)
+
+    const issues = diagnose(doc)
+    expect(issues.some((issue) => issue.ruleId === 'R006')).toBe(true)
   })
 
   it('变量名非法时报错', () => {
