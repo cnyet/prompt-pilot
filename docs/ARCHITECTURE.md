@@ -289,6 +289,9 @@ data: {"path":"role","status":"done"}
 event: delta
 data: {"path":"role.persona","text":"你是一名"}
 
+event: reasoning
+data: {"text":"先判断需求类型，再补边界。"}
+
 event: lint
 data: {"revision":12,"issues":[{"ruleId":"R001","level":"warn","path":"objective.goal",
         "span":[8,12],"message":"“尽量”无法验证","fix":{"kind":"replace","text":"在 3 条以内"}}]}
@@ -312,6 +315,8 @@ data: {"durationMs":8420,"finishReason":"stop","title":"周报生成","assumptio
 - 事件顺序保证 `stage` 包裹 `field` 包裹 `delta`。
 - `done` 除 `durationMs` 与 `finishReason` 外，还携带 `title` 与 `assumptions`。不新增 `assumption` 事件：chip 数据随 `done` 一次给出，避免客户端为一条元信息多接一种事件。`finishReason` 取值 `stop` / `error`。
 - `error` 可带可选的 `field`，仅当失败可归因到单个字段时给出；缺省表示影响当前所有流式中的字段。
+- `reasoning` 只承载思维链增量（`{ text }`），客户端只能渲染到「思考」区，**不得写入任何字段正文**。它可以在两次 `delta` 之间任意时刻出现，不改变字段状态。
+- `usage` 承载本次调用的用量：`tokensIn` / `tokensOut` 必填，`cachedTokens` / `reasoningTokens` / `costCny` / `model` 可选；`costCny` 缺省表示价格未知。**用量完全缺失时服务端不发送该事件**，客户端据此显示「未知」，绝不回退成 0。它在 `done` 之前出现。
 - 收到 `error` 不关闭连接，除非 `retryable: false`。
 - 服务端响应头必须带 `Content-Type: text/event-stream; charset=utf-8`、`Cache-Control: no-cache, no-transform`、`X-Accel-Buffering: no`，且 `export const runtime = 'nodejs'`、`export const dynamic = 'force-dynamic'`。
 - 客户端断开时通过 `request.signal` 中止上游模型调用，避免白烧 token。
