@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# 本地缓存（沙箱把 ~/.npm 设为不可写，所以缓存放在工程内）
+.npm-cache/
+.pnpm-store/
+
+# 环境变量：只提交样例
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# 数据库与备份
+data/
+*.sqlite
+*.sqlite-journal
+
+# 测试与系统文件
+coverage/
+.DS_Store

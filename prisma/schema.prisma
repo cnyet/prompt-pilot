@@ -1,0 +1,229 @@
+// PromptPilot 数据模型
+//
+// 状态：M0 只作为契约文件存在，尚未执行 migrate。
+// M1 接入 SQLite 时按此建库；如 Prisma 大版本对 generator 或 record 类型有变化，
+// 以 `docs/ARCHITECTURE.md` 第七节为准，这里的字段与关系必须一致。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Prompt {
+  id               String    @id @default(cuid())
+  title            String
+  description      String?
+  tags             String    @default("")
+  status           String    @default("draft")
+  favorite         Boolean   @default(false)
+  currentVersionId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  versions         PromptVersion[]
+  variables        Variable[]
+  runs             Run[]
+
+  @@index([status, updatedAt])
+}
+
+model PromptVersion {
+  id              String   @id @default(cuid())
+  promptId        String
+  versionNo       Int
+  schemaJson      String
+  renderedText    String
+  changeSummary   String?
+  // user_input | ai_generated | ai_refined | human_edited | imported | rollback
+  origin          String
+  parentVersionId String?
+  modelId         String?
+  baselineWinRate Float?
+  tokensIn        Int      @default(0)
+  tokensOut       Int      @default(0)
+  costCny         Float    @default(0)
+  createdAt       DateTime @default(now())
+  prompt          Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  runs            Run[]
+
+  @@unique([promptId, versionNo])
+}
+
+model Variable {
+  id           String  @id @default(cuid())
+  promptId     String
+  name         String
+  label        String
+  type         String
+  required     Boolean @default(true)
+  defaultValue String?
+  options      String?
+  description  String?
+  prompt       Prompt  @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, name])
+}
+
+model VariableSet {
+  id         String   @id @default(cuid())
+  promptId   String
+  name       String
+  valuesJson String
+  createdAt  DateTime @default(now())
+}
+
+model Run {
+  id              String   @id @default(cuid())
+  versionId       String
+  variableSetId   String?
+  variablesJson   String
+  modelId         String
+  paramsJson      String
+  output          String   @default("")
+  reasoning       String?
+  // queued | running | succeeded | failed | canceled | interrupted
+  status          String   @default("queued")
+  errorCode       String?
+  errorMsg        String?
+  latencyMs       Int?
+  tokensIn        Int      @default(0)
+  tokensOut       Int      @default(0)
+  cachedTokens    Int      @default(0)
+  reasoningTokens Int      @default(0)
+  costCny         Float    @default(0)
+  finishReason    String?
+  // max_tokens | max_completion_tokens | context_window
+  lengthCause     String?
+  attempts        Int      @default(1)
+  cacheKey        String?
+  cachedHit       Boolean  @default(false)
+  requestId       String?  @unique
+  traceId         String?
+  createdAt       DateTime @default(now())
+  version         PromptVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  checks          CriterionCheck[]
+
+  @@index([versionId, createdAt])
+  @@index([cacheKey])
+}
+
+// 每次模型调用的原始账本，NFR-10 与成本面板的唯一数据源
+model LlmCall {
+  id              String   @id @default(cuid())
+  traceId         String?
+  // compose | interview | evaluate | refine | run | judge
+  stage           String
+  promptId        String?
+  versionId       String?
+  runId           String?
+  evalTaskId      String?
+  provider        String
+  modelId         String
+  thinking        String?
+  status          String   @default("succeeded")
+  tokensIn        Int      @default(0)
+  tokensOut       Int      @default(0)
+  cachedTokens    Int      @default(0)
+  reasoningTokens Int      @default(0)
+  costCny         Float    @default(0)
+  latencyMs       Int?
+  ttftMs          Int?
+  finishReason    String?
+  lengthCause     String?
+  attempts        Int      @default(1)
+  errorCode       String?
+  createdAt       DateTime @default(now())
+
+  @@index([stage, createdAt])
+  @@index([promptId, createdAt])
+  @@index([modelId, createdAt])
+  @@index([traceId])
+}
+
+model EvalTask {
+  id                String   @id @default(cuid())
+  name              String
+  // baseline | batch
+  mode              String
+  baselineVersionId String?
+  criteriaJson      String
+  versionIds        String
+  sampleCount       Int      @default(3)
+  samplesJson       String?
+  status            String   @default("pending")
+  judgeModelId      String?
+  winRate           Float?
+  resultJson        String?
+  createdAt         DateTime @default(now())
+  finishedAt        DateTime?
+  checks            CriterionCheck[]
+}
+
+// 一条成功标准在一个样本上的判定结果
+model CriterionCheck {
+  id             String   @id @default(cuid())
+  evalTaskId     String?
+  runId          String?
+  versionId      String?
+  sampleIndex    Int      @default(0)
+  criterionIndex Int
+  criterionText  String
+  // satisfied | partial | unsatisfied
+  status         String
+  note           String?
+  evidence       String?
+  source         String   @default("llm_judge")
+  judgeModelId   String?
+  createdAt      DateTime @default(now())
+  run            Run?      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  evalTask       EvalTask? @relation(fields: [evalTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([evalTaskId, versionId, sampleIndex, criterionIndex])
+  @@index([versionId, criterionIndex])
+}
+
+model ModelConfig {
+  id                 String  @id @default(cuid())
+  label              String
+  // ark | openai_compatible | mock | heuristic
+  provider           String
+  baseUrl            String?
+  modelId            String
+  apiKeyEnvVar       String  @default("ARK_API_KEY")
+  defaultParams      String  @default("{}")
+  // generate | evaluate | judge
+  role               String  @default("generate")
+  // unknown | yes | no
+  supportsJsonSchema String  @default("unknown")
+  isDefault          Boolean @default(false)
+  enabled            Boolean @default(true)
+  lastPingOk         Boolean?
+  lastPingMs         Int?
+}
+
+model PromptTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  category    String
+  description String
+  schemaJson  String
+  isBuiltin   Boolean @default(true)
+}
+
+model Draft {
+  id          String   @id @default(cuid())
+  sessionKey  String   @unique
+  userInput   String
+  intentJson  String?
+  clarifyJson String?
+  schemaJson  String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AppSetting {
+  key   String @id
+  value String
+}

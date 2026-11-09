@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* 深浅色用 class 切换，避免跟随系统时无法手动覆盖 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- 令牌：浅色（默认） ---------- */
+:root {
+  color-scheme: light;
+
+  --bg: oklch(0.985 0.004 210);
+  --bg-sunken: oklch(0.963 0.006 212);
+  --surface: oklch(0.997 0.002 210);
+  --sidebar: oklch(0.952 0.008 215);
+
+  --border: oklch(0.9 0.006 215);
+  --border-strong: oklch(0.845 0.008 215);
+
+  --text: oklch(0.25 0.012 220);
+  --text-muted: oklch(0.5 0.012 220);
+  --text-faint: oklch(0.63 0.01 220);
+
+  --accent: oklch(0.52 0.09 205);
+  --accent-hover: oklch(0.455 0.1 205);
+  --accent-subtle: oklch(0.95 0.022 205);
+
+  --success: oklch(0.55 0.13 150);
+  --warning: oklch(0.68 0.14 75);
+  --danger: oklch(0.55 0.17 27);
+  --info: oklch(0.58 0.1 250);
+
+  --diff-add-bg: oklch(0.96 0.032 150);
+  --diff-add-mark: oklch(0.9 0.07 150);
+  --diff-del-bg: oklch(0.96 0.026 27);
+  --diff-del-mark: oklch(0.905 0.062 27);
+}
+
+/* ---------- 令牌：深色 ---------- */
+.dark {
+  color-scheme: dark;
+
+  --bg: oklch(0.185 0.008 215);
+  --bg-sunken: oklch(0.165 0.008 215);
+  --surface: oklch(0.215 0.008 215);
+  --sidebar: oklch(0.163 0.008 215);
+
+  --border: oklch(0.3 0.008 215);
+  --border-strong: oklch(0.36 0.008 215);
+
+  --text: oklch(0.93 0.005 215);
+  --text-muted: oklch(0.7 0.008 215);
+  --text-faint: oklch(0.56 0.008 215);
+
+  --accent: oklch(0.72 0.1 205);
+  --accent-hover: oklch(0.78 0.095 205);
+  --accent-subtle: oklch(0.28 0.03 205);
+
+  --success: oklch(0.7 0.13 150);
+  --warning: oklch(0.79 0.13 80);
+  --danger: oklch(0.68 0.16 27);
+  --info: oklch(0.72 0.1 250);
+
+  --diff-add-bg: oklch(0.26 0.045 150);
+  --diff-add-mark: oklch(0.32 0.07 150);
+  --diff-del-bg: oklch(0.26 0.045 27);
+  --diff-del-mark: oklch(0.32 0.07 27);
+}
+
+/* ---------- 令牌映射到 Tailwind 工具类 ---------- */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
+
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --color-diff-add: var(--diff-add-bg);
+  --color-diff-add-mark: var(--diff-add-mark);
+  --color-diff-del: var(--diff-del-bg);
+  --color-diff-del-mark: var(--diff-del-mark);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    "Sarasa Mono SC", monospace;
+
+  /* 字号阶梯：比例约 1.2，产品语域用紧凑比例 */
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.4;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.6;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.65;
+  --text-h3: 1.1875rem;
+  --text-h3--line-height: 1.4;
+  --text-h2: 1.4375rem;
+  --text-h2--line-height: 1.35;
+  --text-display: 1.75rem;
+  --text-display--line-height: 1.25;
+
+  --radius-chip: 4px;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-overlay: 12px;
+
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* 数字一律等宽，避免 token 数与耗时跳动 */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
