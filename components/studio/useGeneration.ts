@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import {
   FIELD_KEYS,
   type Assumption,
@@ -13,8 +13,22 @@ import {
   SseParseError,
 } from '@/lib/engine/sse'
 import {
-  createEmptyFields,
+  acceptSuggestion as acceptSuggestionInDoc,
+  applyStreamDelta,
+  applyUserEdit,
+  commitField,
+  discardSuggestion as discardSuggestionInDoc,
+  failField,
+  getFieldState,
+  redo as redoDoc,
+  startField,
+  undo as undoDoc,
+  type Command,
+  type PromptDoc,
+} from '@/lib/engine/doc'
+import {
   createInitialState,
+  toFieldViewMap,
   type FieldViewMap,
   type GenerationError,
   type GenerationState,
@@ -22,13 +36,17 @@ import {
 
 const STALL_TIMEOUT_MS = 15_000
 
-type Action =
+export type GenerationAction =
   | { type: 'reset' }
   | { type: 'begin'; fields: readonly FieldKey[]; full: boolean }
   | { type: 'field-start'; field: FieldKey }
   | { type: 'delta'; field: FieldKey; text: string }
   | { type: 'field-done'; field: FieldKey }
   | { type: 'edit'; field: FieldKey; text: string }
+  | { type: 'accept-suggestion'; field: FieldKey }
+  | { type: 'discard-suggestion'; field: FieldKey }
+  | { type: 'undo' }
+  | { type: 'redo' }
   | { type: 'stop' }
   | { type: 'fail'; error: GenerationError; field?: FieldKey }
   | {
@@ -39,37 +57,41 @@ type Action =
       finishReason: 'stop' | 'error' | 'aborted'
     }
 
-function markFieldFailed(
-  fields: FieldViewMap,
-  field: FieldKey,
-  message: string,
-): FieldViewMap {
-  const previous = fields[field]
-  return {
-    ...fields,
-    [field]: { ...previous, status: 'failed', error: message },
+function settleStreamingFields(
+  doc: PromptDoc,
+  finalStatus: 'done' | 'partial',
+): PromptDoc {
+  let next = doc
+  for (const field of FIELD_KEYS) {
+    const state = next.fields[field]
+    if (!state) {
+      continue
+    }
+    if (state.status === 'streaming' || next.pending[field] !== undefined) {
+      next = commitField(next, field, finalStatus)
+    }
   }
+  return next
 }
 
-function reducer(state: GenerationState, action: Action): GenerationState {
+/**
+ * 生成状态 reducer。四条写入规则本身在 lib/engine/doc.ts，
+ * 这里只做事件调度，所以 delta 不再可能无条件追加到字段文本上。
+ */
+export function generationReducer(
+  state: GenerationState,
+  action: GenerationAction,
+): GenerationState {
   switch (action.type) {
     case 'reset':
       return createInitialState()
 
     case 'begin': {
-      let fields: FieldViewMap
-      if (action.full) {
-        fields = createEmptyFields()
-      } else {
-        fields = { ...state.fields }
-        for (const field of action.fields) {
-          fields[field] = { status: 'idle', text: '', dirty: false }
-        }
-      }
+      const doc = action.full ? createInitialState().doc : state.doc
       return {
         ...state,
         phase: 'streaming',
-        fields,
+        doc,
         scheduled: action.fields,
         error: null,
         title: action.full ? '' : state.title,
@@ -78,123 +100,99 @@ function reducer(state: GenerationState, action: Action): GenerationState {
       }
     }
 
-    case 'field-start': {
-      const previous = state.fields[action.field]
+    case 'field-start':
       return {
         ...state,
         phase: 'streaming',
-        fields: {
-          ...state.fields,
-          [action.field]: {
-            ...previous,
-            status: 'streaming',
-            text: '',
-            dirty: false,
-            error: undefined,
-          },
-        },
+        doc: startField(state.doc, action.field),
       }
-    }
 
-    case 'delta': {
-      const previous = state.fields[action.field]
+    case 'delta':
+      // R1：只写 pending。用户在生成过程中改过字，这里也不会碰文档值。
       return {
         ...state,
         phase: 'streaming',
-        fields: {
-          ...state.fields,
-          [action.field]: {
-            ...previous,
-            status: 'streaming',
-            text: `${previous.text}${action.text}`,
-            dirty: false,
-          },
-        },
+        doc: applyStreamDelta(state.doc, action.field, action.text),
       }
-    }
 
-    case 'field-done': {
-      const previous = state.fields[action.field]
+    case 'field-done':
+      // R2：dirty 时把 AI 内容转成建议，不覆盖用户输入。
       return {
         ...state,
-        fields: {
-          ...state.fields,
-          [action.field]: {
-            ...previous,
-            status: 'done',
-            text: previous.text.trimEnd(),
-            dirty: false,
-            error: undefined,
-          },
-        },
+        doc: commitField(state.doc, action.field, 'done'),
       }
-    }
 
-    case 'edit': {
-      const previous = state.fields[action.field]
+    case 'edit':
+      // R3：用户编辑立即写文档。
       return {
         ...state,
-        fields: {
-          ...state.fields,
-          [action.field]: {
-            ...previous,
-            text: action.text,
-            dirty: true,
-            status: previous.status === 'idle' ? 'partial' : previous.status,
-          },
-        },
+        doc: applyUserEdit(state.doc, action.field, action.text),
       }
-    }
+
+    case 'accept-suggestion':
+      return {
+        ...state,
+        doc: acceptSuggestionInDoc(state.doc, action.field),
+      }
+
+    case 'discard-suggestion':
+      return {
+        ...state,
+        doc: discardSuggestionInDoc(state.doc, action.field),
+      }
+
+    case 'undo':
+      return { ...state, doc: undoDoc(state.doc) }
+
+    case 'redo':
+      return { ...state, doc: redoDoc(state.doc) }
 
     case 'stop': {
-      const fields = { ...state.fields }
+      let doc = settleStreamingFields(state.doc, 'partial')
       for (const field of FIELD_KEYS) {
-        if (fields[field].status === 'streaming') {
-          fields[field] = {
-            ...fields[field],
-            status: 'partial',
-            text: fields[field].text.trimEnd(),
+        const current = getFieldState(doc, field)
+        if (current?.status === 'streaming') {
+          doc = {
+            ...doc,
+            fields: {
+              ...doc.fields,
+              [field]: { ...current, status: 'partial' },
+            },
           }
         }
       }
       return {
         ...state,
         phase: state.phase === 'streaming' ? 'stopped' : state.phase,
-        fields,
+        doc,
       }
     }
 
     case 'fail': {
-      let fields = state.fields
-      if (action.field) {
-        fields = markFieldFailed(fields, action.field, action.error.message)
-      } else {
-        for (const field of FIELD_KEYS) {
-          if (fields[field].status === 'streaming') {
-            fields = markFieldFailed(fields, field, action.error.message)
-          }
-        }
+      const targets = action.field
+        ? [action.field]
+        : FIELD_KEYS.filter((field) => {
+            const current = state.doc.fields[field]
+            return (
+              current?.status === 'streaming' ||
+              state.doc.pending[field] !== undefined
+            )
+          })
+      let doc = state.doc
+      for (const field of targets) {
+        // 先落盘已经收到的内容，再标记失败，避免失败把已生成文本丢掉。
+        doc = commitField(doc, field, 'partial')
+        doc = failField(doc, field, action.error.message)
       }
-      return { ...state, phase: 'error', fields, error: action.error }
+      return { ...state, phase: 'error', doc, error: action.error }
     }
 
     case 'done': {
-      const fields = { ...state.fields }
-      if (action.finishReason !== 'error') {
-        for (const field of FIELD_KEYS) {
-          if (fields[field].status === 'streaming') {
-            fields[field] = {
-              ...fields[field],
-              status: 'done',
-              text: fields[field].text.trimEnd(),
-            }
-          }
-        }
-      }
+      const doc = settleStreamingFields(state.doc, 'done')
       return {
         ...state,
         phase: action.finishReason === 'error' ? 'error' : 'done',
-        fields,
+        doc,
         title: action.title || state.title,
         assumptions:
           action.assumptions.length > 0 ? action.assumptions : state.assumptions,
@@ -232,15 +230,29 @@ export interface GenerationApi {
   durationMs: number | null
   error: GenerationError | null
   isBusy: boolean
+  canUndo: boolean
+  canRedo: boolean
+  undoCount: number
+  redoCount: number
+  /** 撤销栈顶命令。界面据此显示上一步是 AI 写入还是用户编辑。 */
+  lastCommand: Command | null
   generate: (input: string) => Promise<void>
   retryFields: (fields: readonly FieldKey[]) => Promise<void>
   updateField: (field: FieldKey, text: string) => void
+  acceptSuggestion: (field: FieldKey) => void
+  discardSuggestion: (field: FieldKey) => void
+  undo: () => void
+  redo: () => void
   stop: () => void
   reset: () => void
 }
 
 export function useGeneration(): GenerationApi {
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+  const [state, dispatch] = useReducer(
+    generationReducer,
+    undefined,
+    createInitialState,
+  )
   const activeRef = useRef(false)
   const runIdRef = useRef(0)
   const lastInputRef = useRef('')
@@ -523,6 +535,22 @@ export function useGeneration(): GenerationApi {
     dispatch({ type: 'edit', field, text })
   }, [])
 
+  const acceptSuggestion = useCallback((field: FieldKey) => {
+    dispatch({ type: 'accept-suggestion', field })
+  }, [])
+
+  const discardSuggestion = useCallback((field: FieldKey) => {
+    dispatch({ type: 'discard-suggestion', field })
+  }, [])
+
+  const undo = useCallback(() => {
+    dispatch({ type: 'undo' })
+  }, [])
+
+  const redo = useCallback(() => {
+    dispatch({ type: 'redo' })
+  }, [])
+
   const stop = useCallback(() => {
     // 让当前请求立即失效，用户可以马上重试单个字段，不必等旧的 fetch 收尾。
     runIdRef.current += 1
@@ -542,18 +570,33 @@ export function useGeneration(): GenerationApi {
     dispatch({ type: 'reset' })
   }, [])
 
+  const fields = useMemo(() => toFieldViewMap(state.doc), [state.doc])
+  const lastCommand =
+    state.doc.history.length > 0
+      ? (state.doc.history[state.doc.history.length - 1] ?? null)
+      : null
+
   return {
     phase: state.phase,
-    fields: state.fields,
+    fields,
     scheduled: state.scheduled,
     title: state.title,
     assumptions: state.assumptions,
     durationMs: state.durationMs,
     error: state.error,
     isBusy: state.phase === 'streaming',
+    canUndo: state.doc.history.length > 0,
+    canRedo: state.doc.redo.length > 0,
+    undoCount: state.doc.history.length,
+    redoCount: state.doc.redo.length,
+    lastCommand,
     generate,
     retryFields,
     updateField,
+    acceptSuggestion,
+    discardSuggestion,
+    undo,
+    redo,
     stop,
     reset,
   }
