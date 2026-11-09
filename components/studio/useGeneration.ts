@@ -39,6 +39,7 @@ import {
   type GenerationError,
   type GenerationState,
 } from './types'
+import type { TokenUsage } from '@/lib/llm/types'
 
 const STALL_TIMEOUT_MS = 15_000
 
@@ -55,6 +56,8 @@ export type GenerationAction =
   | { type: 'op-progress'; field: FieldKey; text: string }
   | { type: 'field-rewrite'; field: FieldKey; text: string }
   | { type: 'op-fail'; field: FieldKey; message: string }
+  | { type: 'usage'; usage: TokenUsage }
+  | { type: 'reasoning'; text: string }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'stop' }
@@ -125,7 +128,9 @@ export function generationReducer(
     next.phase === 'idle' ||
     action.type === 'delta' ||
     action.type === 'field-start' ||
-    action.type === 'op-progress'
+    action.type === 'op-progress' ||
+    action.type === 'usage' ||
+    action.type === 'reasoning'
   ) {
     return next
   }
@@ -152,6 +157,9 @@ function reduceGenerationState(
         assumptions: action.full ? [] : state.assumptions,
         durationMs: action.full ? null : state.durationMs,
         fieldOps: action.full ? {} : state.fieldOps,
+        // 每次请求都重新计用量与思考：重试是新的调用，不能沿用上一次的账。
+        usage: null,
+        reasoning: '',
       }
     }
 
@@ -248,6 +256,13 @@ function reduceGenerationState(
       }
     }
 
+    case 'usage':
+      return { ...state, usage: action.usage }
+
+    case 'reasoning':
+      // 思维链只累积到独立字段，绝不进入 doc 的字段文本。
+      return { ...state, reasoning: state.reasoning + action.text }
+
     case 'undo':
       return { ...state, doc: undoDoc(state.doc) }
 
@@ -336,6 +351,10 @@ export interface GenerationApi {
   assumptions: Assumption[]
   durationMs: number | null
   error: GenerationError | null
+  /** 本次请求的用量。null 表示服务端没有发 usage 事件。 */
+  usage: TokenUsage | null
+  /** 本次请求的思维链原文，展示在可折叠的「思考」区。 */
+  reasoning: string
   isBusy: boolean
   canUndo: boolean
   canRedo: boolean
@@ -511,6 +530,28 @@ export function useGeneration(): GenerationApi {
               if (field) {
                 dispatch({ type: 'delta', field, text: message.data.text })
               }
+              break
+            }
+
+            case 'reasoning':
+              dispatch({ type: 'reasoning', text: message.data.text })
+              break
+
+            case 'usage': {
+              const usage: TokenUsage = {
+                tokensIn: message.data.tokensIn,
+                tokensOut: message.data.tokensOut,
+                ...(message.data.cachedTokens !== undefined
+                  ? { cachedTokens: message.data.cachedTokens }
+                  : {}),
+                ...(message.data.reasoningTokens !== undefined
+                  ? { reasoningTokens: message.data.reasoningTokens }
+                  : {}),
+                ...(message.data.costCny !== undefined
+                  ? { costCny: message.data.costCny }
+                  : {}),
+              }
+              dispatch({ type: 'usage', usage })
               break
             }
 
@@ -732,6 +773,8 @@ export function useGeneration(): GenerationApi {
               break
             case 'stage':
             case 'field':
+            case 'reasoning':
+            case 'usage':
               break
           }
         }
@@ -852,6 +895,8 @@ export function useGeneration(): GenerationApi {
     assumptions: state.assumptions,
     durationMs: state.durationMs,
     error: state.error,
+    usage: state.usage,
+    reasoning: state.reasoning,
     isBusy: state.phase === 'streaming',
     canUndo: state.doc.history.length > 0,
     canRedo: state.doc.redo.length > 0,

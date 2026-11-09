@@ -6,6 +6,7 @@ import {
   type PromptDoc,
   type Suggestion,
 } from '@/lib/engine/doc'
+import type { TokenUsage } from '@/lib/llm/types'
 
 export type FieldStatus = DocFieldStatus
 
@@ -82,6 +83,10 @@ export interface GenerationState {
   error: GenerationError | null
   /** 单字段重算的进行中状态，按字段隔离。 */
   fieldOps: FieldOpMap
+  /** 本次请求的用量；没有收到 usage 事件时为 null，界面显示「未知」。 */
+  usage: TokenUsage | null
+  /** 思维链原文，只进「思考」区，绝不写入字段正文。 */
+  reasoning: string
 }
 
 function createEmptyView(): FieldView {
@@ -129,5 +134,38 @@ export function createInitialState(): GenerationState {
     durationMs: null,
     error: null,
     fieldOps: {},
+    usage: null,
+    reasoning: '',
   }
+}
+
+/**
+ * 用量的展示口径：没有 usage 时统一返回「未知」，绝不回退成 0。
+ * token 数可能合法为 0，但「没有收到事件」与「收到 0」由 usage 是否为 null 区分。
+ */
+export function formatUsageTokens(usage: TokenUsage | null): string {
+  if (!usage) {
+    return '未知'
+  }
+  const parts = [`输入 ${usage.tokensIn.toLocaleString('zh-CN')} token`]
+  parts.push(`输出 ${usage.tokensOut.toLocaleString('zh-CN')} token`)
+  if (usage.reasoningTokens !== undefined) {
+    parts.push(`思考 ${usage.reasoningTokens.toLocaleString('zh-CN')} token`)
+  }
+  if (usage.cachedTokens !== undefined) {
+    parts.push(`缓存命中 ${usage.cachedTokens.toLocaleString('zh-CN')} token`)
+  }
+  return parts.join(' · ')
+}
+
+/** 金额单位是人民币元；缺价格时显示「未知」。 */
+export function formatUsageCost(costCny: number | undefined): string {
+  if (costCny === undefined) {
+    return '未知'
+  }
+  const formatted = new Intl.NumberFormat('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  }).format(costCny)
+  return `¥${formatted}`
 }

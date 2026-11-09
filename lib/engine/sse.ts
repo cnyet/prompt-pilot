@@ -4,12 +4,22 @@ import { AssumptionSchema, FIELD_KEYS, type FieldKey } from './schema'
 /**
  * SSE 事件协议（与 ARCHITECTURE.md 第五节一致）。
  *
- * 事件名严格限定为 stage / field / delta / error / done。
- * 顺序保证 stage 包裹 field 包裹 delta。
+ * 事件名为 stage / field / delta / reasoning / usage / error / done。
+ * 顺序保证 stage 包裹 field 包裹 delta；reasoning 与 usage 不改变字段状态：
+ * - reasoning 承载思维链增量，绝不进入 delta 与提示词正文；
+ * - usage 承载本次调用的 token 与人民币金额，拿不到用量时不发该事件。
  * 本文件是同构的：服务端用 encodeSseEvent 编码，客户端用 parseSseStream 解码。
  */
 
-export const SSE_EVENT_NAMES = ['stage', 'field', 'delta', 'error', 'done'] as const
+export const SSE_EVENT_NAMES = [
+  'stage',
+  'field',
+  'delta',
+  'reasoning',
+  'usage',
+  'error',
+  'done',
+] as const
 export type SseEventName = (typeof SSE_EVENT_NAMES)[number]
 
 export const SSE_HEADERS = {
@@ -42,6 +52,26 @@ export const deltaPayloadSchema = z.object({
   text: z.string(),
 })
 
+/** 思维链增量。只用于「思考」区展示，客户端不得写入字段正文。 */
+export const reasoningPayloadSchema = z.object({
+  text: z.string().min(1),
+})
+
+/**
+ * 本次调用的用量。
+ *
+ * costCny 缺省表示价格未知（或模型未配置价格），界面显示「未知」而不是 0。
+ * tokensIn / tokensOut 必填，但服务端在用量完全缺失时不会发 usage 事件。
+ */
+export const usagePayloadSchema = z.object({
+  tokensIn: z.number().int().nonnegative(),
+  tokensOut: z.number().int().nonnegative(),
+  cachedTokens: z.number().int().nonnegative().optional(),
+  reasoningTokens: z.number().int().nonnegative().optional(),
+  costCny: z.number().nonnegative().optional(),
+  model: z.string().min(1).optional(),
+})
+
 export const errorPayloadSchema = z.object({
   code: z.string().min(1),
   message: z.string().min(1),
@@ -62,6 +92,8 @@ export const donePayloadSchema = z.object({
 export type StagePayload = z.infer<typeof stagePayloadSchema>
 export type FieldPayload = z.infer<typeof fieldPayloadSchema>
 export type DeltaPayload = z.infer<typeof deltaPayloadSchema>
+export type ReasoningPayload = z.infer<typeof reasoningPayloadSchema>
+export type UsagePayload = z.infer<typeof usagePayloadSchema>
 export type ErrorPayload = z.infer<typeof errorPayloadSchema>
 export type DonePayload = z.infer<typeof donePayloadSchema>
 
@@ -69,6 +101,8 @@ export type SseMessage =
   | { event: 'stage'; data: StagePayload }
   | { event: 'field'; data: FieldPayload }
   | { event: 'delta'; data: DeltaPayload }
+  | { event: 'reasoning'; data: ReasoningPayload }
+  | { event: 'usage'; data: UsagePayload }
   | { event: 'error'; data: ErrorPayload }
   | { event: 'done'; data: DonePayload }
 
@@ -108,6 +142,10 @@ function parseMessage(event: SseEventName, rawData: string): SseMessage {
         return { event, data: fieldPayloadSchema.parse(data) }
       case 'delta':
         return { event, data: deltaPayloadSchema.parse(data) }
+      case 'reasoning':
+        return { event, data: reasoningPayloadSchema.parse(data) }
+      case 'usage':
+        return { event, data: usagePayloadSchema.parse(data) }
       case 'error':
         return { event, data: errorPayloadSchema.parse(data) }
       case 'done':

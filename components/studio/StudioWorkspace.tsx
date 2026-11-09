@@ -9,7 +9,9 @@ import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
 import { RequirementInput } from './RequirementInput'
+import { ThinkingPanel } from './ThinkingPanel'
 import { useGeneration } from './useGeneration'
+import { formatUsageCost, formatUsageTokens } from './types'
 
 type CopyState = 'idle' | 'copied' | 'failed'
 
@@ -50,6 +52,8 @@ export function StudioWorkspace() {
     assumptions,
     durationMs,
     error,
+    usage,
+    reasoning,
     isBusy,
     canUndo,
     canRedo,
@@ -398,6 +402,10 @@ export function StudioWorkspace() {
             </div>
           ) : null}
 
+          {reasoning.length > 0 ? (
+            <ThinkingPanel text={reasoning} streaming={isBusy} />
+          ) : null}
+
           <div
             role="tablist"
             aria-label="中栏视图"
@@ -497,6 +505,10 @@ export function StudioWorkspace() {
             <div className="min-w-0">
               <p className="text-caption text-ink-muted tnum" aria-live="polite">
                 {statusText}
+              </p>
+              <p className="mt-1 text-caption text-ink-faint tnum">
+                本次用量：{formatUsageTokens(usage)} · 金额{' '}
+                {formatUsageCost(usage?.costCny)}
               </p>
               <p className="mt-1 text-caption text-ink-faint tnum">
                 {historyText}

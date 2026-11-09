@@ -14,8 +14,11 @@ import {
 import {
   FIELD_KEYS,
   FIELD_LABELS,
+  OUTPUT_FORMATS,
   PromptPilotSchemaV1,
+  createSkeletonSchema,
   type FieldKey,
+  type OutputFormat,
   type PromptSchema,
 } from '@/lib/engine/schema'
 import {
@@ -30,11 +33,17 @@ import {
   getModelConfig,
 } from '@/lib/llm/registry'
 import {
+  parseJsonLoose,
   runStructuredOutcome,
   type StructuredAttempt,
   type StructuredFallback,
 } from '@/lib/llm/structured'
-import type { ChatRequest, LLMProvider } from '@/lib/llm/types'
+import {
+  StreamingJsonParser,
+  type JsonPathSegment,
+  type StreamingJsonEvent,
+} from '@/lib/llm/streaming-json'
+import type { ChatRequest, LLMProvider, TokenUsage } from '@/lib/llm/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -251,10 +260,128 @@ interface ProviderStreamOptions {
   startedAt: number
 }
 
-/** 有 Key 的分支：真实模型生成结构，再复用现有 SSE 逐字段输出。 */
+function isStreamField(value: JsonPathSegment | undefined): value is FieldKey {
+  return typeof value === 'string' && isFieldKey(value)
+}
+
+function pathToString(path: readonly JsonPathSegment[]): string {
+  return path.map((segment) => String(segment)).join('.')
+}
+
+/** 数组对象内部的叶子（例如 examples.items.0.input）等整个对象闭合再处理。 */
+function hasNumericInternal(path: readonly JsonPathSegment[]): boolean {
+  return path.some(
+    (segment, index) => typeof segment === 'number' && index < path.length - 1,
+  )
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isOutputFormat(value: unknown): value is OutputFormat {
+  return (
+    typeof value === 'string' &&
+    (OUTPUT_FORMATS as readonly string[]).includes(value)
+  )
+}
+
+/** 把增量解析出来的值写进 partial 树；数组用数字下标表示。 */
+function setStreamValue(
+  root: Record<string, unknown>,
+  path: readonly JsonPathSegment[],
+  value: unknown,
+): void {
+  if (path.length === 0) {
+    return
+  }
+
+  let node: Record<string, unknown> | unknown[] = root
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const segment = path[index]
+    const next = path[index + 1]
+    if (segment === undefined || next === undefined) {
+      return
+    }
+
+    if (typeof segment === 'number') {
+      if (!Array.isArray(node) || !(segment in node)) {
+        return
+      }
+      const current: unknown = node[segment]
+      if (isPlainRecord(current) || Array.isArray(current)) {
+        node = current
+      }
+      continue
+    }
+
+    if (Array.isArray(node)) {
+      return
+    }
+    if (node[segment] === undefined) {
+      node[segment] = typeof next === 'number' ? [] : {}
+    }
+    const current: unknown = node[segment]
+    if (!isPlainRecord(current) && !Array.isArray(current)) {
+      return
+    }
+    node = current
+  }
+
+  const last = path[path.length - 1]
+  if (last === undefined) {
+    return
+  }
+  if (Array.isArray(node)) {
+    if (typeof last === 'number') {
+      node[last] = value
+    }
+    return
+  }
+  if (typeof last === 'string') {
+    node[last] = value
+  }
+}
+
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/** 用增量数据覆盖骨架；只覆盖已经到达的键，未到达的保留骨架默认值。 */
+function mergeStreamValue(base: unknown, extra: unknown): unknown {
+  if (extra === undefined) {
+    return base
+  }
+  if (Array.isArray(base) && Array.isArray(extra)) {
+    return extra.map((item) => mergeStreamValue(undefined, item))
+  }
+  if (isPlainRecord(base) && isPlainRecord(extra)) {
+    const merged: Record<string, unknown> = { ...base }
+    for (const [key, value] of Object.entries(extra)) {
+      if (UNSAFE_KEYS.has(key)) {
+        continue
+      }
+      merged[key] = mergeStreamValue(base[key], value)
+    }
+    return merged
+  }
+  return extra
+}
+
+/** 整段解析的本地一级：宽容解析加 Zod 校验，不额外调用模型。 */
+function parseWholeOutput(raw: string): PromptSchema | null {
+  const parsed = parseJsonLoose(raw)
+  if (parsed === undefined) {
+    return null
+  }
+  const checked = PromptPilotSchemaV1.safeParse(parsed)
+  return checked.success ? checked.data : null
+}
+
+/** 有 Key 的分支：消费 provider.stream()，边解析边把字段增量吐给前端。 */
 function streamFromProvider(options: ProviderStreamOptions): Response {
   const { request, provider, input, selected, startedAt } = options
-  const contextWindow = getModelConfig(DEFAULT_GENERATE_MODEL_CONFIG_ID)?.contextWindow
+  const modelConfig = getModelConfig(DEFAULT_GENERATE_MODEL_CONFIG_ID)
+  const contextWindow = modelConfig?.contextWindow
+  const modelId = modelConfig?.modelId
   const encoder = new TextEncoder()
   let closed = false
 
@@ -305,85 +432,294 @@ function streamFromProvider(options: ProviderStreamOptions): Response {
         })
       }
 
-      try {
-        enqueue({
-          event: 'stage',
-          data: { stage: 'compose', status: 'start', label: '正在调用模型' },
-        })
-        stageOpen = true
+      /* ---------- 流式生成状态 ---------- */
+      const parser = new StreamingJsonParser()
+      const skeleton = createSkeletonSchema('生成中')
+      const partial: Record<string, unknown> = {}
+      const closedPaths = new Set<string>()
+      const descendantAncestors = new Set<string>()
+      const emittedText = new Map<FieldKey, string>()
+      let openField: FieldKey | null = null
+      let usage: TokenUsage | undefined
+      let usageEmitted = false
+      let raw = ''
 
-        const outcome = await runStructuredOutcome(
-          provider,
-          buildModelChatRequest(input),
-          PromptPilotSchemaV1,
-          {
-            maxRepairAttempts: 2,
-            fallbackToText: true,
-            ...(contextWindow !== undefined ? { contextWindow } : {}),
-          },
-        )
+      /** 记下已闭合的 JSON 路径；同时记录祖先，供「数组头已可渲染」判断。 */
+      const markClosed = (path: readonly JsonPathSegment[]) => {
+        if (path.length === 0) {
+          return
+        }
+        closedPaths.add(pathToString(path))
+        for (let index = 1; index < path.length; index += 1) {
+          descendantAncestors.add(pathToString(path.slice(0, index)))
+        }
+      }
 
-        if (outcome.kind === 'structured') {
-          const schema = outcome.data
-          const plans = selected.map((field) => ({
-            field,
-            segments: renderFieldSegments(schema, field),
-          }))
-
-          for (const plan of plans) {
-            enqueue({ event: 'field', data: { path: plan.field, status: 'start' } })
-            for (const segment of plan.segments) {
-              enqueue({
-                event: 'delta',
-                data: { path: segment.path, text: segment.text },
-              })
-            }
-            enqueue({ event: 'field', data: { path: plan.field, status: 'done' } })
+      /**
+       * 一个渲染片段是否已经稳定：路径本身闭合、祖先闭合，
+       * 或者它下面已有闭合的子路径（数组头在首项到达后即可先出）。
+       */
+      const isSettled = (segmentPath: string): boolean => {
+        if (closedPaths.has(segmentPath)) {
+          return true
+        }
+        if (descendantAncestors.has(segmentPath)) {
+          return true
+        }
+        const parts = segmentPath.split('.')
+        for (let index = 1; index < parts.length; index += 1) {
+          if (closedPaths.has(parts.slice(0, index).join('.'))) {
+            return true
           }
+        }
+        return false
+      }
 
-          closeStage('结构生成完成')
-          enqueue({
-            event: 'done',
-            data: {
-              durationMs: Date.now() - startedAt,
-              finishReason: 'stop',
-              title: schema.meta.title,
-              assumptions: schema.assumptions,
-            },
-          })
+      /** 按 renderFieldSegments 的顺序，取最长的连续稳定片段前缀。 */
+      const renderStableSegments = (
+        field: FieldKey,
+      ): { path: string; text: string }[] => {
+        const schema = mergeStreamValue(skeleton, partial) as PromptSchema
+        const segments: { path: string; text: string }[] = []
+        for (const segment of renderFieldSegments(schema, field)) {
+          if (!isSettled(segment.path)) {
+            break
+          }
+          segments.push({ path: segment.path, text: segment.text })
+        }
+        return segments
+      }
+
+      const openFieldFor = (field: FieldKey) => {
+        if (openField === field) {
+          return
+        }
+        if (openField !== null) {
+          enqueue({ event: 'field', data: { path: openField, status: 'done' } })
+        }
+        enqueue({ event: 'field', data: { path: field, status: 'start' } })
+        openField = field
+      }
+
+      const closeOpenField = () => {
+        if (openField === null) {
+          return
+        }
+        const field = openField
+        openField = null
+        enqueue({ event: 'field', data: { path: field, status: 'done' } })
+      }
+
+      /** 从片段序列里切掉已经流出的字符，保持每段自己的点号路径。 */
+      const sliceSegments = (
+        segments: readonly { path: string; text: string }[],
+        skipChars: number,
+      ): { path: string; text: string }[] => {
+        let remaining = skipChars
+        const pieces: { path: string; text: string }[] = []
+        for (const segment of segments) {
+          if (remaining >= segment.text.length) {
+            remaining -= segment.text.length
+            continue
+          }
+          const text =
+            remaining > 0 ? segment.text.slice(remaining) : segment.text
+          remaining = 0
+          if (text.length > 0) {
+            pieces.push({ path: segment.path, text })
+          }
+        }
+        return pieces
+      }
+
+      /** 按片段逐条发 delta，路径与离线路径的 role.persona 风格一致。 */
+      const emitSegments = (
+        field: FieldKey,
+        pieces: readonly { path: string; text: string }[],
+      ) => {
+        if (pieces.length === 0) {
+          return
+        }
+        openFieldFor(field)
+        for (const piece of pieces) {
+          enqueue({ event: 'delta', data: { path: piece.path, text: piece.text } })
+        }
+      }
+
+      /** 纯文本降级没有结构化路径，直接挂到字段路径上。 */
+      const emitFieldText = (field: FieldKey, text: string) => {
+        if (text.length === 0) {
+          return
+        }
+        openFieldFor(field)
+        enqueue({ event: 'delta', data: { path: field, text } })
+        emittedText.set(field, (emittedText.get(field) ?? '') + text)
+      }
+
+      /**
+       * 每次有字段值闭合就重渲染该字段，只追加「稳定前缀」超出的部分。
+       * 这样既保持 renderFieldSegments 的顺序，也不会把未闭合的占位内容提前吐出。
+       */
+      const refreshField = (field: FieldKey) => {
+        const segments = renderStableSegments(field)
+        const stable = segments.map((segment) => segment.text).join('')
+        const already = emittedText.get(field) ?? ''
+        if (stable.length <= already.length || !stable.startsWith(already)) {
+          return
+        }
+        emitSegments(field, sliceSegments(segments, already.length))
+        emittedText.set(field, stable)
+      }
+
+      const handleEvent = (event: StreamingJsonEvent) => {
+        const head = event.path[0]
+        if (!isStreamField(head)) {
+          return
+        }
+        const field = head
+
+        if (event.kind === 'value') {
+          // 数组对象内部的叶子要等整个对象闭合，避免渲染出半截对象。
+          if (event.path.length < 2 || hasNumericInternal(event.path)) {
+            return
+          }
+          if (event.value === null) {
+            return
+          }
+          if (
+            event.path.length === 2 &&
+            event.path[0] === 'output' &&
+            event.path[1] === 'format' &&
+            !isOutputFormat(event.value)
+          ) {
+            return
+          }
+          setStreamValue(partial, event.path, event.value)
+          markClosed(event.path)
+          refreshField(field)
           return
         }
 
-        // 第 5 级：保留模型已经生成的内容，放进第一个请求字段，界面仍能看到。
-        const target = selected[0] ?? 'role'
-        const fieldLabel = FIELD_LABELS[target]
-        if (outcome.text.length > 0) {
-          enqueue({
-            event: 'field',
-            data: { path: target, status: 'start' },
-          })
-          enqueue({
-            event: 'delta',
-            data: { path: target, text: outcome.text },
-          })
-          enqueue({
-            event: 'field',
-            data: { path: target, status: 'done' },
-          })
+        if (event.path.length === 0) {
+          return
         }
+        // 输出格式不在枚举内时不要用骨架默认值冒充模型结果；
+        // 交给整体解析判断，失败后走兜底链。
+        if (
+          event.path.length === 1 &&
+          field === 'output' &&
+          isPlainRecord(event.value) &&
+          event.value.format !== undefined &&
+          !isOutputFormat(event.value.format)
+        ) {
+          return
+        }
+        setStreamValue(partial, event.path, event.value)
+        markClosed(event.path)
+        refreshField(field)
+        if (event.path.length === 1 && openField === field) {
+          closeOpenField()
+        }
+      }
+
+      const emitUsage = (value: TokenUsage | undefined) => {
+        if (!value || usageEmitted) {
+          return
+        }
+        const hasDetail =
+          value.costCny !== undefined ||
+          value.cachedTokens !== undefined ||
+          value.reasoningTokens !== undefined
+        if (!hasDetail && value.tokensIn === 0 && value.tokensOut === 0) {
+          // 完全拿不到用量时不发 usage，界面会显示「未知」而不是 0。
+          return
+        }
+        usageEmitted = true
+        enqueue({
+          event: 'usage',
+          data: {
+            tokensIn: value.tokensIn,
+            tokensOut: value.tokensOut,
+            ...(value.cachedTokens !== undefined
+              ? { cachedTokens: value.cachedTokens }
+              : {}),
+            ...(value.reasoningTokens !== undefined
+              ? { reasoningTokens: value.reasoningTokens }
+              : {}),
+            ...(value.costCny !== undefined ? { costCny: value.costCny } : {}),
+            ...(modelId ? { model: modelId } : {}),
+          },
+        })
+      }
+
+      /**
+       * 收口结构化结果。
+       * 已流出的内容视为前缀：只有最终渲染以它为前缀时才补差值，
+       * 否则保留已流出的内容，绝不重放整段造成重复。
+       */
+      const finalizeStructured = (
+        schema: PromptSchema,
+        usageToShow: TokenUsage | undefined,
+      ) => {
+        const plans = selected.map((field) => ({
+          field,
+          text: renderFieldSegments(schema, field)
+            .map((segment) => segment.text)
+            .join(''),
+        }))
+
+        for (const plan of plans) {
+          const already = emittedText.get(plan.field) ?? ''
+          if (
+            plan.text.length > already.length &&
+            plan.text.startsWith(already)
+          ) {
+            const segments = renderFieldSegments(schema, plan.field).map(
+              (segment) => ({ path: segment.path, text: segment.text }),
+            )
+            emitSegments(plan.field, sliceSegments(segments, already.length))
+            emittedText.set(plan.field, plan.text)
+          }
+          if (openField === plan.field) {
+            closeOpenField()
+          }
+        }
+        closeOpenField()
+        emitUsage(usageToShow)
+        closeStage('结构生成完成')
+        enqueue({
+          event: 'done',
+          data: {
+            durationMs: Date.now() - startedAt,
+            finishReason: 'stop',
+            title: schema.meta.title,
+            assumptions: schema.assumptions,
+          },
+        })
+      }
+
+      /** 纯文本降级：优先写进还没有流式内容的字段，绝不清空已流出内容。 */
+      const finalizeFallbackText = (fallback: StructuredFallback) => {
+        const first = selected[0] ?? 'role'
+        const target =
+          selected.find(
+            (field) => (emittedText.get(field) ?? '').length === 0,
+          ) ?? first
+        const fieldLabel = FIELD_LABELS[target]
+
+        if (fallback.text.length > 0) {
+          emitFieldText(target, fallback.text)
+        }
+        closeOpenField()
         closeStage('结构化生成失败，已降级为纯文本')
         enqueue({
           event: 'error',
           data: {
             code: 'LLM_STRUCTURED_FALLBACK',
-            message: sanitizeNotice(
-              structuredFallbackNotice(outcome, fieldLabel),
-            ),
+            message: sanitizeNotice(structuredFallbackNotice(fallback, fieldLabel)),
             retryable: true,
             attempt: 1,
-            // error 事件带 field：把该字段标记为 failed，同时保留刚写入的纯文本，
-            // 单字段重试按钮与「重试未生成字段」都仍然可用。
-            ...(outcome.text.length > 0 ? { field: target } : {}),
+            ...(fallback.text.length > 0 ? { field: target } : {}),
           },
         })
         enqueue({
@@ -393,6 +729,96 @@ function streamFromProvider(options: ProviderStreamOptions): Response {
             finishReason: 'error',
           },
         })
+      }
+
+      try {
+        enqueue({
+          event: 'stage',
+          data: { stage: 'compose', status: 'start', label: '正在调用模型' },
+        })
+        stageOpen = true
+
+        const chatRequest: ChatRequest = {
+          ...buildModelChatRequest(input),
+          signal: request.signal,
+        }
+
+        let streamError: unknown = null
+        try {
+          for await (const chunk of provider.stream(chatRequest)) {
+            if (closed || request.signal.aborted) {
+              return
+            }
+            if (chunk.reasoningDelta !== undefined) {
+              enqueue({
+                event: 'reasoning',
+                data: { text: chunk.reasoningDelta },
+              })
+            }
+            if (chunk.usage !== undefined) {
+              usage = chunk.usage
+            }
+            if (chunk.delta.length === 0) {
+              continue
+            }
+            raw += chunk.delta
+            if (parser.failed) {
+              continue
+            }
+            for (const event of parser.push(chunk.delta)) {
+              handleEvent(event)
+            }
+          }
+        } catch (error) {
+          streamError = error
+        }
+
+        if (closed || request.signal.aborted) {
+          return
+        }
+
+        // 第一级：整段严格解析；失败后退到宽容解析；都不额外调用模型。
+        let recovered: PromptSchema | null = null
+        const finished = parser.finish()
+        if (finished.ok) {
+          const checked = PromptPilotSchemaV1.safeParse(finished.value)
+          if (checked.success) {
+            recovered = checked.data
+          }
+        }
+        if (!recovered) {
+          recovered = parseWholeOutput(raw)
+        }
+
+        if (recovered) {
+          finalizeStructured(recovered, usage)
+          return
+        }
+
+        if (streamError !== null && !(streamError instanceof LlmError)) {
+          console.warn(
+            '[generate] 流式生成中断，回退到整体解析：',
+            streamError instanceof Error ? streamError.message : '未知错误',
+          )
+        }
+
+        // 第二级：复用现有兜底链（json_object、修复重试、纯文本降级）。
+        const outcome = await runStructuredOutcome(
+          provider,
+          chatRequest,
+          PromptPilotSchemaV1,
+          {
+            maxRepairAttempts: 2,
+            fallbackToText: true,
+            ...(contextWindow !== undefined ? { contextWindow } : {}),
+          },
+        )
+
+        if (outcome.kind === 'structured') {
+          finalizeStructured(outcome.data, undefined)
+          return
+        }
+        finalizeFallbackText(outcome)
       } catch (error) {
         const llmError =
           error instanceof LlmError
@@ -402,6 +828,7 @@ function streamFromProvider(options: ProviderStreamOptions): Response {
                 error instanceof Error ? error.message : '模型调用失败。',
                 { cause: error },
               )
+        closeOpenField()
         closeStage('生成失败')
         enqueue({
           event: 'error',
