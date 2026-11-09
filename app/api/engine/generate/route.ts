@@ -11,7 +11,15 @@ import {
   isFieldKey,
   type SseMessage,
 } from '@/lib/engine/sse'
-import { FIELD_KEYS, type FieldKey, type PromptSchema } from '@/lib/engine/schema'
+import {
+  FIELD_KEYS,
+  PromptPilotSchemaV1,
+  type FieldKey,
+  type PromptSchema,
+} from '@/lib/engine/schema'
+import { LlmError, createLlmError, errorCodeForKind } from '@/lib/llm/errors'
+import { DEFAULT_GENERATE_MODEL_CONFIG_ID, getGenerateProvider } from '@/lib/llm/registry'
+import type { ChatRequest, LLMProvider } from '@/lib/llm/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -48,6 +56,195 @@ function jsonError(
   })
 }
 
+/** 真实模型生成时使用的系统提示词。要求只输出 PromptPilot Schema v1 的 JSON。 */
+const MODEL_COMPOSE_SYSTEM_PROMPT = `你是 PromptPilot 的提示词架构师。把用户的一句话需求扩写成一份可直接使用的高质量提示词。
+严格只输出一个 JSON 对象，结构必须符合 PromptPilot Schema v1：
+{
+  "schemaVersion": "pp-schema-v1",
+  "meta": { "title": "...", "taskType": "qa|writing|coding|analysis|extraction|conversation|planning|transformation|other", "language": "zh|en|auto", "mode": "generate|improve", "templateId": "ark-compose-v1" },
+  "assumptions": [{ "path": "...", "label": "...", "value": "...", "candidates": ["..."], "source": "default|inferred|user" }],
+  "role": { "persona": "...", "expertise": "...", "stance": "..." },
+  "objective": { "goal": "...", "successCriteria": ["..."], "nonGoals": ["..."] },
+  "context": { "background": "...", "audience": "...", "knownFacts": ["..."], "missingInputPolicy": "..." },
+  "input": { "variables": [] },
+  "constraints": {
+    "must": ["..."],
+    "mustNot": ["..."],
+    "boundaries": { "scopeIn": ["..."], "scopeOut": ["..."], "knowledgePolicy": "...", "ambiguityPolicy": "...", "formatBoundary": "...", "safetyBoundary": "..." },
+    "priority": ["..."]
+  },
+  "output": { "format": "markdown|json|yaml|table|plain|code|xml", "sections": ["..."], "length": "...", "language": "...", "tone": "..." },
+  "examples": { "items": [], "negative": [{ "input": "...", "badOutput": "...", "why": "..." }] },
+  "selfCheck": { "checklist": ["..."], "onFail": "..." }
+}
+硬性要求：
+- 只输出 JSON 本身，不要 Markdown 围栏、解释或前后缀。
+- role / objective / context / input / constraints / output / examples / selfCheck 八个字段必须齐全。
+- constraints.boundaries 六项必须具体、可核对，不能留空字符串。
+- 所有内容使用输出语言；需求是中文时使用中文。
+- 不编造需求中没有的事实；不确定的信息写进 assumptions 与 context.missingInputPolicy。
+- meta.title 为 2 到 28 个字符，meta.templateId 固定为 "ark-compose-v1"。
+- 输出只包含提示词本身，不包含对用户的对话式回复。`
+
+/** 生成 PromptPilot Schema v1 的 JSON Schema，去掉方舟不一定认的 $schema 声明。 */
+function promptPilotJsonSchema(): Record<string, unknown> {
+  const generated = z.toJSONSchema(PromptPilotSchemaV1) as Record<string, unknown>
+  const schema = { ...generated }
+  delete schema.$schema
+  return schema
+}
+
+function buildModelChatRequest(input: string): ChatRequest {
+  return {
+    modelConfigId: DEFAULT_GENERATE_MODEL_CONFIG_ID,
+    messages: [
+      { role: 'system', content: MODEL_COMPOSE_SYSTEM_PROMPT },
+      { role: 'user', content: `用户需求：\n${input}` },
+    ],
+    temperature: 0.7,
+    maxTokens: 4096,
+    // 提示词优化是结构化改写，不是多步推理；显式关闭思维链。
+    thinking: 'off',
+    jsonSchema: {
+      name: 'promptpilot_schema_v1',
+      schema: promptPilotJsonSchema(),
+      // 方舟 json_schema 仍是 beta，且默认值字段不满足 strict 的 required 要求。
+      strict: false,
+    },
+  }
+}
+
+interface ProviderStreamOptions {
+  request: Request
+  provider: LLMProvider
+  input: string
+  selected: FieldKey[]
+  startedAt: number
+}
+
+/** 有 Key 的分支：真实模型生成结构，再复用现有 SSE 逐字段输出。 */
+function streamFromProvider(options: ProviderStreamOptions): Response {
+  const { request, provider, input, selected, startedAt } = options
+  const encoder = new TextEncoder()
+  let closed = false
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const close = () => {
+        if (closed) {
+          return
+        }
+        closed = true
+        try {
+          controller.close()
+        } catch {
+          // 客户端可能已经断开
+        }
+      }
+
+      const enqueue = (message: SseMessage) => {
+        if (closed || request.signal.aborted) {
+          return
+        }
+        try {
+          controller.enqueue(encoder.encode(encodeSseEvent(message)))
+        } catch {
+          closed = true
+        }
+      }
+
+      const onAbort = () => {
+        closed = true
+        try {
+          controller.close()
+        } catch {
+          // 客户端已断开
+        }
+      }
+      request.signal.addEventListener('abort', onAbort, { once: true })
+
+      try {
+        enqueue({
+          event: 'stage',
+          data: { stage: 'compose', status: 'start', label: '正在调用模型' },
+        })
+
+        const schema = await provider.structured(
+          buildModelChatRequest(input),
+          PromptPilotSchemaV1,
+          { maxRepairAttempts: 2, fallbackToText: true },
+        )
+
+        const plans = selected.map((field) => ({
+          field,
+          segments: renderFieldSegments(schema, field),
+        }))
+
+        for (const plan of plans) {
+          enqueue({ event: 'field', data: { path: plan.field, status: 'start' } })
+          for (const segment of plan.segments) {
+            enqueue({
+              event: 'delta',
+              data: { path: segment.path, text: segment.text },
+            })
+          }
+          enqueue({ event: 'field', data: { path: plan.field, status: 'done' } })
+        }
+
+        enqueue({
+          event: 'stage',
+          data: { stage: 'compose', status: 'done', label: '结构生成完成' },
+        })
+        enqueue({
+          event: 'done',
+          data: {
+            durationMs: Date.now() - startedAt,
+            finishReason: 'stop',
+            title: schema.meta.title,
+            assumptions: schema.assumptions,
+          },
+        })
+      } catch (error) {
+        const llmError =
+          error instanceof LlmError
+            ? error
+            : createLlmError(
+                'unknown',
+                error instanceof Error ? error.message : '模型调用失败。',
+                { cause: error },
+              )
+        enqueue({
+          event: 'error',
+          data: {
+            code: errorCodeForKind(llmError.kind),
+            message: llmError.message,
+            retryable: llmError.retryable,
+            attempt: 1,
+          },
+        })
+        enqueue({
+          event: 'done',
+          data: {
+            durationMs: Date.now() - startedAt,
+            finishReason: 'error',
+          },
+        })
+      } finally {
+        request.signal.removeEventListener('abort', onAbort)
+        close()
+      }
+    },
+    cancel() {
+      closed = true
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: { ...SSE_HEADERS },
+  })
+}
+
 /** 按字段粒度生成 SSE。`?fast=1` 跳过人工延迟，供集成测试与本地调试使用。 */
 export async function POST(request: Request): Promise<Response> {
   let payload: unknown
@@ -72,6 +269,24 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
+  const requested = parsed.data.fields
+  const selected: FieldKey[] = requested
+    ? FIELD_KEYS.filter((field) => requested.includes(field))
+    : [...FIELD_KEYS]
+
+  // provider 选择：配置了 ARK_API_KEY 就构建方舟 provider 走真实模型；
+  // 没有 Key 时 getGenerateProvider 返回 null，继续走下面的离线 heuristic composer。
+  const provider = getGenerateProvider()
+  if (provider) {
+    return streamFromProvider({
+      request,
+      provider,
+      input: parsed.data.input,
+      selected,
+      startedAt: Date.now(),
+    })
+  }
+
   let schema: PromptSchema
   try {
     schema = composePrompt(parsed.data.input)
@@ -81,11 +296,6 @@ export async function POST(request: Request): Promise<Response> {
     }
     return jsonError(500, 'COMPOSE_FAILED', '生成结构化内容时出错。', true)
   }
-
-  const requested = parsed.data.fields
-  const selected: FieldKey[] = requested
-    ? FIELD_KEYS.filter((field) => requested.includes(field))
-    : [...FIELD_KEYS]
 
   const fast = new URL(request.url).searchParams.get('fast') === '1'
   const startedAt = Date.now()
