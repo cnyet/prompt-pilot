@@ -20,6 +20,9 @@ data/
 *.sqlite
 *.sqlite-journal
 
+# agent 临时产物（浏览器配置、构建副本）
+.tmp-*/
+
 # 测试与系统文件
 coverage/
 .DS_Store

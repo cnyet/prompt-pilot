@@ -1,6 +1,10 @@
 import { ArkProvider } from './ark'
 import type { RetryOptions } from './errors'
-import { MockProvider } from './mock'
+import {
+  MockProvider,
+  isMockFaultProfile,
+  type MockFaultProfile,
+} from './mock'
 import {
   OpenAICompatProvider,
   type ModelPricingCny,
@@ -187,6 +191,16 @@ export function hasArkApiKey(env: RegistryEnv = process.env): boolean {
   return Boolean(envValue(env, 'ARK_API_KEY'))
 }
 
+/** 测试与本地验收用的故障画像开关；生产环境不设置，默认不生效。 */
+export const MOCK_FAULT_ENV = 'MOCK_LLM_FAULT'
+
+export function getMockFaultProfile(
+  env: RegistryEnv = process.env,
+): MockFaultProfile | undefined {
+  const value = envValue(env, MOCK_FAULT_ENV)
+  return isMockFaultProfile(value) ? value : undefined
+}
+
 /**
  * 按配置创建 provider；缺 Key 或配置禁用时返回 null。
  * 不缓存实例，避免测试里环境变量切换后拿到旧 provider。
@@ -261,6 +275,19 @@ export function getGenerateProvider(
   env: RegistryEnv = process.env,
   overrides: ProviderOverrides = {},
 ): LLMProvider | null {
+  // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
+  // generate 路由的失败分支；有 Key 时仍以真实方舟为准。
+  if (!hasArkApiKey(env)) {
+    const fault = getMockFaultProfile(env)
+    if (fault) {
+      return new MockProvider({
+        id: 'mock-fault',
+        label: `Mock 故障画像 · ${fault}`,
+        fault,
+      })
+    }
+  }
+
   const config = getDefaultModelConfig('generate', env)
   return config ? createProvider(config, env, overrides) : null
 }

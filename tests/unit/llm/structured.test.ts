@@ -84,7 +84,7 @@ describe('runStructured 修复重试', () => {
     expect(requests[1]?.jsonObject).toBe(true)
   })
 
-  it('彻底失败时降级为纯文本请求，仍失败则抛 invalid_output', async () => {
+  it('彻底失败时保留纯文本并抛 invalid_output', async () => {
     const requests: ChatRequest[] = []
     const provider = new MockProvider({
       chunks: [{ delta: '始终不是 JSON' }],
@@ -97,11 +97,14 @@ describe('runStructured 修复重试', () => {
         schema,
         { maxRepairAttempts: 0, fallbackToText: true },
       ),
-    ).rejects.toMatchObject({ kind: 'invalid_output', retryable: true })
+    ).rejects.toMatchObject({
+      kind: 'invalid_output',
+      retryable: true,
+      cause: { fallbackText: '始终不是 JSON' },
+    })
 
-    expect(requests).toHaveLength(2)
-    expect(requests[1]?.jsonObject).toBeUndefined()
-    expect(requests[1]?.jsonSchema).toBeUndefined()
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.jsonObject).toBe(true)
   })
 
   it('Zod 校验失败时错误里带原始输出与校验问题', async () => {
