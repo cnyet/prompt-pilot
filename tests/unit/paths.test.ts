@@ -8,10 +8,13 @@ import {
   type PromptSchema,
 } from '@/lib/engine/schema'
 import {
+  auditFieldContent,
   buildSchemaFromFields,
   extractLeaves,
   fieldKeyOfPath,
   findLeaf,
+  findUnmappedLines,
+  matchFieldLinePrefix,
   normalizeLeafPath,
   parseField,
   readLeafValue,
@@ -258,5 +261,116 @@ describe('解析容错', () => {
     expect(fieldKeyOfPath('output.language')).toBe('output')
     expect(fieldKeyOfPath('unknown.path')).toBeNull()
     expect(extractLeaves('role', texts.role).length).toBeGreaterThan(0)
+  })
+})
+
+describe('内容审计与游离行', () => {
+  it('标出没有标签、也没有叶子从该行开始的手写行', () => {
+    const text = '格式：Markdown\n这一行没有标签，是我手写的。\n语言：中文'
+    const unmapped = findUnmappedLines('output', text)
+
+    expect(unmapped.map((line) => line.text)).toEqual([
+      '这一行没有标签，是我手写的。',
+    ])
+    expect(unmapped[0]?.lineNumber).toBe(2)
+  })
+
+  it('规范格式解析再渲染不丢行，单行渲染的字段也没有游离行', () => {
+    for (const field of FIELD_KEYS) {
+      expect(
+        auditFieldContent(field, texts[field]).rerenderLostLines,
+        field,
+      ).toHaveLength(0)
+    }
+    for (const field of [
+      'role',
+      'objective',
+      'input',
+      'constraints',
+      'output',
+      'examples',
+      'selfCheck',
+    ] as const) {
+      expect(findUnmappedLines(field, texts[field]), field).toHaveLength(0)
+    }
+  })
+
+  it('解析再渲染保不住的行会被审计出来', () => {
+    const sample = [
+      '格式：Markdown',
+      '章节：标题、正文、要点摘要',
+      '长度：400 到 800 字',
+      '语言：中文',
+      '语气：专业、克制、直接',
+    ].join('\n')
+    const audit = auditFieldContent('output', sample)
+
+    expect(audit.unmappedLines).toHaveLength(0)
+    expect(audit.rerenderLostLines).toContain('章节：标题、正文、要点摘要')
+    expect(audit.canonical).toBe(false)
+    expect(auditFieldContent('output', texts.output).canonical).toBe(true)
+  })
+
+  it('行首标签可匹配，列表项兜底为 - ', () => {
+    expect(matchFieldLinePrefix('output', '语言：中文')).toBe('语言：')
+    expect(matchFieldLinePrefix('constraints', '- 先确认目标。')).toBe('- ')
+    expect(matchFieldLinePrefix('output', '随手写的一行')).toBeNull()
+  })
+})
+
+describe('叶子写回不吞掉续行', () => {
+  it('改 output.language 只改第一行，后面的手写行逐字保留', () => {
+    const before = [
+      '格式：Markdown',
+      '语言：中文',
+      '补充：这一行是用户手写的说明。',
+      '第二行手写内容。',
+    ].join('\n')
+    const result = replaceLeafValue('output', before, 'output.language', '英文')
+
+    expect(result.replaced).toBe(true)
+    expect(result.text).toBe(
+      [
+        '格式：Markdown',
+        '语言：英文',
+        '补充：这一行是用户手写的说明。',
+        '第二行手写内容。',
+      ].join('\n'),
+    )
+  })
+
+  it('改 output.format 不会带走夹在中间的手写行', () => {
+    const before = ['格式：Markdown', '手写一行', '语言：中文'].join('\n')
+    const result = replaceLeafValue('output', before, 'output.format', 'JSON')
+
+    expect(result.replaced).toBe(true)
+    expect(result.text).toBe(
+      ['格式：JSON', '手写一行', '语言：中文'].join('\n'),
+    )
+  })
+
+  it('批量写回同样只替换叶子的第一行', () => {
+    const before = [
+      '格式：Markdown',
+      '语言：中文',
+      '补充：保留这一行。',
+    ].join('\n')
+    const result = replaceLeafValues('output', before, [
+      { path: 'output.language', value: '英文' },
+      { path: 'output.format', value: 'JSON' },
+    ])
+
+    expect(result.applied).toBe(2)
+    expect(result.text).toBe(
+      ['格式：JSON', '语言：英文', '补充：保留这一行。'].join('\n'),
+    )
+  })
+
+  it('整段都没有可识别路径时写回原样返回，不做部分重渲染', () => {
+    const before = '这是一段随手写的输出要求。\n语言改成英文也可以。'
+    const result = replaceLeafValue('output', before, 'output.language', '英文')
+
+    expect(result.replaced).toBe(false)
+    expect(result.text).toBe(before)
   })
 })

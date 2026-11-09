@@ -6,7 +6,11 @@ import {
   type PromptVariable,
   type TaskType,
 } from './schema'
-import { FORMAT_LABELS, VARIABLE_TYPE_LABELS } from './render'
+import {
+  FORMAT_LABELS,
+  VARIABLE_TYPE_LABELS,
+  renderFieldText,
+} from './render'
 
 /**
  * 字段文本与结构化路径的双向映射。
@@ -119,6 +123,31 @@ const CONSTRAINT_PREFIXES = [
 ] as const
 const OUTPUT_PREFIXES = ['格式：', '结构：', '章节：', '长度：', '语言：', '语气：'] as const
 const SELF_CHECK_PREFIXES = ['自检清单：', '自检不通过时：'] as const
+
+/**
+ * 每个字段里「带标签的结构行」前缀。用于区分解析器能定位的最小段落与用户
+ * 随手写下的游离行：前者可以被操作改写，后者必须原样保留。
+ *
+ * 列表项、正反例的续行不在这里列举，它们由「是否有叶子从该行开始」判定。
+ */
+const FIELD_LINE_PREFIXES: Record<FieldKey, readonly string[]> = {
+  role: ROLE_PREFIXES,
+  objective: OBJECTIVE_PREFIXES,
+  context: CONTEXT_PREFIXES,
+  input: ['变量：'],
+  constraints: CONSTRAINT_PREFIXES,
+  output: OUTPUT_PREFIXES,
+  examples: [
+    '正例：',
+    '反例：',
+    '- 输入：',
+    '  输出：',
+    '  说明：',
+    '  不期望输出：',
+    '  原因：',
+  ],
+  selfCheck: SELF_CHECK_PREFIXES,
+}
 
 function splitLines(text: string): TextLine[] {
   const lines: TextLine[] = []
@@ -1246,9 +1275,130 @@ export function readLeafValue(
 }
 
 /**
+ * 解析器无法单独识别、因而必须在任何改写中原样保留的行。
+ *
+ * 判定规则：行内没有已知标签前缀，也没有任何叶子从该行开始。标量值跨行时
+ * 产生的续行属于这一类：它可能是合法的多行正文，也可能是用户随手补的一句，
+ * 两者无法可靠区分，所以一律按「不能动」处理。
+ */
+export interface UnmappedLine {
+  /** 1 起始的行号，便于错误提示直接引用。 */
+  lineNumber: number
+  text: string
+  start: number
+  end: number
+}
+
+export interface FieldContentAudit {
+  /** 解析器无法单独识别、改写时必须原样保留的行。 */
+  unmappedLines: UnmappedLine[]
+  /** 原文非空行在「解析再渲染」后找不到对应行的部分，说明重渲染会丢内容。 */
+  rerenderLostLines: string[]
+  /** 没有游离行，且解析再渲染能覆盖全部原文非空行。 */
+  canonical: boolean
+}
+
+/** 列出字段文本里无法被结构化路径识别的非空行。 */
+export function findUnmappedLines(
+  field: FieldKey,
+  text: string,
+): UnmappedLine[] {
+  const lines = splitLines(text)
+  const leafLineStarts = new Set(
+    parseField(field, text).leaves.map((leaf) => leaf.lineStart),
+  )
+  const prefixes = FIELD_LINE_PREFIXES[field]
+  const unmapped: UnmappedLine[] = []
+  lines.forEach((line, index) => {
+    if (line.text.trim().length === 0) {
+      return
+    }
+    if (leafLineStarts.has(line.start)) {
+      return
+    }
+    if (prefixes.some((prefix) => line.text.startsWith(prefix))) {
+      return
+    }
+    unmapped.push({
+      lineNumber: index + 1,
+      text: line.text,
+      start: line.start,
+      end: line.end,
+    })
+  })
+  return unmapped
+}
+
+/**
+ * 操作前后的内容审计。
+ *
+ * `rerenderLostLines` 直接回答工单 16 的问题：把原文解析成结构再渲染，哪些
+ * 非空行不见了。只要它非空，整段重写（例如用需求重新 compose）就不可接受。
+ */
+export function auditFieldContent(
+  field: FieldKey,
+  text: string,
+): FieldContentAudit {
+  const unmappedLines = findUnmappedLines(field, text)
+  const fields: Partial<Record<FieldKey, string>> = {}
+  fields[field] = text
+  const rendered = renderFieldText(buildSchemaFromFields(fields), field)
+  const renderedLines = new Set(
+    splitLines(rendered)
+      .map((line) => line.text.trim())
+      .filter((line) => line.length > 0),
+  )
+  const lost: string[] = []
+  const seen = new Set<string>()
+  for (const line of splitLines(text)) {
+    const trimmed = line.text.trim()
+    if (trimmed.length === 0 || renderedLines.has(trimmed) || seen.has(trimmed)) {
+      continue
+    }
+    seen.add(trimmed)
+    lost.push(trimmed)
+  }
+  return {
+    unmappedLines,
+    rerenderLostLines: lost,
+    canonical: unmappedLines.length === 0 && lost.length === 0,
+  }
+}
+
+/** 匹配行首的已知标签；列表项兜底返回 `- `，没有标签时返回 null。 */
+export function matchFieldLinePrefix(
+  field: FieldKey,
+  lineText: string,
+): string | null {
+  const matched = FIELD_LINE_PREFIXES[field].find((prefix) =>
+    lineText.startsWith(prefix),
+  )
+  if (matched !== undefined) {
+    return matched
+  }
+  return lineText.startsWith('- ') ? '- ' : null
+}
+
+/**
+ * 叶子可安全替换的区间。
+ *
+ * 叶子值只有一行时就是整个值；值跨行时只取第一行，续行原样留在文本里。
+ * 这样改 `output.language` 不会把跟在后面的手写行一起吞掉。
+ */
+function leafReplaceSpan(leaf: FieldLeaf): { start: number; end: number } {
+  const newline = leaf.value.indexOf('\n')
+  if (newline === -1) {
+    return { start: leaf.start, end: leaf.end }
+  }
+  return { start: leaf.start, end: leaf.start + newline }
+}
+
+/**
  * 只替换指定叶子的文本，其余字符逐字保留。
  *
- * 返回值里的 `replaced=false` 表示路径不存在或越界，调用方应保持原文本。
+ * 叶子值跨行时只替换第一行：续行可能是合法的多行正文，也可能是用户手写的
+ * 补充，无法可靠区分，因此一律保留。返回值里的 `replaced=false` 表示路径
+ * 不存在，调用方应保持原文本。
  */
 export function replaceLeafValue(
   field: FieldKey,
@@ -1260,13 +1410,14 @@ export function replaceLeafValue(
   if (!leaf) {
     return { text, replaced: false }
   }
+  const span = leafReplaceSpan(leaf)
   return {
-    text: `${text.slice(0, leaf.start)}${value}${text.slice(leaf.end)}`,
+    text: `${text.slice(0, span.start)}${value}${text.slice(span.end)}`,
     replaced: true,
   }
 }
 
-/** 按叶子路径批量改写，从后往前替换以保持偏移稳定。 */
+/** 按叶子路径批量改写，从后往前替换以保持偏移稳定；多行叶子同样只改第一行。 */
 export function replaceLeafValues(
   field: FieldKey,
   text: string,
@@ -1290,7 +1441,8 @@ export function replaceLeafValues(
 
   let next = text
   for (const item of resolved) {
-    next = `${next.slice(0, item.leaf.start)}${item.value}${next.slice(item.leaf.end)}`
+    const span = leafReplaceSpan(item.leaf)
+    next = `${next.slice(0, span.start)}${item.value}${next.slice(span.end)}`
   }
   return { text: next, applied: resolved.length }
 }

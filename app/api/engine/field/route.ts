@@ -7,7 +7,10 @@ import {
   type SseMessage,
 } from '@/lib/engine/sse'
 import type { FieldKey } from '@/lib/engine/schema'
-import { applyFieldOp } from '@/components/studio/fieldOps'
+import {
+  applyFieldOpSafely,
+  type FieldOpOutcome,
+} from '@/components/studio/fieldOps'
 import { FIELD_OPS } from '@/components/studio/types'
 
 export const runtime = 'nodejs'
@@ -47,8 +50,13 @@ function jsonError(
   code: string,
   message: string,
   retryable: boolean,
+  detail?: unknown,
 ): Response {
-  return new Response(JSON.stringify({ code, message, retryable }), {
+  const body =
+    detail === undefined
+      ? { code, message, retryable }
+      : { code, message, retryable, detail }
+  return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -95,17 +103,28 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  let nextText: string
+  let outcome: FieldOpOutcome
   try {
-    nextText = applyFieldOp(field, text, action, { requirement, title })
+    outcome = applyFieldOpSafely(field, text, action, { requirement, title })
   } catch {
     return jsonError(
       500,
       'FIELD_OP_FAILED',
-      '重算该字段时出错。',
+      '发生了什么：重算该字段时服务端处理异常，操作没有完成。为什么：这是未预期的内部错误。怎么办：稍后重试，原文不会改变。',
       true,
     )
   }
+
+  if (!outcome.ok) {
+    // 内容安全拒绝：不返回任何 delta，客户端保持原文。
+    return jsonError(422, outcome.code, outcome.message, false, {
+      field,
+      action,
+      lines: outcome.lines,
+    })
+  }
+
+  const nextText = outcome.text
 
   if (nextText.trim().length === 0) {
     return jsonError(500, 'EMPTY_RESULT', '重算没有产生可用内容。', true)

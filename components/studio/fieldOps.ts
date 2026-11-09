@@ -1,8 +1,15 @@
 import { composePrompt } from '@/lib/engine/compose'
-import { extractLeaves, parseField, type FieldLeaf } from '@/lib/engine/paths'
+import {
+  auditFieldContent,
+  extractLeaves,
+  findUnmappedLines,
+  matchFieldLinePrefix,
+  parseField,
+  type FieldLeaf,
+} from '@/lib/engine/paths'
 import { renderFieldText } from '@/lib/engine/render'
 import type { FieldKey } from '@/lib/engine/schema'
-import type { FieldOp } from './types'
+import { FIELD_OP_LABELS, type FieldOp } from './types'
 
 /**
  * 单字段重算的离线启发式实现。
@@ -15,6 +22,11 @@ import type { FieldOp } from './types'
  * - 更具体：把模糊限定词换成数量或判据，没命中时补一条可核对口径；
  * - 重新生成：优先按原始需求重新 compose，文本没变时改为重排列表并补口径。
  *
+ * 内容安全（工单 16）：所有操作都只在「解析器能单独识别的最小段落」上增删，
+ * 无法识别的游离行原样保留。重算结果若仍会丢行，整次操作拒绝执行并给出
+ * 结构化错误，原文不变。`applyFieldOpSafely` 是带结果的入口；`applyFieldOp`
+ * 保留字符串返回值，拒绝时原样返回入参，调用方据此不会写回截断文本。
+ *
  * 有模型时这里仍是离线降级路径；接入模型只替换本文件的实现，路由与文档
  * 写入规则不变。返回的新文本只包含目标字段，其他字段由调用方逐字保留。
  */
@@ -25,6 +37,27 @@ export interface FieldOpContext {
   /** 文档标题，需求缺失时的降级输入。 */
   title?: string
 }
+
+export type FieldOpRejectionCode = 'UNSAFE_CONTENT' | 'NO_SAFE_CHANGE'
+
+/** 拒绝执行的说明。`lines` 直接对应原文行，路由放进响应 detail。 */
+export interface FieldOpRejection {
+  ok: false
+  code: FieldOpRejectionCode
+  /** 无法安全处理的行，保持原文顺序。 */
+  lines: string[]
+  /** 三段式说明，包含上面每一行。 */
+  message: string
+}
+
+export interface FieldOpSuccess {
+  ok: true
+  text: string
+  /** 本次操作原样保全的、解析器无法单独识别的行。 */
+  preservedLines: string[]
+}
+
+export type FieldOpOutcome = FieldOpSuccess | FieldOpRejection
 
 interface ValuePatch {
   start: number
@@ -66,6 +99,7 @@ const VAGUE_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
 
 const MAX_LEAVES_TOUCHED = 6
 const MAX_LIST_ITEMS_KEPT = 2
+const MAX_LINES_IN_MESSAGE = 12
 
 /**
  * 这些叶子的取值来自枚举或受格式约束，追加自然语言会把它们写坏：
@@ -139,6 +173,42 @@ function appendClause(value: string, clause: string): string {
   return `${value}，${clause}`
 }
 
+/** 在没有可改写的叶子时追加一行，避免改到用户已有的整行文本。 */
+function appendLine(text: string, addition: string): string {
+  if (text.endsWith('\n')) {
+    return `${text}${addition}`
+  }
+  return `${text}\n${addition}`
+}
+
+/**
+ * 无叶子可改时的追加策略：规范文本沿用原来的句内追加，保持旧版输出；
+ * 非规范文本追加新行，保证既有每一行都原样活着。
+ */
+function appendByMode(
+  text: string,
+  addition: string,
+  canonical: boolean,
+): string {
+  return canonical ? appendClause(text, addition) : appendLine(text, addition)
+}
+
+/**
+ * 叶子可改写的区间。值跨行时只取第一行，续行原样保留。
+ * 与 `paths.ts` 的叶子写回规则一致，保证两条写回链路不会互相打脸。
+ */
+function leafValueSpan(leaf: FieldLeaf): ValuePatch {
+  const newline = leaf.value.indexOf('\n')
+  if (newline === -1) {
+    return { start: leaf.start, end: leaf.end, value: leaf.value }
+  }
+  return {
+    start: leaf.start,
+    end: leaf.start + newline,
+    value: leaf.value.slice(0, newline),
+  }
+}
+
 function specifyValue(value: string, seed: string): string {
   let next = value
   for (const [pattern, replacement] of VAGUE_REPLACEMENTS) {
@@ -166,23 +236,34 @@ function collectionOf(leaf: FieldLeaf): string {
   return leaf.path.replace(/\[\d+\]$/u, '')
 }
 
-function lengthen(field: FieldKey, text: string): string {
+function lengthen(
+  field: FieldKey,
+  text: string,
+  canonical: boolean,
+): string {
   const leaves = extractLeaves(field, text)
     .filter((leaf) => leaf.value.trim().length > 0 && isFreeTextLeaf(leaf))
     .slice(0, MAX_LEAVES_TOUCHED)
 
   if (leaves.length === 0) {
-    return appendClause(text, pick(LENGTHEN_CLAUSES, `${field}:${text}`))
+    return appendByMode(
+      text,
+      pick(LENGTHEN_CLAUSES, `${field}:${text}`),
+      canonical,
+    )
   }
 
-  const patches: ValuePatch[] = leaves.map((leaf, index) => ({
-    start: leaf.start,
-    end: leaf.end,
-    value: appendClause(
-      leaf.value,
-      pick(LENGTHEN_CLAUSES, `${leaf.path}:${leaf.value}:${index}`),
-    ),
-  }))
+  const patches: ValuePatch[] = leaves.map((leaf, index) => {
+    const span = leafValueSpan(leaf)
+    return {
+      start: span.start,
+      end: span.end,
+      value: appendClause(
+        span.value,
+        pick(LENGTHEN_CLAUSES, `${leaf.path}:${leaf.value}:${index}`),
+      ),
+    }
+  })
   return applyValuePatches(text, patches)
 }
 
@@ -204,20 +285,50 @@ function compressValue(value: string): string {
   return value
 }
 
-function shortenPlainText(text: string): string {
-  const trimmed = text.trim()
-  const firstSentence = trimmed.split(/[。！？!?\n]/u)[0]?.trim() ?? ''
-  if (firstSentence.length > 0 && firstSentence.length < trimmed.length) {
-    return `${firstSentence}${trimmed.includes('。') ? '。' : ''}`
+/** 压缩一行里的值，保留原来的句末标点，避免把陈述句改成残句。 */
+function compressLineValue(value: string): string {
+  const compressed = compressValue(value)
+  if (compressed === value) {
+    return value
   }
-  const chars = Array.from(trimmed)
-  if (chars.length > 8) {
-    return `${chars
-      .slice(0, Math.max(4, Math.floor(chars.length * 0.6)))
-      .join('')
-      .replace(/[，、；;,：:]$/u, '')}。`
+  if (value.endsWith('。') && !compressed.endsWith('。')) {
+    return `${compressed}。`
   }
-  return trimmed
+  return compressed
+}
+
+/**
+ * 行级降级：只压缩带标签行的值，游离行与空行逐字保留。
+ * 没有任何一行变短时返回 null，由调用方拒绝本次操作。
+ */
+function shortenMappedLines(field: FieldKey, text: string): string | null {
+  const unmappedStarts = new Set(
+    findUnmappedLines(field, text).map((line) => line.start),
+  )
+  let offset = 0
+  let changed = false
+  const lines = text.split('\n').map((lineText) => {
+    const lineStart = offset
+    offset += lineText.length + 1
+    if (lineText.trim().length === 0 || unmappedStarts.has(lineStart)) {
+      return lineText
+    }
+    const prefix = matchFieldLinePrefix(field, lineText)
+    if (prefix === null) {
+      return lineText
+    }
+    const value = lineText.slice(prefix.length)
+    if (value.trim().length === 0) {
+      return lineText
+    }
+    const compressed = compressLineValue(value)
+    if (compressed === value) {
+      return lineText
+    }
+    changed = true
+    return `${prefix}${compressed}`
+  })
+  return changed ? lines.join('\n') : null
 }
 
 function shorten(field: FieldKey, text: string): string {
@@ -245,9 +356,11 @@ function shorten(field: FieldKey, text: string): string {
   const withoutExtraItems =
     removals.length > 0 ? applyLineRemovals(text, removals) : text
 
-  const remainingLeaves = extractLeaves(field, withoutExtraItems).filter(
-    (leaf) => Array.from(leaf.value).length > 8,
-  )
+  const remainingLeaves = extractLeaves(field, withoutExtraItems)
+    .filter((leaf) => isFreeTextLeaf(leaf))
+    // 跨行叶子的续行必须原样保留，因此整片跳过，只压缩单行值。
+    .filter((leaf) => leaf.value.indexOf('\n') === -1)
+    .filter((leaf) => Array.from(leaf.value).length > 8)
   const patches: ValuePatch[] = []
   for (const leaf of remainingLeaves) {
     const next = compressValue(leaf.value)
@@ -263,23 +376,34 @@ function shorten(field: FieldKey, text: string): string {
   if (next !== text) {
     return next
   }
-  return shortenPlainText(text)
+  return shortenMappedLines(field, text) ?? text
 }
 
-function specific(field: FieldKey, text: string): string {
+function specific(
+  field: FieldKey,
+  text: string,
+  canonical: boolean,
+): string {
   const leaves = extractLeaves(field, text)
     .filter((leaf) => leaf.value.trim().length > 0 && isFreeTextLeaf(leaf))
     .slice(0, MAX_LEAVES_TOUCHED)
 
   if (leaves.length === 0) {
-    return `${text}${pick(SPECIFIC_SUFFIXES, `${field}:${text}`)}`
+    return appendByMode(
+      text,
+      pick(SPECIFIC_SUFFIXES, `${field}:${text}`),
+      canonical,
+    )
   }
 
-  const patches: ValuePatch[] = leaves.map((leaf, index) => ({
-    start: leaf.start,
-    end: leaf.end,
-    value: specifyValue(leaf.value, `${leaf.path}:${leaf.value}:${index}`),
-  }))
+  const patches: ValuePatch[] = leaves.map((leaf, index) => {
+    const span = leafValueSpan(leaf)
+    return {
+      start: span.start,
+      end: span.end,
+      value: specifyValue(span.value, `${leaf.path}:${leaf.value}:${index}`),
+    }
+  })
   return applyValuePatches(text, patches)
 }
 
@@ -315,13 +439,16 @@ function restructure(field: FieldKey, text: string): string {
     return applyValuePatches(text, patches)
   }
 
-  const first = leaves.find((leaf) => leaf.value.trim().length > 0)
+  const first = leaves.find(
+    (leaf) => leaf.value.trim().length > 0 && isFreeTextLeaf(leaf),
+  )
   if (first && !first.value.includes('（重算版本：')) {
+    const span = leafValueSpan(first)
     return applyValuePatches(text, [
       {
-        start: first.start,
-        end: first.end,
-        value: `${first.value}（重算版本：按当前约束复核）`,
+        start: span.start,
+        end: span.end,
+        value: `${span.value}（重算版本：按当前约束复核）`,
       },
     ])
   }
@@ -353,42 +480,154 @@ function regenerate(
   field: FieldKey,
   text: string,
   context: FieldOpContext,
+  canonical: boolean,
 ): string {
-  const composed = composeVariant(field, text, context)
-  if (composed !== null) {
-    return composed
+  // 整段重写只在原文能无损往返时允许；否则只做行级重排与补充。
+  if (canonical) {
+    const composed = composeVariant(field, text, context)
+    if (composed !== null) {
+      return composed
+    }
   }
   const restructured = restructure(field, text)
   if (restructured !== text) {
     return restructured
   }
-  return appendClause(text, '按当前约束换一种组织方式。')
+  return appendByMode(text, '按当前约束换一种组织方式。', canonical)
 }
 
-/** 对单个字段执行一次重算。返回的文本可直接写回该字段。 */
+function runFieldOp(
+  field: FieldKey,
+  text: string,
+  op: FieldOp,
+  context: FieldOpContext,
+  canonical: boolean,
+): string {
+  switch (op) {
+    case 'lengthen':
+      return lengthen(field, text, canonical)
+    case 'shorten':
+      return shorten(field, text)
+    case 'specific':
+      return specific(field, text, canonical)
+    case 'regenerate':
+      return regenerate(field, text, context, canonical)
+    default: {
+      const exhaustive: never = op
+      throw new Error(`未知操作：${String(exhaustive)}`)
+    }
+  }
+}
+
+function nonEmptyLines(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+}
+
+function formatLineList(lines: readonly string[]): string {
+  const shown = lines
+    .slice(0, MAX_LINES_IN_MESSAGE)
+    .map((line, index) => `${index + 1}. ${line}`)
+  if (lines.length > MAX_LINES_IN_MESSAGE) {
+    shown.push(
+      `另有 ${lines.length - MAX_LINES_IN_MESSAGE} 行，详见响应 detail.lines。`,
+    )
+  }
+  return shown.join('\n')
+}
+
+function makeRejection(
+  code: FieldOpRejectionCode,
+  op: FieldOp,
+  lines: readonly string[],
+): FieldOpRejection {
+  const label = FIELD_OP_LABELS[op]
+  const what =
+    code === 'UNSAFE_CONTENT'
+      ? `发生了什么：这次「${label}」会丢下面这些行，已放弃执行，原文保持不变。`
+      : `发生了什么：这次「${label}」没有能在保全原文的前提下改动的内容，已放弃执行，原文保持不变。`
+  const why =
+    code === 'UNSAFE_CONTENT'
+      ? '为什么：这些行没有被识别成可单独改写的最小段落，整段重写会把它们一起带走。'
+      : '为什么：这些行都是不可再拆的最小内容，继续缩短只能删除原文信息。'
+  const how =
+    code === 'UNSAFE_CONTENT'
+      ? '怎么办：先手动改写这些行或给它们补上字段标签，然后重试。'
+      : '怎么办：先手动精简不需要的句子，或换用「更具体」等其他操作。'
+  const heading = code === 'UNSAFE_CONTENT' ? '无法保留的行：' : '无法处理的行：'
+  return {
+    ok: false,
+    code,
+    lines: [...lines],
+    message: [what, why, how, heading, formatLineList(lines)].join('\n'),
+  }
+}
+
+function findLostLines(
+  protectedLines: readonly string[],
+  candidate: string,
+): string[] {
+  if (protectedLines.length === 0) {
+    return []
+  }
+  const present = new Set(nonEmptyLines(candidate))
+  return protectedLines.filter((line) => !present.has(line))
+}
+
+/**
+ * 对单个字段执行一次重算，并保证内容安全。
+ *
+ * 策略是「行级降级优先」：所有操作只改带标签的结构行，解析器无法识别的
+ * 游离行原样保留；只有降级后仍然会丢行，或降级后没有任何改动时，才拒绝
+ * 执行。拒绝不改动入参，调用方应把原文原样留在文档里。
+ */
+export function applyFieldOpSafely(
+  field: FieldKey,
+  text: string,
+  op: FieldOp,
+  context: FieldOpContext = {},
+): FieldOpOutcome {
+  if (text.trim().length === 0) {
+    return { ok: true, text, preservedLines: [] }
+  }
+
+  const audit = auditFieldContent(field, text)
+  const protectedLines = audit.unmappedLines.map((line) => line.text.trim())
+  const candidate = runFieldOp(field, text, op, context, audit.canonical)
+
+  const lost = findLostLines(protectedLines, candidate)
+  if (lost.length > 0) {
+    return makeRejection('UNSAFE_CONTENT', op, lost)
+  }
+
+  if (candidate === text) {
+    const lines = nonEmptyLines(text)
+    return makeRejection(
+      'NO_SAFE_CHANGE',
+      op,
+      lines.length > 0 ? lines : protectedLines,
+    )
+  }
+
+  return { ok: true, text: candidate, preservedLines: protectedLines }
+}
+
+/**
+ * 对单个字段执行一次重算。返回的文本可直接写回该字段。
+ *
+ * 内容安全拒绝时原样返回入参，保证按字符串使用也不会写回丢内容的文本；
+ * 需要区分「拒绝」与「执行成功」时改用 `applyFieldOpSafely`。
+ */
 export function applyFieldOp(
   field: FieldKey,
   text: string,
   op: FieldOp,
   context: FieldOpContext = {},
 ): string {
-  if (text.trim().length === 0) {
-    return text
-  }
-  switch (op) {
-    case 'lengthen':
-      return lengthen(field, text)
-    case 'shorten':
-      return shorten(field, text)
-    case 'specific':
-      return specific(field, text)
-    case 'regenerate':
-      return regenerate(field, text, context)
-    default: {
-      const exhaustive: never = op
-      throw new Error(`未知操作：${String(exhaustive)}`)
-    }
-  }
+  const outcome = applyFieldOpSafely(field, text, op, context)
+  return outcome.ok ? outcome.text : text
 }
 
 /**
