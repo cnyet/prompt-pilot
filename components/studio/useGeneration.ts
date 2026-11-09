@@ -5,7 +5,10 @@ import {
   FIELD_KEYS,
   type Assumption,
   type FieldKey,
+  type PromptSchema,
 } from '@/lib/engine/schema'
+import { classifyTaskType } from '@/lib/engine/compose'
+import { buildSchemaFromFields } from '@/lib/engine/paths'
 import {
   apiErrorSchema,
   isFieldKey,
@@ -14,6 +17,7 @@ import {
 } from '@/lib/engine/sse'
 import {
   acceptSuggestion as acceptSuggestionInDoc,
+  applyFieldRewrite,
   applyStreamDelta,
   applyUserEdit,
   commitField,
@@ -29,6 +33,8 @@ import {
 import {
   createInitialState,
   toFieldViewMap,
+  type FieldOp,
+  type FieldOpMap,
   type FieldViewMap,
   type GenerationError,
   type GenerationState,
@@ -45,6 +51,10 @@ export type GenerationAction =
   | { type: 'edit'; field: FieldKey; text: string }
   | { type: 'accept-suggestion'; field: FieldKey }
   | { type: 'discard-suggestion'; field: FieldKey }
+  | { type: 'op-start'; field: FieldKey; action: FieldOp }
+  | { type: 'op-progress'; field: FieldKey; text: string }
+  | { type: 'field-rewrite'; field: FieldKey; text: string }
+  | { type: 'op-fail'; field: FieldKey; message: string }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'stop' }
@@ -74,11 +84,55 @@ function settleStreamingFields(
   return next
 }
 
+function withoutFieldOp(ops: FieldOpMap, field: FieldKey): FieldOpMap {
+  if (ops[field] === undefined) {
+    return ops
+  }
+  const next = { ...ops }
+  delete next[field]
+  return next
+}
+
+/**
+ * 由当前字段文本重建 schema。doc.schema 在非流式事件后同步写入，
+ * 供工单 04 的假设 chip 与补丁按叶子路径读写；流式 delta 期间不重建，
+ * 避免每来一个字符就把八个字段全量解析一遍。
+ */
+function deriveDocSchema(state: GenerationState): PromptSchema {
+  const texts: Partial<Record<FieldKey, string>> = {}
+  for (const field of FIELD_KEYS) {
+    texts[field] = state.doc.fields[field]?.value ?? ''
+  }
+  return buildSchemaFromFields(texts, {
+    title: state.title || '未命名提示词',
+    taskType: state.title ? classifyTaskType(state.title) : 'other',
+    templateId: 'field-text-v1',
+    assumptions: state.assumptions,
+  })
+}
+
 /**
  * 生成状态 reducer。四条写入规则本身在 lib/engine/doc.ts，
  * 这里只做事件调度，所以 delta 不再可能无条件追加到字段文本上。
  */
 export function generationReducer(
+  state: GenerationState,
+  action: GenerationAction,
+): GenerationState {
+  const next = reduceGenerationState(state, action)
+  if (
+    next === state ||
+    next.phase === 'idle' ||
+    action.type === 'delta' ||
+    action.type === 'field-start' ||
+    action.type === 'op-progress'
+  ) {
+    return next
+  }
+  return { ...next, doc: { ...next.doc, schema: deriveDocSchema(next) } }
+}
+
+function reduceGenerationState(
   state: GenerationState,
   action: GenerationAction,
 ): GenerationState {
@@ -97,6 +151,7 @@ export function generationReducer(
         title: action.full ? '' : state.title,
         assumptions: action.full ? [] : state.assumptions,
         durationMs: action.full ? null : state.durationMs,
+        fieldOps: action.full ? {} : state.fieldOps,
       }
     }
 
@@ -140,6 +195,58 @@ export function generationReducer(
         ...state,
         doc: discardSuggestionInDoc(state.doc, action.field),
       }
+
+    case 'op-start':
+      return {
+        ...state,
+        fieldOps: {
+          ...state.fieldOps,
+          [action.field]: {
+            status: 'running',
+            action: action.action,
+            preview: '',
+          },
+        },
+      }
+
+    case 'op-progress': {
+      const op = state.fieldOps[action.field]
+      if (!op || op.status !== 'running') {
+        return state
+      }
+      return {
+        ...state,
+        fieldOps: {
+          ...state.fieldOps,
+          [action.field]: { ...op, preview: action.text },
+        },
+      }
+    }
+
+    case 'field-rewrite':
+      return {
+        ...state,
+        doc: applyFieldRewrite(state.doc, action.field, action.text),
+        fieldOps: withoutFieldOp(state.fieldOps, action.field),
+      }
+
+    case 'op-fail': {
+      const op = state.fieldOps[action.field]
+      if (!op) {
+        return state
+      }
+      return {
+        ...state,
+        fieldOps: {
+          ...state.fieldOps,
+          [action.field]: {
+            ...op,
+            status: 'failed',
+            error: action.message,
+          },
+        },
+      }
+    }
 
     case 'undo':
       return { ...state, doc: undoDoc(state.doc) }
@@ -236,8 +343,16 @@ export interface GenerationApi {
   redoCount: number
   /** 撤销栈顶命令。界面据此显示上一步是 AI 写入还是用户编辑。 */
   lastCommand: Command | null
+  /** 由字段文本按结构化路径重建的 schema，供 JSON 视图使用。 */
+  schema: PromptSchema
+  /** 单字段重算状态，按字段隔离。 */
+  fieldOps: FieldOpMap
+  /** 当前有重算在跑的字段，没有则为 null。 */
+  runningOpField: FieldKey | null
+  opBusy: boolean
   generate: (input: string) => Promise<void>
   retryFields: (fields: readonly FieldKey[]) => Promise<void>
+  runFieldOp: (field: FieldKey, action: FieldOp) => Promise<void>
   updateField: (field: FieldKey, text: string) => void
   acceptSuggestion: (field: FieldKey) => void
   discardSuggestion: (field: FieldKey) => void
@@ -258,18 +373,21 @@ export function useGeneration(): GenerationApi {
   const lastInputRef = useRef('')
   const controllerRef = useRef<AbortController | null>(null)
   const stopRequestedRef = useRef(false)
+  const opActiveRef = useRef(false)
+  const opControllerRef = useRef<AbortController | null>(null)
 
   // 离开工作台时中止请求，避免服务端继续空转。
   useEffect(() => {
     return () => {
       activeRef.current = false
       controllerRef.current?.abort()
+      opControllerRef.current?.abort()
     }
   }, [])
 
   const run = useCallback(
     async (input: string, fields?: readonly FieldKey[]): Promise<void> => {
-      if (activeRef.current) {
+      if (activeRef.current || opActiveRef.current) {
         return
       }
       const trimmed = input.trim()
@@ -531,6 +649,147 @@ export function useGeneration(): GenerationApi {
     [run],
   )
 
+  const runFieldOp = useCallback(
+    async (field: FieldKey, action: FieldOp): Promise<void> => {
+      if (activeRef.current || opActiveRef.current) {
+        return
+      }
+      const current = state.doc.fields[field]
+      if (!current || current.value.trim().length === 0) {
+        return
+      }
+
+      opActiveRef.current = true
+      const controller = new AbortController()
+      opControllerRef.current = controller
+      dispatch({ type: 'op-start', field, action })
+
+      let timedOut = false
+      const timer = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, STALL_TIMEOUT_MS)
+
+      let accumulated = ''
+      let sawDone = false
+
+      try {
+        const response = await fetch('/api/engine/field', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            field,
+            action,
+            text: current.value,
+            ...(lastInputRef.current
+              ? { requirement: lastInputRef.current }
+              : {}),
+            ...(state.title ? { title: state.title } : {}),
+          }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          const payload: unknown = await response.json().catch(() => null)
+          const parsedError = apiErrorSchema.safeParse(payload)
+          throw new GenerationFailure({
+            code: parsedError.success ? parsedError.data.code : 'HTTP_ERROR',
+            message: parsedError.success
+              ? parsedError.data.message
+              : `重算服务返回了 ${response.status} 状态。`,
+            hint: '该字段保持原内容，可以稍后重试。',
+            retryable: parsedError.success
+              ? (parsedError.data.retryable ?? response.status >= 500)
+              : response.status >= 500,
+          })
+        }
+
+        const contentType = response.headers.get('content-type') ?? ''
+        if (!contentType.includes('text/event-stream') || !response.body) {
+          throw new GenerationFailure({
+            code: 'INVALID_RESPONSE',
+            message: '重算服务没有返回事件流。',
+            hint: '该字段保持原内容，请稍后重试。',
+            retryable: true,
+          })
+        }
+
+        for await (const message of parseSseStream(response.body)) {
+          switch (message.event) {
+            case 'delta':
+              accumulated += message.data.text
+              dispatch({ type: 'op-progress', field, text: accumulated })
+              break
+            case 'error':
+              throw new GenerationFailure({
+                code: message.data.code,
+                message: message.data.message,
+                hint: '该字段保持原内容，可以稍后重试。',
+                retryable: message.data.retryable,
+              })
+            case 'done':
+              sawDone = true
+              break
+            case 'stage':
+            case 'field':
+              break
+          }
+        }
+
+        if (!sawDone || accumulated.trim().length === 0) {
+          throw new GenerationFailure({
+            code: 'STREAM_INCOMPLETE',
+            message: '重算连接提前结束，未收到完整结果。',
+            hint: '该字段保持原内容，可以稍后重试。',
+            retryable: true,
+          })
+        }
+
+        // 重置或卸载会让 controller 不再是当前请求，此时不能把旧结果写回新文档。
+        if (opControllerRef.current !== controller) {
+          return
+        }
+        dispatch({ type: 'field-rewrite', field, text: accumulated })
+      } catch (error) {
+        if (controller.signal.aborted && !timedOut) {
+          return
+        }
+        if (timedOut) {
+          dispatch({
+            type: 'op-fail',
+            field,
+            message: '重算超过 15 秒没有返回结果，已保留原内容。',
+          })
+          return
+        }
+        if (error instanceof GenerationFailure) {
+          dispatch({ type: 'op-fail', field, message: error.detail.message })
+          return
+        }
+        if (error instanceof SseParseError) {
+          dispatch({
+            type: 'op-fail',
+            field,
+            message: '重算服务返回的事件格式不符合协议。',
+          })
+          return
+        }
+        dispatch({
+          type: 'op-fail',
+          field,
+          message: '无法连接重算服务，已保留原内容。',
+        })
+      } finally {
+        clearTimeout(timer)
+        if (opControllerRef.current === controller) {
+          opControllerRef.current = null
+          opActiveRef.current = false
+        }
+      }
+    },
+    [state.doc, state.title],
+  )
+
   const updateField = useCallback((field: FieldKey, text: string) => {
     dispatch({ type: 'edit', field, text })
   }, [])
@@ -567,10 +826,19 @@ export function useGeneration(): GenerationApi {
     controllerRef.current?.abort()
     controllerRef.current = null
     activeRef.current = false
+    // 进行中的字段重算也要作废，否则它完成后会把旧文本写回新文档。
+    opControllerRef.current?.abort()
+    opControllerRef.current = null
+    opActiveRef.current = false
     dispatch({ type: 'reset' })
   }, [])
 
   const fields = useMemo(() => toFieldViewMap(state.doc), [state.doc])
+  const schema = useMemo(() => deriveDocSchema(state), [state])
+  const runningOpField =
+    FIELD_KEYS.find(
+      (field) => state.fieldOps[field]?.status === 'running',
+    ) ?? null
   const lastCommand =
     state.doc.history.length > 0
       ? (state.doc.history[state.doc.history.length - 1] ?? null)
@@ -590,8 +858,13 @@ export function useGeneration(): GenerationApi {
     undoCount: state.doc.history.length,
     redoCount: state.doc.redo.length,
     lastCommand,
+    schema,
+    fieldOps: state.fieldOps,
+    runningOpField,
+    opBusy: runningOpField !== null,
     generate,
     retryFields,
+    runFieldOp,
     updateField,
     acceptSuggestion,
     discardSuggestion,

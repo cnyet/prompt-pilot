@@ -9,6 +9,41 @@ import {
 
 export type FieldStatus = DocFieldStatus
 
+/** 单字段重算的四种操作。与 /api/engine/field 的 action 一一对应。 */
+export const FIELD_OPS = ['lengthen', 'shorten', 'specific', 'regenerate'] as const
+export type FieldOp = (typeof FIELD_OPS)[number]
+
+export const FIELD_OP_LABELS: Record<FieldOp, string> = {
+  lengthen: '加长',
+  shorten: '缩短',
+  specific: '更具体',
+  regenerate: '重新生成',
+}
+
+export const FIELD_OP_DESCRIPTIONS: Record<FieldOp, string> = {
+  lengthen: '补充细节与判断依据',
+  shorten: '删减冗长表述，保留要点',
+  specific: '把模糊词换成可核对的判据',
+  regenerate: '按原始需求重算这一字段',
+}
+
+export function isFieldOp(value: unknown): value is FieldOp {
+  return (
+    typeof value === 'string' &&
+    (FIELD_OPS as readonly string[]).includes(value)
+  )
+}
+
+export interface FieldOpState {
+  status: 'running' | 'failed'
+  action: FieldOp
+  /** 流式返回的预览文本。完成前不写文档。 */
+  preview: string
+  error?: string
+}
+
+export type FieldOpMap = Partial<Record<FieldKey, FieldOpState>>
+
 export interface FieldView {
   status: FieldStatus
   /** 已提交的文档文本。流式过程中始终是最后一次提交的值。 */
@@ -45,6 +80,8 @@ export interface GenerationState {
   assumptions: Assumption[]
   durationMs: number | null
   error: GenerationError | null
+  /** 单字段重算的进行中状态，按字段隔离。 */
+  fieldOps: FieldOpMap
 }
 
 function createEmptyView(): FieldView {
@@ -91,5 +128,6 @@ export function createInitialState(): GenerationState {
     assumptions: [],
     durationMs: null,
     error: null,
+    fieldOps: {},
   }
 }

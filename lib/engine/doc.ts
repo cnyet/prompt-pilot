@@ -61,6 +61,7 @@ export type CommandType =
   | 'user-edit'
   | 'accept-suggestion'
   | 'patch'
+  | 'field-rewrite'
 
 /**
  * 命令式撤销栈的一条记录。
@@ -444,6 +445,52 @@ export function applyPatch(
     ),
     outcome: 'applied',
   }
+}
+
+/**
+ * 用户显式请求的单字段重算（加长 / 缩短 / 更具体 / 重新生成）。
+ *
+ * 这不算违反 R2：R2 拒绝的是「未经用户同意的 AI 覆盖」。这里的写入由用户
+ * 在某个字段块上主动点击触发，目标只有该字段。写完后 origin 回到 `ai`、
+ * dirty 清零，来源标记重新出现；撤销栈仍保存前后文本与脏标记，可以回退。
+ */
+export function applyFieldRewrite(
+  doc: PromptDoc,
+  path: string,
+  value: string,
+): PromptDoc {
+  const field = doc.fields[path]
+  if (!field) {
+    return doc
+  }
+  const committed = value.trimEnd()
+  if (
+    field.value === committed &&
+    field.origin === 'ai' &&
+    !field.dirty &&
+    field.suggestion === null &&
+    field.status === 'done'
+  ) {
+    return doc
+  }
+
+  const seq = doc.seq + 1
+  const nextField: FieldState = {
+    ...field,
+    value: committed,
+    origin: 'ai',
+    seq,
+    aiBaseline: committed,
+    dirty: false,
+    status: 'done',
+    suggestion: null,
+    error: undefined,
+  }
+  const nextDoc = { ...withField(doc, path, nextField), seq }
+  return pushCommand(
+    nextDoc,
+    makeCommand('field-rewrite', 'ai', field, nextField, seq),
+  )
 }
 
 function restoredStatus(

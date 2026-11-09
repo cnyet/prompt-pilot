@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
 import type { CommandType } from '@/lib/engine/doc'
 import { renderMarkdownDocument } from '@/lib/engine/render'
+import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
@@ -12,12 +13,25 @@ import { useGeneration } from './useGeneration'
 
 type CopyState = 'idle' | 'copied' | 'failed'
 
+type StudioView = 'structured' | 'rendered' | 'json'
+
+const STUDIO_VIEWS: ReadonlyArray<{
+  id: StudioView
+  label: string
+  hint: string
+}> = [
+  { id: 'structured', label: '结构化', hint: '⌥1' },
+  { id: 'rendered', label: '渲染文本', hint: '⌥2' },
+  { id: 'json', label: 'JSON', hint: '⌥3' },
+]
+
 const COMMAND_LABELS: Record<CommandType, string> = {
   'ai-write': 'AI 写入',
   'ai-partial': 'AI 部分写入',
   'user-edit': '用户编辑',
   'accept-suggestion': '采纳 AI 建议',
   patch: '补丁写入',
+  'field-rewrite': '单字段重算',
 }
 
 function formatDuration(ms: number): string {
@@ -42,8 +56,12 @@ export function StudioWorkspace() {
     undoCount,
     redoCount,
     lastCommand,
+    schema,
+    fieldOps,
+    opBusy,
     generate,
     retryFields,
+    runFieldOp,
     updateField,
     acceptSuggestion,
     discardSuggestion,
@@ -55,6 +73,7 @@ export function StudioWorkspace() {
 
   const [submitted, setSubmitted] = useState('')
   const [copyState, setCopyState] = useState<CopyState>('idle')
+  const [view, setView] = useState<StudioView>('structured')
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -63,6 +82,29 @@ export function StudioWorkspace() {
         clearTimeout(copyTimerRef.current)
       }
     }
+  }, [])
+
+  useEffect(() => {
+    const handleViewKey = (event: KeyboardEvent) => {
+      if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) {
+        return
+      }
+      const target =
+        event.key === '1'
+          ? 'structured'
+          : event.key === '2'
+            ? 'rendered'
+            : event.key === '3'
+              ? 'json'
+              : null
+      if (target === null) {
+        return
+      }
+      event.preventDefault()
+      setView(target)
+    }
+    window.addEventListener('keydown', handleViewKey)
+    return () => window.removeEventListener('keydown', handleViewKey)
   }, [])
 
   useEffect(() => {
@@ -172,6 +214,28 @@ export function StudioWorkspace() {
 
   const displayTitle =
     title || (phase === 'streaming' ? '正在生成结构' : '生成结果')
+
+  // 三个视图读同一份展示文本：流式中未手改的字段用 pending，其余用已提交值。
+  const fieldTexts: Partial<Record<FieldKey, string>> = {}
+  for (const field of FIELD_KEYS) {
+    const view = fields[field]
+    fieldTexts[field] = view.dirty
+      ? view.text
+      : view.pendingText.length > 0
+        ? view.pendingText
+        : view.text
+  }
+  const markdownPreview = renderMarkdownDocument({
+    title: displayTitle,
+    fields: fieldTexts,
+  })
+  const viewSchema = buildSchemaFromFields(fieldTexts, {
+    title: displayTitle,
+    taskType: schema.meta.taskType,
+    templateId: schema.meta.templateId,
+    assumptions,
+  })
+  const jsonPreview = JSON.stringify(viewSchema, null, 2)
 
   let statusText = ''
   if (phase === 'streaming') {
@@ -334,26 +398,100 @@ export function StudioWorkspace() {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-3">
-            {FIELD_KEYS.map((field, index) => (
-              <FieldBlock
-                key={field}
-                field={field}
-                index={index + 1}
-                state={fields[field]}
-                phase={phase}
-                busy={isBusy}
-                active={fields[field].status === 'streaming'}
-                scheduled={scheduled.includes(field)}
-                onRetry={() => {
-                  void retryFields([field])
-                }}
-                onChange={(text) => updateField(field, text)}
-                onAcceptSuggestion={() => acceptSuggestion(field)}
-                onDiscardSuggestion={() => discardSuggestion(field)}
-              />
-            ))}
+          <div
+            role="tablist"
+            aria-label="中栏视图"
+            className="mb-4 flex items-center gap-1 border-b border-line"
+          >
+            {STUDIO_VIEWS.map((item) => {
+              const active = view === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setView(item.id)}
+                  title={`${item.label}（${item.hint}）`}
+                  className={cn(
+                    'relative px-3 py-2 text-label transition-colors',
+                    active
+                      ? 'text-ink'
+                      : 'text-ink-muted hover:text-ink',
+                  )}
+                >
+                  {item.label}
+                  {active ? (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-2 -bottom-px h-0.5 rounded-chip bg-accent"
+                    />
+                  ) : null}
+                </button>
+              )
+            })}
           </div>
+
+          {view === 'structured' ? (
+            <div className="flex flex-col gap-3">
+              {FIELD_KEYS.map((field, index) => (
+                <FieldBlock
+                  key={field}
+                  field={field}
+                  index={index + 1}
+                  state={fields[field]}
+                  phase={phase}
+                  busy={isBusy}
+                  opBusy={opBusy}
+                  active={fields[field].status === 'streaming'}
+                  scheduled={scheduled.includes(field)}
+                  opState={fieldOps[field]}
+                  onRetry={() => {
+                    void retryFields([field])
+                  }}
+                  onChange={(text) => updateField(field, text)}
+                  onOp={(op) => {
+                    void runFieldOp(field, op)
+                  }}
+                  onAcceptSuggestion={() => acceptSuggestion(field)}
+                  onDiscardSuggestion={() => discardSuggestion(field)}
+                />
+              ))}
+            </div>
+          ) : view === 'rendered' ? (
+            <div className="overflow-hidden rounded-panel border border-line bg-surface">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+                <p className="text-caption text-ink-faint">
+                  按当前八字段文本渲染的 Markdown
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleCopy()}
+                  disabled={!hasAnyField || phase === 'streaming'}
+                  className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
+                >
+                  {copyLabel}
+                </button>
+              </div>
+              <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-body text-ink">
+                {markdownPreview}
+              </pre>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-panel border border-line bg-surface">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+                <p className="text-caption text-ink-faint">
+                  由字段文本按结构化路径解析生成的 schema
+                </p>
+                <span className="text-caption text-ink-faint tnum">
+                  {schema.meta.title}
+                </span>
+              </div>
+              <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-caption text-ink">
+                {jsonPreview}
+              </pre>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
             <div className="min-w-0">
