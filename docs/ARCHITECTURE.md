@@ -304,12 +304,14 @@ data: {"code":"INVALID_JSON","message":"模型返回的内容不是合法 JSON",
         "retryable":true,"attempt":2}
 
 event: done
-data: {"durationMs":8420,"finishReason":"stop"}
+data: {"durationMs":8420,"finishReason":"stop","title":"周报生成","assumptions":[...]}
 ```
 
 约定：
 - `stage` 取值固定为 `compose` / `interview` / `evaluate` / `refine` 四个，不再有 `intent`、`clarify`、`harden`、`score`（前者并入 compose，`harden` 转为确定性本地补丁）。
 - 事件顺序保证 `stage` 包裹 `field` 包裹 `delta`。
+- `done` 除 `durationMs` 与 `finishReason` 外，还携带 `title` 与 `assumptions`。不新增 `assumption` 事件：chip 数据随 `done` 一次给出，避免客户端为一条元信息多接一种事件。`finishReason` 取值 `stop` / `error`。
+- `error` 可带可选的 `field`，仅当失败可归因到单个字段时给出；缺省表示影响当前所有流式中的字段。
 - 收到 `error` 不关闭连接，除非 `retryable: false`。
 - 服务端响应头必须带 `Content-Type: text/event-stream; charset=utf-8`、`Cache-Control: no-cache, no-transform`、`X-Accel-Buffering: no`，且 `export const runtime = 'nodejs'`、`export const dynamic = 'force-dynamic'`。
 - 客户端断开时通过 `request.signal` 中止上游模型调用，避免白烧 token。
@@ -835,7 +837,7 @@ model AppSetting {
 | L1 离线 | 无 key 或断网 | 确定性模板生成 + 16 条诊断 + 导出 + 库 | 中 |
 | L2 受限 | 额度用尽或持续限流 | 只读 + 排队重试提示 | 无 |
 
-L1 的核心是 **heuristic composer**：从用户输入抽取任务动词、领域词、交付物类型，按场景模板填出八字段骨架，所有字段标 `source: 'template'`，顶部明确提示"当前为离线模板模式，接入模型后质量会明显提升"。
+L1 的核心是 **heuristic composer**：从用户输入抽取任务动词、领域词、交付物类型，按场景模板填出八字段骨架，用 `meta.templateId` 标记来源（如 `offline-heuristic-v1`），`assumption.source` 保持 `default` / `inferred` / `user` 三值不变，顶部明确提示"当前为离线模板模式，接入模型后质量会明显提升"。
 
 它与 LLM 版实现同一个 `Composer` 接口，产品与测试共用同一调用点。三个好处：无 key 也能完整演示、E2E 测试确定性、用户首次安装即可看到结构化长什么样。
 
