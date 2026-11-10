@@ -33,6 +33,11 @@ import {
   getModelConfig,
 } from '@/lib/llm/registry'
 import {
+  instrumentProvider,
+  resolveTraceId,
+  type LlmCallContext,
+} from '@/lib/llm/ledger'
+import {
   parseJsonLoose,
   runStructuredOutcome,
   type StructuredAttempt,
@@ -62,7 +67,47 @@ const requestSchema = z.object({
     .array(fieldKeySchema)
     .min(1, '至少选择一个字段。')
     .optional(),
+  /** 客户端幂等键；缺省时服务端为本次请求生成 traceId。 */
+  requestId: z.string().trim().max(128).optional(),
 })
+
+interface FetchAttemptCounter {
+  fetch: typeof globalThis.fetch
+  count: () => number
+}
+
+/**
+ * 统计本次请求实际发出的 HTTP 次数，用于把 provider 内部 withRetry 的
+ * 重试次数落到 LlmCall.attempts。provider 不暴露 attempts，只能在
+ * createProvider 注入的 fetch 上计数，不修改适配层。
+ */
+function createFetchAttemptCounter(): FetchAttemptCounter {
+  let count = 0
+  const countedFetch: typeof globalThis.fetch = (input, init) => {
+    count += 1
+    return globalThis.fetch(input, init)
+  }
+  return { fetch: countedFetch, count: () => count }
+}
+
+interface ProviderIdentity {
+  provider: string
+  modelId: string
+  contextWindow?: number
+}
+
+/** 从 provider.id 反查模型配置；Mock 故障画像复用 mock 配置。 */
+function describeProvider(provider: LLMProvider): ProviderIdentity {
+  const config =
+    getModelConfig(provider.id) ??
+    (provider.id.startsWith('mock') ? getModelConfig('mock') : undefined)
+  const contextWindow = config?.contextWindow
+  return {
+    provider: config?.provider ?? provider.id,
+    modelId: config?.modelId ?? provider.id,
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+  }
+}
 
 function jsonError(
   status: number,
@@ -896,11 +941,29 @@ export async function POST(request: Request): Promise<Response> {
 
   // provider 选择：配置了 ARK_API_KEY 就构建方舟 provider 走真实模型；
   // 没有 Key 时 getGenerateProvider 返回 null，继续走下面的离线 heuristic composer。
-  const provider = getGenerateProvider()
+  const fetchCounter = createFetchAttemptCounter()
+  const provider = getGenerateProvider(process.env, {
+    fetch: fetchCounter.fetch,
+  })
   if (provider) {
+    const identity = describeProvider(provider)
+    const ledgerContext: LlmCallContext = {
+      traceId: resolveTraceId(
+        parsed.data.requestId ?? request.headers.get('x-request-id'),
+      ),
+      stage: 'compose',
+      provider: identity.provider,
+      modelId: identity.modelId,
+      // 与 buildModelChatRequest 里的 thinking: 'off' 保持一致。
+      thinking: 'off',
+      ...(identity.contextWindow !== undefined
+        ? { contextWindow: identity.contextWindow }
+        : {}),
+      fetchAttempts: fetchCounter.count,
+    }
     return streamFromProvider({
       request,
-      provider,
+      provider: instrumentProvider(provider, ledgerContext),
       input: parsed.data.input,
       selected,
       startedAt: Date.now(),
