@@ -576,7 +576,6 @@ model Prompt {
   updatedAt        DateTime  @updatedAt
   versions         PromptVersion[]
   variables        Variable[]
-  runs             Run[]
   @@index([status, updatedAt])
 }
 
