@@ -107,6 +107,8 @@ export interface PromptListItem {
   versionCount: number
   latestVersionNo: number | null
   latestOrigin: PromptVersionOrigin | null
+  /** 最新版本正文的首行摘要，供库卡片展示；没有正文时为 null */
+  preview: string | null
 }
 
 export interface PromptDetail extends PromptListItem {
@@ -346,6 +348,21 @@ function toVariableSummary(row: {
   }
 }
 
+/** 取正文第一段有效文字作为卡片摘要 */
+function previewOf(text: string | undefined): string | null {
+  if (!text) {
+    return null
+  }
+  const line = text
+    .split('\n')
+    .map((item) => item.trim())
+    .find((item) => item.length > 0)
+  if (!line) {
+    return null
+  }
+  return Array.from(line).slice(0, 90).join('')
+}
+
 function toListItem(row: {
   id: string
   title: string
@@ -359,6 +376,7 @@ function toListItem(row: {
   versions: Array<{
     versionNo: number
     origin: string
+    renderedText: string
   }>
 }): PromptListItem {
   const latest = row.versions[0]
@@ -372,6 +390,7 @@ function toListItem(row: {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     versionCount: row._count.versions,
+    preview: previewOf(latest?.renderedText),
     latestVersionNo: latest?.versionNo ?? null,
     latestOrigin: latest ? normalizeStoredOrigin(latest.origin) : null,
   }
@@ -665,7 +684,7 @@ export async function listPrompts(
           versions: {
             orderBy: { versionNo: 'desc' },
             take: 1,
-            select: { versionNo: true, origin: true },
+            select: { versionNo: true, origin: true, renderedText: true },
           },
         },
       }),
@@ -713,7 +732,8 @@ export async function getPromptDetail(
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       versionCount: row._count.versions,
-      latestVersionNo: latest?.versionNo ?? null,
+      preview: previewOf(latest?.renderedText),
+    latestVersionNo: latest?.versionNo ?? null,
       latestOrigin: latest?.origin ?? null,
       currentVersionId: row.currentVersionId,
       versions,

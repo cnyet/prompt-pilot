@@ -277,6 +277,7 @@ export default async function SettingsPage() {
             ['⌘S', '保存新版本'],
             ['⌘K', '命令面板'],
             ['⌘Z / ⌘⇧Z', '撤销 / 重做'],
+            ['⌥1 / ⌥2 / ⌥3', '结构化 / 渲染文本 / JSON'],
             ['Esc', '中断生成 / 关闭浮层'],
             ['\\', '折叠侧栏'],
           ].map(([key, action]) => (
@@ -287,8 +288,7 @@ export default async function SettingsPage() {
           ))}
         </dl>
         <p className="mt-3 text-caption text-ink-faint">
-          在输入框里按 `\` 不会触发折叠，避免打断写作。切换中栏三视图的
-          `⌥1` 到 `⌥3` 尚未实现。
+          在输入框里按 `\` 不会触发折叠，避免打断写作。`⌥1` 到 `⌥3` 只在工作台生效。
         </p>
       </Section>
       </div>

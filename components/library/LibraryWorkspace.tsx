@@ -504,7 +504,9 @@ export function LibraryWorkspace() {
                         {prompt.title}
                       </span>
                       <span className="line-clamp-2 text-caption text-ink-muted">
-                        {prompt.description?.trim() || '暂无描述'}
+                        {prompt.description?.trim() ||
+                          prompt.preview ||
+                          '暂无描述'}
                       </span>
                       {tags.length > 0 ? (
                         <span className="flex flex-wrap gap-1">
