@@ -4,8 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PromptVariable } from '@/lib/engine/schema'
 import { cn } from '@/lib/utils'
 import { RunForm } from './RunForm'
-import { formatUsageCost, type TrialRunPhase } from './types'
-import { useTrialRun } from './useTrialRun'
+import { formatUsageCost } from './types'
+import type { GenerationPhase, TrialRunPhase } from './types'
+import {
+  planAutoTrialRun,
+  useTrialRun,
+  type AutoTrialRunOutcome,
+} from './useTrialRun'
+
+interface AutoNotice {
+  outcome: AutoTrialRunOutcome
+  message: string
+}
 
 export interface RunDrawerProps {
   prompt: string
@@ -13,6 +23,12 @@ export interface RunDrawerProps {
   sessionKey: string
   /** 生成或字段重算进行中时禁用运行，避免跑到一半的提示词。 */
   disabled?: boolean
+  /** 生成阶段。done 时才允许触发自动试运行。 */
+  generationPhase: GenerationPhase
+  /** 每次完整生成或重新开始换一个轮次号，自动试运行按它去重。 */
+  generationRound: number
+  /** 本轮用户点过「停止生成」后，不再自动触发。 */
+  autoRunStopped?: boolean
 }
 
 const RUN_STATUS_LABELS: Readonly<Record<string, string>> = {
@@ -90,11 +106,56 @@ export function RunDrawer({
   variables,
   sessionKey,
   disabled = false,
+  generationPhase,
+  generationRound,
+  autoRunStopped = false,
 }: RunDrawerProps) {
   const trial = useTrialRun({ prompt, variables, sessionKey, disabled })
   const [expanded, setExpanded] = useState(true)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [autoNotice, setAutoNotice] = useState<AutoNotice | null>(null)
   const outputRef = useRef<HTMLPreElement | null>(null)
+  // 记录已经自动处理过的轮次。用 ref 而不是 state，避免重渲染与闭包把
+  // 「已经跑过」读成「还没跑」，从而重复发起试运行。
+  const consumedRoundRef = useRef<number | null>(null)
+
+  // 重新开始或进入新一轮时清空自动触发标记，保证新轮次仍然可以自动跑一次。
+  useEffect(() => {
+    consumedRoundRef.current = null
+    setAutoNotice(null)
+  }, [sessionKey, generationRound])
+
+  // 自动试运行：与手动按钮走同一个 trial.run()，条件判定全部在纯函数里。
+  useEffect(() => {
+    const plan = planAutoTrialRun({
+      phase: generationPhase,
+      prompt,
+      roundId: generationRound,
+      consumedRoundId: consumedRoundRef.current,
+      stopped: autoRunStopped,
+      disabled,
+      variables,
+      availability: trial.availability,
+    })
+    if (plan.consume) {
+      consumedRoundRef.current = generationRound
+    }
+    if (plan.notice !== null) {
+      setAutoNotice({ outcome: plan.outcome, message: plan.notice })
+    }
+    if (plan.outcome === 'run') {
+      void trial.run()
+    }
+  }, [
+    autoRunStopped,
+    disabled,
+    generationPhase,
+    generationRound,
+    prompt,
+    trial.availability,
+    trial.run,
+    variables,
+  ])
 
   const selectedRun =
     trial.history.find((item) => item.id === selectedRunId) ?? null
@@ -263,6 +324,14 @@ export function RunDrawer({
           )}
         </div>
       </div>
+
+      {autoNotice !== null && autoNotice.outcome !== 'unavailable' ? (
+        <div className="border-b border-line bg-bg-sunken px-4 py-2">
+          <p className="text-caption text-ink-muted" role="status">
+            {autoNotice.message}
+          </p>
+        </div>
+      ) : null}
 
       {!trial.availability.available ? (
         <div className="border-b border-line bg-bg-sunken px-4 py-2">

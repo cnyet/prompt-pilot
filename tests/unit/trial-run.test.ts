@@ -5,9 +5,11 @@ import {
   estimateTrialUsage,
   parseTrialRunAvailability,
   trialRunReducer,
+  variablesHaveDefaults,
 } from '@/components/studio/useTrialRun'
 import { formatUsageTokens } from '@/components/studio/types'
 import { buildRunWrite, recordRun, type RunWriteInput } from '@/lib/db/runs'
+import type { PromptVariable } from '@/lib/engine/schema'
 
 function streamingState() {
   let state = createInitialTrialRunState()
@@ -292,5 +294,48 @@ describe('运行落库字段', () => {
   it('没有存储时直接返回 null', async () => {
     const id = await recordRun(base, { store: null })
     expect(id).toBeNull()
+  })
+})
+
+describe('自动试运行的变量默认值条件', () => {
+  const required = (
+    overrides: Partial<PromptVariable> = {},
+  ): PromptVariable => ({
+    name: 'topic',
+    label: '主题',
+    type: 'text',
+    required: true,
+    ...overrides,
+  })
+
+  it('没有必填变量或必填变量都有可用默认值时才允许自动运行', () => {
+    expect(variablesHaveDefaults([])).toBe(true)
+    expect(
+      variablesHaveDefaults([
+        { name: 'note', label: '补充说明', type: 'longtext', required: false },
+      ]),
+    ).toBe(true)
+    expect(
+      variablesHaveDefaults([required({ defaultValue: '秋季新品' })]),
+    ).toBe(true)
+    expect(variablesHaveDefaults([required()])).toBe(false)
+  })
+
+  it('枚举默认值不在候选项内时按空值处理，不自动运行', () => {
+    expect(
+      variablesHaveDefaults([
+        required({
+          type: 'enum',
+          options: ['正式', '简洁'],
+          defaultValue: '不存在',
+        }),
+      ]),
+    ).toBe(false)
+  })
+
+  it('必填布尔开关总有值，不因没有显式默认值而阻塞自动运行', () => {
+    expect(
+      variablesHaveDefaults([required({ type: 'boolean', required: true })]),
+    ).toBe(true)
   })
 })

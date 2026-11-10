@@ -161,6 +161,9 @@ export function StudioWorkspace() {
 
   const [submitted, setSubmitted] = useState('')
   const [sessionKey, setSessionKey] = useState(createTrialSessionKey)
+  // 自动试运行按轮次去重：每次完整生成或重新开始都换一个轮次号。
+  const [generationRound, setGenerationRound] = useState(0)
+  const [autoRunStopped, setAutoRunStopped] = useState(false)
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const [view, setView] = useState<StudioView>('structured')
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -228,6 +231,12 @@ export function StudioWorkspace() {
       fixNoticeTimerRef.current = null
     }, 2600)
   }, [])
+
+  // 「停止生成」也是本轮自动试运行的取消信号：停下来就不再自动跑。
+  const handleStop = useCallback(() => {
+    setAutoRunStopped(true)
+    stop()
+  }, [stop])
 
   const applyWrites = useCallback(
     (writes: readonly FieldWrite[]) => {
@@ -420,7 +429,7 @@ export function StudioWorkspace() {
       if (event.key === 'Escape') {
         if (phase === 'streaming') {
           event.preventDefault()
-          stop()
+          handleStop()
         }
         return
       }
@@ -437,12 +446,15 @@ export function StudioWorkspace() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [phase, stop, undo, redo])
+  }, [phase, handleStop, undo, redo])
 
   const handleSubmit = useCallback(
     (input: string) => {
       setSubmitted(input)
       setCopyState('idle')
+      // 新的一次完整生成：换轮次并解除上一轮的停止标记。
+      setGenerationRound((round) => round + 1)
+      setAutoRunStopped(false)
       void generate(input)
     },
     [generate],
@@ -464,6 +476,9 @@ export function StudioWorkspace() {
     libraryRequestRef.current += 1
     setLibraryPromptId(null)
     setLibrarySave({ status: 'idle', message: '' })
+    // 重新开始后换一个轮次，试运行区据此重置自动触发标记。
+    setGenerationRound((round) => round + 1)
+    setAutoRunStopped(false)
   }, [reset])
 
   const flashCopy = useCallback((next: CopyState) => {
@@ -923,6 +938,9 @@ export function StudioWorkspace() {
               variables={viewSchema.input.variables}
               sessionKey={sessionKey}
               disabled={isBusy || opBusy}
+              generationPhase={phase}
+              generationRound={generationRound}
+              autoRunStopped={autoRunStopped}
             />
           ) : null}
 
@@ -1140,7 +1158,7 @@ export function StudioWorkspace() {
               {phase === 'streaming' ? (
                 <button
                   type="button"
-                  onClick={stop}
+                  onClick={handleStop}
                   className="rounded-control border border-line px-3 py-1.5 text-label font-medium text-danger transition-colors hover:bg-bg-sunken"
                 >
                   停止生成

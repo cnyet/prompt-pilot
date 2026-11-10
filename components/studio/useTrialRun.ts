@@ -11,6 +11,7 @@ import {
 import type { PromptVariable } from '@/lib/engine/schema'
 import { apiErrorSchema, parseSseStream, SseParseError } from '@/lib/engine/sse'
 import {
+  defaultVariableValue,
   deriveVariableFields,
   initialVariableValues,
   issuesToMap,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/engine/variables'
 import type { TokenUsage } from '@/lib/llm/types'
 import type {
+  GenerationPhase,
   TrialRunAvailability,
   TrialRunAction,
   TrialRunEstimate,
@@ -300,6 +302,110 @@ function variableRequestBody(
 function newRequestId(): string {
   const uuid = globalThis.crypto?.randomUUID?.()
   return `run_${uuid ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`
+}
+
+/**
+ * 判断变量是否具备自动运行条件：没有必填变量，或每个必填变量都能从
+ * 默认值得到非空取值。与表单共用同一份默认值归一逻辑。
+ */
+export function variablesHaveDefaults(
+  variables: readonly PromptVariable[],
+): boolean {
+  const fields = deriveVariableFields(variables)
+  // 布尔开关总有值；枚举默认值不在候选项内时按空值处理。
+  return fields.every(
+    (field) =>
+      !field.required || defaultVariableValue(field).trim().length > 0,
+  )
+}
+
+export type AutoTrialRunOutcome =
+  | 'idle'
+  | 'duplicate'
+  | 'waiting'
+  | 'skipped'
+  | 'unavailable'
+  | 'run'
+
+export interface AutoTrialRunInput {
+  /** 生成阶段。只有 done 才允许自动试运行。 */
+  phase: GenerationPhase
+  prompt: string
+  /** 当前生成轮次。每次完整生成或重新开始都会换一个值。 */
+  roundId: number
+  /** 已经自动处理过的轮次；null 表示本会话还没有处理过。 */
+  consumedRoundId: number | null
+  /** 本轮用户点过「停止生成」。 */
+  stopped: boolean
+  /** 生成或字段重算进行中，先等待，不要抢占主流程。 */
+  disabled: boolean
+  variables: readonly PromptVariable[]
+  availability: TrialRunAvailability
+}
+
+export interface AutoTrialRunPlan {
+  outcome: AutoTrialRunOutcome
+  /** true 表示本轮已判定完毕，调用方应把 roundId 写进 ref。 */
+  consume: boolean
+  /** 试运行区展示的说明；null 表示没有新说明，不覆盖已有文案。 */
+  notice: string | null
+}
+
+/**
+ * 生成结束后的自动试运行判定。
+ *
+ * 判定保持纯函数，组件只负责把 roundId 写进 ref 并调用与手动完全相同的
+ * run()。这样「触发条件」与「去重」都能单测，不依赖渲染环境。
+ */
+export function planAutoTrialRun(input: AutoTrialRunInput): AutoTrialRunPlan {
+  if (input.phase !== 'done') {
+    return { outcome: 'idle', consume: false, notice: null }
+  }
+  if (input.consumedRoundId === input.roundId) {
+    return { outcome: 'duplicate', consume: false, notice: null }
+  }
+  if (input.stopped) {
+    return {
+      outcome: 'skipped',
+      consume: true,
+      notice: '已停止生成本轮，不再自动试运行。',
+    }
+  }
+  if (!variablesHaveDefaults(input.variables)) {
+    return {
+      outcome: 'skipped',
+      consume: true,
+      notice: '必填变量没有默认值，未自动试运行，填写后可以手动试运行。',
+    }
+  }
+  if (input.prompt.trim().length === 0) {
+    return {
+      outcome: 'skipped',
+      consume: true,
+      notice: '提示词为空，未自动试运行。',
+    }
+  }
+  if (input.availability.status === 'loading') {
+    // 可用性还没探测完，先不记轮次，等结果回来再决定运行或说明原因。
+    return { outcome: 'waiting', consume: false, notice: null }
+  }
+  if (!input.availability.available) {
+    const reason = input.availability.reason || '没有可用模型。'
+    return {
+      outcome: 'unavailable',
+      consume: true,
+      notice: `自动试运行没有启动。${reason}`,
+    }
+  }
+  if (input.disabled) {
+    // 字段重算可能刚好在生成结束后开始，等它结束再跑，避免打断主流程。
+    return { outcome: 'waiting', consume: false, notice: null }
+  }
+  return {
+    outcome: 'run',
+    consume: true,
+    notice: '生成完成，已自动试运行。',
+  }
 }
 
 export interface UseTrialRunOptions {

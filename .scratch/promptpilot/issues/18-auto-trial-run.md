@@ -21,3 +21,11 @@
 这不是实现失误，是工单 11 的验收标准里没有这一条（当时只写了「运行后流式打印」）。产品主路径的设计是「真实输出优先展示，结构退到后面」，没有自动运行这一步，这个设计就落不了地。
 
 评估过放进工单 14（收尾），但 14 已经背着空态、错误态、键盘、响应式、E2E 五件事，再塞一个功能项会让收尾变成大杂烩。单独开票更清楚。
+
+### 2026-11-10 实现进度
+
+- 新增 `planAutoTrialRun` 与 `variablesHaveDefaults` 纯函数，触发条件、等待与去重都可单测。
+- StudioWorkspace 记录 `generationRound` 与 `autoRunStopped`，停止生成或重新开始后不再自动触发。
+- RunDrawer 用 `useRef` 记已消费轮次，自动路径复用与手动按钮同一个 `trial.run()`，不可用只在试运行区给原因。
+- 新增 `tests/unit/auto-trial-run.test.ts`（11 条），`tests/unit/trial-run.test.ts` 追加默认值条件（3 条）。
+- 验证：目标测试 28 条通过，全量 466 条通过，`tsc --noEmit` 无输出。
