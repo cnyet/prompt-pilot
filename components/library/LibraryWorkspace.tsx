@@ -362,14 +362,14 @@ export function LibraryWorkspace() {
             首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             aria-label="搜索提示词"
             placeholder="搜索标题、描述、标签、正文"
-            className="h-8 w-64 rounded-control border border-line bg-surface px-2 text-label text-ink placeholder:text-ink-faint"
+            className="h-8 min-w-0 flex-1 rounded-control border border-line bg-surface px-2 text-label text-ink placeholder:text-ink-faint sm:w-64 sm:flex-none"
           />
           <Link
             href="/studio"
@@ -447,8 +447,8 @@ export function LibraryWorkspace() {
               />
             </div>
           ) : (
-            <div className="overflow-hidden rounded-panel border border-line bg-surface">
-              <table className="w-full table-fixed border-collapse text-left">
+            <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+              <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
                 <thead className="bg-bg-sunken">
                   <tr>
                     <th className="px-4 py-2 text-caption font-medium text-ink-muted">

@@ -1,7 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
 import type { CommandType } from '@/lib/engine/doc'
@@ -31,11 +38,20 @@ import { RequirementInput } from './RequirementInput'
 import { RunDrawer } from './RunDrawer'
 import { ThinkingPanel } from './ThinkingPanel'
 import { useGeneration } from './useGeneration'
+import { modelStatusLabel, useModelStatus } from './modelStatus'
 import { formatUsageCost, formatUsageTokens } from './types'
 
 type CopyState = 'idle' | 'copied' | 'failed'
 
 type StudioView = 'structured' | 'rendered' | 'json'
+
+type StudioPane = 'requirement' | 'editor' | 'diagnostics'
+
+const STUDIO_PANES: ReadonlyArray<{ id: StudioPane; label: string }> = [
+  { id: 'requirement', label: '需求' },
+  { id: 'editor', label: '编辑' },
+  { id: 'diagnostics', label: '诊断' },
+]
 
 /** 点击诊断项后的字段定位目标，只保存定位所需的快照。 */
 interface DiagnosticsFocus {
@@ -159,6 +175,8 @@ export function StudioWorkspace() {
     reset,
   } = useGeneration()
 
+  const modelStatus = useModelStatus()
+  const [mobilePane, setMobilePane] = useState<StudioPane>('editor')
   const [submitted, setSubmitted] = useState('')
   const [sessionKey, setSessionKey] = useState(createTrialSessionKey)
   // 自动试运行按轮次去重：每次完整生成或重新开始都换一个轮次号。
@@ -175,6 +193,8 @@ export function StudioWorkspace() {
   const autoBaselineRef = useRef(false)
   const librarySavingRef = useRef(false)
   const libraryRequestRef = useRef(0)
+  const previousPhaseRef = useRef(phase)
+  const pendingEditorFocusRef = useRef(false)
 
   const {
     issues: diagnosticsIssues,
@@ -263,6 +283,9 @@ export function StudioWorkspace() {
       }
       const fieldText = fields[field].text
       setView('structured')
+      // 窄屏下诊断与编辑是互斥面板，点问题后必须把编辑面板切回来，
+      // 否则定位逻辑会滚动到一个被 CSS 隐藏的 textarea。
+      setMobilePane('editor')
       setDiagnosticsFocus({
         key: issueIgnoreKey(issue),
         field,
@@ -387,6 +410,38 @@ export function StudioWorkspace() {
     )
   }, [diagnosticsFocus, view])
 
+  // 空态输入框在生成开始后会卸载，焦点会掉回 body。把焦点交给第一个
+  // 字段编辑器，键盘用户可以立即继续编辑，不必从导航重新 Tab 一遍。
+  useEffect(() => {
+    if (phase === 'idle') {
+      previousPhaseRef.current = phase
+      pendingEditorFocusRef.current = false
+      return
+    }
+    if (previousPhaseRef.current === 'idle') {
+      pendingEditorFocusRef.current = true
+    }
+    previousPhaseRef.current = phase
+    if (!pendingEditorFocusRef.current) {
+      return
+    }
+    const firstField = FIELD_KEYS[0]
+    if (firstField === undefined) {
+      return
+    }
+    const wrapper = fieldWrapperRefs.current[firstField]
+    const editor = wrapper?.querySelector('textarea')
+    if (!(editor instanceof HTMLTextAreaElement)) {
+      return
+    }
+    pendingEditorFocusRef.current = false
+    const active = document.activeElement
+    if (active !== null && active !== document.body) {
+      return
+    }
+    editor.focus()
+  }, [phase, fields])
+
   useEffect(() => {
     return () => {
       if (copyTimerRef.current) {
@@ -452,6 +507,7 @@ export function StudioWorkspace() {
     (input: string) => {
       setSubmitted(input)
       setCopyState('idle')
+      setMobilePane('editor')
       // 新的一次完整生成：换轮次并解除上一轮的停止标记。
       setGenerationRound((round) => round + 1)
       setAutoRunStopped(false)
@@ -471,6 +527,8 @@ export function StudioWorkspace() {
     setCopyState('idle')
     setDiagnosticsFocus(null)
     setFixNotice(null)
+    setMobilePane('editor')
+    pendingEditorFocusRef.current = false
     autoBaselineRef.current = false
     librarySavingRef.current = false
     libraryRequestRef.current += 1
@@ -651,6 +709,22 @@ export function StudioWorkspace() {
     }
   }, [libraryPromptId, fields, dirtyFields, buildLibrarySchema, createBaselineV0])
 
+  // ⌘S / Ctrl+S 保存版本：设计稿的键盘表里承诺过，按钮与保存逻辑复用同一条。
+  useEffect(() => {
+    if (phase === 'idle') {
+      return
+    }
+    const handleSaveKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') {
+        return
+      }
+      event.preventDefault()
+      void saveNewVersion()
+    }
+    window.addEventListener('keydown', handleSaveKey)
+    return () => window.removeEventListener('keydown', handleSaveKey)
+  }, [phase, saveNewVersion])
+
   // 首次生成完成后自动写入 v0；每次「重新开始」会重置这个标记。
   useEffect(() => {
     if (phase !== 'done' || autoBaselineRef.current) {
@@ -758,25 +832,111 @@ export function StudioWorkspace() {
     diagnosticsFieldTexts[field] = fields[field].text
   }
 
+  const selectPane = (next: StudioPane) => {
+    setMobilePane(next)
+    if (next === 'diagnostics') {
+      setDiagnosticsOpen(true)
+    }
+  }
+
+  const collapseDiagnostics = () => {
+    setDiagnosticsOpen(false)
+    setMobilePane((previous) =>
+      previous === 'diagnostics' ? 'editor' : previous,
+    )
+  }
+
+  const handlePaneKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return
+    }
+    event.preventDefault()
+    const index = STUDIO_PANES.findIndex((pane) => pane.id === mobilePane)
+    const delta = event.key === 'ArrowRight' ? 1 : -1
+    const next =
+      STUDIO_PANES[(index + delta + STUDIO_PANES.length) % STUDIO_PANES.length]
+    if (next === undefined) {
+      return
+    }
+    selectPane(next.id)
+    requestAnimationFrame(() => {
+      document.getElementById(`studio-tab-${next.id}`)?.focus()
+    })
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 lg:px-6">
+      <div
+        role="tablist"
+        aria-label="工作台分区"
+        onKeyDown={handlePaneKeyDown}
+        className="sticky top-0 z-20 -mx-4 mb-4 flex gap-1 border-b border-line bg-bg px-4 py-2 min-[1440px]:hidden"
+      >
+        {STUDIO_PANES.map((pane) => {
+          const active = mobilePane === pane.id
+          return (
+            <button
+              key={pane.id}
+              id={`studio-tab-${pane.id}`}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={`studio-pane-${pane.id}`}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectPane(pane.id)}
+              className={cn(
+                'rounded-control border px-3 py-1.5 text-label transition-colors',
+                active
+                  ? 'border-line-strong bg-surface text-ink'
+                  : 'border-transparent text-ink-muted hover:border-line hover:text-ink',
+              )}
+            >
+              {pane.label}
+              {pane.id === 'diagnostics' ? (
+                <span className="ml-1.5 text-caption text-ink-faint tnum">
+                  {diagnosticsSummary.total}
+                </span>
+              ) : null}
+            </button>
+          )
+        })}
+      </div>
+
       <div
         className={cn(
           'grid gap-6',
           diagnosticsOpen
-            ? 'lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[240px_minmax(0,1fr)_320px]'
-            : 'xl:grid-cols-[240px_minmax(0,1fr)]',
+            ? 'min-[1440px]:grid-cols-[240px_minmax(0,1fr)_320px]'
+            : 'min-[1440px]:grid-cols-[240px_minmax(0,1fr)]',
         )}
       >
-        <aside className="hidden xl:block">
+        <aside
+          id="studio-pane-requirement"
+          role="tabpanel"
+          aria-labelledby="studio-tab-requirement"
+          className={cn(
+            'min-w-0',
+            mobilePane === 'requirement'
+              ? 'max-[1439px]:block'
+              : 'max-[1439px]:hidden',
+            'hidden min-[1440px]:block',
+          )}
+        >
           <div className="sticky top-6 rounded-panel border border-line bg-surface p-4">
             <p className="text-label font-medium text-ink">原始需求</p>
             <p className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-body text-ink-muted">
               {submitted}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-ink-muted">
-                离线模板
+              <span
+                className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-ink-muted"
+                title={
+                  modelStatus.status === 'available'
+                    ? modelStatus.modelLabel ?? '模型可用'
+                    : modelStatus.reason
+                }
+              >
+                {modelStatusLabel(modelStatus)}
               </span>
               <span className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-ink-muted tnum">
                 {filledCount} / {FIELD_KEYS.length} 字段
@@ -801,7 +961,16 @@ export function StudioWorkspace() {
           </div>
         </aside>
 
-        <section className="min-w-0" aria-busy={isBusy}>
+        <section
+          id="studio-pane-editor"
+          role="tabpanel"
+          aria-labelledby="studio-tab-editor"
+          className={cn(
+            'min-w-0',
+            mobilePane === 'editor' ? '' : 'max-[1439px]:hidden',
+          )}
+          aria-busy={isBusy}
+        >
           <header className="mb-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -838,7 +1007,7 @@ export function StudioWorkspace() {
                   </p>
                 ) : null}
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void saveNewVersion()}
@@ -848,6 +1017,8 @@ export function StudioWorkspace() {
                     opBusy ||
                     librarySave.status === 'saving'
                   }
+                  title="保存版本（⌘S）"
+                  aria-keyshortcuts="Meta+S Control+S"
                   className="rounded-control bg-accent px-3 py-1.5 text-label text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
                 >
                   {librarySave.status === 'saving'
@@ -859,7 +1030,7 @@ export function StudioWorkspace() {
                 {!diagnosticsOpen ? (
                   <button
                     type="button"
-                    onClick={() => setDiagnosticsOpen(true)}
+                    onClick={() => selectPane('diagnostics')}
                     title="展开诊断面板"
                     className={cn(
                       'rounded-control border px-2.5 py-1.5 text-label transition-colors',
@@ -903,10 +1074,16 @@ export function StudioWorkspace() {
                 >
                   {copyLabel}
                 </button>
+                <Link
+                  href="/library"
+                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                >
+                  提示词库
+                </Link>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink lg:hidden"
+                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink min-[1440px]:hidden"
                 >
                   重新开始
                 </button>
@@ -1178,7 +1355,16 @@ export function StudioWorkspace() {
         </section>
 
         {diagnosticsOpen ? (
-          <aside className="min-w-0" aria-label="诊断">
+          <aside
+            id="studio-pane-diagnostics"
+            role="tabpanel"
+            aria-labelledby="studio-tab-diagnostics"
+            className={cn(
+              'min-w-0',
+              mobilePane === 'diagnostics' ? '' : 'max-[1439px]:hidden',
+            )}
+            aria-label="诊断"
+          >
             <div className="sticky top-6">
               <DiagnosticsPanel
                 groups={diagnosticsGroups}
@@ -1196,7 +1382,7 @@ export function StudioWorkspace() {
                 onFixAll={handleFixAll}
                 onIgnore={handleIgnoreIssue}
                 onRestoreIgnored={restoreIgnored}
-                onCollapse={() => setDiagnosticsOpen(false)}
+                onCollapse={collapseDiagnostics}
               />
             </div>
           </aside>

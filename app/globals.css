@@ -149,3 +149,14 @@
 @utility tnum {
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * 窄屏下固定 240px 的桌面侧边导航会把内容挤到无法阅读。
+ * 这里只隐藏侧栏，入口由 workspace 布局顶部的 MobileNav 接管；
+ * 断点与 MobileNav 的 md:hidden 保持一致。
+ */
+@media (max-width: 767px) {
+  #workspace-shell > div > aside {
+    display: none;
+  }
+}

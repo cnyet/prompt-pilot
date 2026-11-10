@@ -125,6 +125,30 @@ export function RunDrawer({
     setAutoNotice(null)
   }, [sessionKey, generationRound])
 
+  // 键盘路径：⌘Enter 运行，Esc 取消本次运行。与按钮走同一个 run / cancel。
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        if (!trial.canRun) {
+          return
+        }
+        event.preventDefault()
+        setSelectedRunId(null)
+        void trial.run()
+        return
+      }
+      if (event.key === 'Escape' && trial.isRunning) {
+        event.preventDefault()
+        trial.cancel()
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [trial.canRun, trial.cancel, trial.isRunning, trial.run])
+
   // 自动试运行：与手动按钮走同一个 trial.run()，条件判定全部在纯函数里。
   useEffect(() => {
     const plan = planAutoTrialRun({
@@ -316,13 +340,17 @@ export function RunDrawer({
                 void trial.run()
               }}
               disabled={!trial.canRun}
-              title={runDisabledReason || undefined}
+              title={runDisabledReason || '试运行（⌘Enter）'}
+              aria-keyshortcuts="Meta+Enter Control+Enter"
               className="rounded-control bg-accent px-3 py-1.5 text-label font-medium text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
             >
               试运行
             </button>
           )}
         </div>
+        <span className="hidden text-caption text-ink-faint sm:inline">
+          ⌘Enter 试运行
+        </span>
       </div>
 
       {autoNotice !== null && autoNotice.outcome !== 'unavailable' ? (

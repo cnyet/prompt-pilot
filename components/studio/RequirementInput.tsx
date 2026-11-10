@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useModelStatus } from './modelStatus'
 
 const TEMPLATES: readonly { label: string; sample: string }[] = [
   { label: '通用问答', sample: '解释一下什么是向量数据库，面向非技术读者。' },
@@ -26,6 +27,7 @@ export function RequirementInput({
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const model = useModelStatus()
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -64,7 +66,7 @@ export function RequirementInput({
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-center px-6 py-16">
-      <div className="w-full max-w-[640px] self-center rounded-panel border border-line bg-surface p-4">
+      <div className="w-full max-w-[640px] self-center rounded-panel border border-line bg-surface p-4 transition-colors focus-within:border-accent">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>
@@ -76,7 +78,8 @@ export function RequirementInput({
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="用一句话说清你要做什么，也可以直接粘贴一份已有的提示词。"
-          className="h-24 w-full resize-none bg-transparent text-body-lg text-ink placeholder:text-ink-faint focus:outline-none"
+          aria-describedby="requirement-hint"
+          className="h-24 w-full resize-none rounded-control bg-transparent text-body-lg text-ink placeholder:text-ink-faint"
         />
         <div className="mt-2 flex items-center justify-between gap-4">
           <p id="requirement-hint" className="text-caption text-ink-faint">
@@ -86,7 +89,7 @@ export function RequirementInput({
           </p>
           <div className="flex items-center gap-3">
             <span className="hidden text-caption text-ink-faint sm:inline">
-              Enter 生成，Shift + Enter 换行
+              Enter 或 ⌘Enter 生成，Shift + Enter 换行
             </span>
             <button
               type="button"
@@ -132,7 +135,15 @@ export function RequirementInput({
       </div>
 
       <p className="mt-8 text-center text-caption text-ink-faint">
-        当前为离线模板模式，接入模型后生成质量会提升。
+        {model.status === 'loading'
+          ? '正在确认模型可用性。'
+          : model.status === 'available'
+            ? model.providerId === 'mock'
+              ? '离线模板模式：生成使用本地模板，试运行使用本地 Mock 模型。配置 ARK_API_KEY 后可用真实模型。'
+              : `当前模型：${model.modelLabel ?? '可用模型'}。生成仍可使用离线模板兜底。`
+            : model.status === 'error'
+              ? '无法确认模型状态。生成、编辑与导出仍可用，试运行可能不可用。'
+              : '当前为离线模板模式。生成、编辑与导出可用，试运行需要先配置 ARK_API_KEY。'}
       </p>
     </div>
   )

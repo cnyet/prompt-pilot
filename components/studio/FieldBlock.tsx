@@ -342,7 +342,7 @@ export function FieldBlock({
               onChange={(event) => onChange(event.target.value)}
               aria-label={`${FIELD_LABELS[field]}内容`}
               className={cn(
-                'w-full resize-y bg-transparent px-4 py-3 text-body-lg focus:outline-none',
+                'w-full resize-y bg-transparent px-4 py-3 text-body-lg focus-visible:-outline-offset-2',
                 running ? 'text-ink-muted' : 'text-ink',
               )}
             />

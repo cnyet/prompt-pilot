@@ -60,6 +60,7 @@ export function ExportMenu({
   const [format, setFormat] = useState<ExportFormat>('markdown')
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const panelId = useId()
@@ -70,6 +71,32 @@ export function ExportMenu({
         clearTimeout(timerRef.current)
       }
     }
+  }, [])
+
+  // 打开后把焦点移进浮层，Tab 可以继续走到格式、开关与复制按钮；
+  // 这里不做焦点陷阱，Tab 离开浮层就关闭，用户不会被困住。
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }, [open])
+
+  // ⌘E / Ctrl+E 直接打开导出浮层，键盘用户不必从字段区一路 Tab 回来。
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 'e'
+      ) {
+        event.preventDefault()
+        setOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
   }, [])
 
   useEffect(() => {
@@ -169,6 +196,8 @@ export function ExportMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
+        aria-keyshortcuts="Meta+E Control+E"
+        title={open ? '关闭导出' : '导出（⌘E）'}
         className={cn(
           'rounded-control border px-3 py-1.5 text-label transition-colors',
           open
@@ -182,9 +211,17 @@ export function ExportMenu({
       {open ? (
         <div
           id={panelId}
+          ref={panelRef}
           role="dialog"
           aria-label="导出提示词"
-          className="absolute right-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface p-3"
+          onBlur={(event) => {
+            const next = event.relatedTarget
+            if (next instanceof Node && rootRef.current?.contains(next)) {
+              return
+            }
+            setOpen(false)
+          }}
+          className="absolute left-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface p-3"
         >
           <div
             role="group"

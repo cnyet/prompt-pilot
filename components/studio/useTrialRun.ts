@@ -19,6 +19,10 @@ import {
   type VariableField,
 } from '@/lib/engine/variables'
 import type { TokenUsage } from '@/lib/llm/types'
+import {
+  describeModelError,
+  describeNetworkFailure,
+} from './errorCopy'
 import type {
   GenerationPhase,
   TrialRunAvailability,
@@ -640,10 +644,14 @@ export function useTrialRun(options: UseTrialRunOptions): TrialRunApi {
       if (!response.ok) {
         const payload: unknown = await response.json().catch(() => null)
         const parsedError = apiErrorSchema.safeParse(payload)
+        const code = parsedError.success
+          ? parsedError.data.code
+          : `HTTP_${response.status}`
+        const fallbackMessage = parsedError.success
+          ? parsedError.data.message
+          : `试运行服务返回了 ${response.status} 状态。`
         throw new TrialRunFailure(
-          parsedError.success
-            ? parsedError.data.message
-            : `试运行服务返回了 ${response.status} 状态。`,
+          describeModelError(code, fallbackMessage, response.status).line,
         )
       }
 
@@ -683,14 +691,19 @@ export function useTrialRun(options: UseTrialRunOptions): TrialRunApi {
             break
           }
 
-          case 'error':
+          case 'error': {
             sawError = true
+            const copy = describeModelError(
+              message.data.code,
+              message.data.message,
+            )
             dispatch({
               type: 'fail',
-              message: message.data.message,
+              message: copy.line,
               durationMs: Date.now() - startedAtRef.current,
             })
             break
+          }
 
           case 'done': {
             sawDone = true
@@ -712,7 +725,8 @@ export function useTrialRun(options: UseTrialRunOptions): TrialRunApi {
       ) {
         dispatch({
           type: 'fail',
-          message: '试运行连接提前结束，已保留收到的内容。',
+          message:
+            '试运行连接提前结束，已保留收到的内容。检查网络后可以再次试运行。',
           durationMs: Date.now() - startedAtRef.current,
         })
       }
@@ -738,7 +752,7 @@ export function useTrialRun(options: UseTrialRunOptions): TrialRunApi {
       }
       dispatch({
         type: 'fail',
-        message: '无法连接试运行服务，请检查网络后重试。',
+        message: describeNetworkFailure().line,
         durationMs: Date.now() - startedAtRef.current,
       })
     } finally {

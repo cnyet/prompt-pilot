@@ -50,6 +50,10 @@ import {
   type GenerationState,
 } from './types'
 import type { TokenUsage } from '@/lib/llm/types'
+import {
+  describeModelError,
+  describeNetworkFailure,
+} from './errorCopy'
 
 const STALL_TIMEOUT_MS = 15_000
 
@@ -620,20 +624,18 @@ export function useGeneration(): GenerationApi {
         if (!response.ok) {
           const payload: unknown = await response.json().catch(() => null)
           const parsedError = apiErrorSchema.safeParse(payload)
-          const message = parsedError.success
+          const code = parsedError.success
+            ? parsedError.data.code
+            : `HTTP_${response.status}`
+          const fallbackMessage = parsedError.success
             ? parsedError.data.message
             : `生成服务返回了 ${response.status} 状态。`
-          const retryable = parsedError.success
-            ? (parsedError.data.retryable ?? response.status >= 500)
-            : response.status >= 500
+          const copy = describeModelError(code, fallbackMessage, response.status)
           throw new GenerationFailure({
-            code: parsedError.success ? parsedError.data.code : 'HTTP_ERROR',
-            message,
-            hint:
-              response.status >= 500
-                ? '服务暂时不可用，请稍后重试。已生成的内容不会丢失。'
-                : '检查输入或服务状态后重试。已生成的内容不会丢失。',
-            retryable,
+            code,
+            message: copy.title,
+            hint: copy.hint,
+            retryable: copy.retryable,
           })
         }
 
@@ -706,13 +708,15 @@ export function useGeneration(): GenerationApi {
 
             case 'error': {
               sawError = true
+              const copy = describeModelError(
+                message.data.code,
+                message.data.message,
+              )
               const error: GenerationError = {
                 code: message.data.code,
-                message: message.data.message,
-                hint: message.data.retryable
-                  ? '可以重试未生成的字段。已生成的内容会保留。'
-                  : '请检查输入或配置后重新生成。',
-                retryable: message.data.retryable,
+                message: copy.title,
+                hint: copy.hint,
+                retryable: copy.retryable,
               }
               dispatch({
                 type: 'fail',
@@ -773,12 +777,13 @@ export function useGeneration(): GenerationApi {
           return
         }
         if (wentOffline) {
+          const copy = describeNetworkFailure()
           dispatch({
             type: 'fail',
             error: {
               code: 'OFFLINE',
-              message: '网络连接已断开。',
-              hint: '已生成的内容会保留。恢复网络后，可以重试未生成的字段。',
+              message: copy.title,
+              hint: copy.hint,
               retryable: true,
             },
           })
@@ -803,12 +808,13 @@ export function useGeneration(): GenerationApi {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return
         }
+        const copy = describeNetworkFailure()
         dispatch({
           type: 'fail',
           error: {
             code: 'NETWORK_ERROR',
-            message: '无法连接生成服务。',
-            hint: '检查网络连接与服务是否启动后重试。已生成的内容会保留。',
+            message: copy.title,
+            hint: copy.hint,
             retryable: true,
           },
         })
@@ -882,15 +888,18 @@ export function useGeneration(): GenerationApi {
         if (!response.ok) {
           const payload: unknown = await response.json().catch(() => null)
           const parsedError = apiErrorSchema.safeParse(payload)
+          const code = parsedError.success
+            ? parsedError.data.code
+            : `HTTP_${response.status}`
+          const fallbackMessage = parsedError.success
+            ? parsedError.data.message
+            : `重算服务返回了 ${response.status} 状态。`
+          const copy = describeModelError(code, fallbackMessage, response.status)
           throw new GenerationFailure({
-            code: parsedError.success ? parsedError.data.code : 'HTTP_ERROR',
-            message: parsedError.success
-              ? parsedError.data.message
-              : `重算服务返回了 ${response.status} 状态。`,
-            hint: '该字段保持原内容，可以稍后重试。',
-            retryable: parsedError.success
-              ? (parsedError.data.retryable ?? response.status >= 500)
-              : response.status >= 500,
+            code,
+            message: copy.title,
+            hint: copy.hint,
+            retryable: copy.retryable,
           })
         }
 
@@ -910,13 +919,18 @@ export function useGeneration(): GenerationApi {
               accumulated += message.data.text
               dispatch({ type: 'op-progress', field, text: accumulated })
               break
-            case 'error':
+            case 'error': {
+              const copy = describeModelError(
+                message.data.code,
+                message.data.message,
+              )
               throw new GenerationFailure({
                 code: message.data.code,
-                message: message.data.message,
-                hint: '该字段保持原内容，可以稍后重试。',
-                retryable: message.data.retryable,
+                message: copy.title,
+                hint: copy.hint,
+                retryable: copy.retryable,
               })
+            }
             case 'done':
               sawDone = true
               break
@@ -966,10 +980,11 @@ export function useGeneration(): GenerationApi {
           })
           return
         }
+        const copy = describeNetworkFailure()
         dispatch({
           type: 'op-fail',
           field,
-          message: '无法连接重算服务，已保留原内容。',
+          message: copy.line,
         })
       } finally {
         clearTimeout(timer)

@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+
+import { ModelStatusBadge } from '@/components/studio/modelStatus'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -129,12 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <span
-              className="rounded-chip border border-line px-2 py-0.5 text-caption text-ink-muted"
-              title="未配置 ARK_API_KEY，当前处于离线模板模式：功能可走通，生成质量下降"
-            >
-              L1 离线模板
-            </span>
+            <ModelStatusBadge />
             <button
               type="button"
               onClick={toggleTheme}
