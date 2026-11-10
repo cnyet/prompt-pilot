@@ -218,6 +218,15 @@ UI 禁用只是建议。`assertVersionWritable(0)` 在服务端返回 409。
 | 集成 | 生成路由、运行路由、提示词路由（含并发版本号） |
 | 端到端 | `scripts/e2e-http.mjs`，生成 → 导出 → 试运行 → v0 → 库列表 |
 
+### 视觉回归
+
+界面在 B1 到 B4 四批里重做过，验收基准是 `docs/BEAUTY-PLAN.md` 第九节：
+
+- 对比度用 OKLCH 转 sRGB 后按 WCAG 公式算，浅色最低 4.53:1、深色最低 5.13:1
+- 单屏 `border` 容器不超过 3 个，实测工作台 2 个
+- 每屏只有一个 primary 按钮
+- 改动样式时先看 `components/ui/`，不要再手写一套按钮与空态
+
 ### 验收原则
 
 - 一律以 **clean build** 为准：`rm -rf .next && pnpm build`
