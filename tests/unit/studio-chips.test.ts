@@ -447,6 +447,65 @@ describe('撤销与重做后的「已改」标记', () => {
   })
 })
 
+describe('程序修复写回（工单 19）', () => {
+  it('repair-field 不把字段标成手改，连续两次修复都能写回同一字段', () => {
+    const state = generatedState()
+    const objectiveBefore = state.doc.fields.objective?.value ?? ''
+    const firstText = `${objectiveBefore}（按诊断修复）`
+
+    let nextState = generationReducer(state, {
+      type: 'repair-field',
+      field: 'objective',
+      text: firstText,
+    })
+    expect(nextState.doc.fields.objective?.value).toBe(firstText)
+    expect(nextState.doc.fields.objective?.dirty).toBe(false)
+    expect(nextState.doc.fields.objective?.origin).toBe('patch')
+    expect(nextState.doc.fields.objective?.status).toBe('done')
+
+    const secondText = `${firstText}，再修一次`
+    nextState = generationReducer(nextState, {
+      type: 'repair-field',
+      field: 'objective',
+      text: secondText,
+    })
+    expect(nextState.doc.fields.objective?.value).toBe(secondText)
+    expect(nextState.doc.fields.objective?.dirty).toBe(false)
+    expect(
+      nextState.doc.history.slice(-2).map((command) => command.type),
+    ).toEqual(['patch', 'patch'])
+  })
+
+  it('撤销修复后 dirty 与来源回到修复前，重做再恢复修复结果', () => {
+    const state = generatedState()
+
+    let nextState = generationReducer(state, {
+      type: 'edit',
+      field: 'objective',
+      text: '用户手写的目标',
+    })
+    expect(nextState.doc.fields.objective?.dirty).toBe(true)
+
+    nextState = generationReducer(nextState, {
+      type: 'repair-field',
+      field: 'objective',
+      text: '修复后的目标',
+    })
+    expect(nextState.doc.fields.objective?.dirty).toBe(false)
+    expect(nextState.doc.fields.objective?.origin).toBe('patch')
+
+    nextState = generationReducer(nextState, { type: 'undo' })
+    expect(nextState.doc.fields.objective?.value).toBe('用户手写的目标')
+    expect(nextState.doc.fields.objective?.dirty).toBe(true)
+    expect(nextState.doc.fields.objective?.origin).toBe('user')
+
+    nextState = generationReducer(nextState, { type: 'redo' })
+    expect(nextState.doc.fields.objective?.value).toBe('修复后的目标')
+    expect(nextState.doc.fields.objective?.dirty).toBe(false)
+    expect(nextState.doc.fields.objective?.origin).toBe('patch')
+  })
+})
+
 describe('导出时剔除假设的开关与数据', () => {
   it('开关默认关闭，导出数据含五条注释；打开后导出数据为空', () => {
     const state = generatedState()

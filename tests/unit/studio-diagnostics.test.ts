@@ -11,8 +11,18 @@ import {
 } from '@/lib/engine/schema'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { renderFieldText } from '@/lib/engine/render'
+import {
+  applyStreamDelta,
+  applyRepair,
+  applyUserEdit,
+  commitField,
+  createPromptDoc,
+  startField,
+  type PromptDoc,
+} from '@/lib/engine/doc'
 import { createLintFixture } from '@/tests/fixtures/lint/schemas'
 import {
+  applyFieldWrites,
   changedFieldWrites,
   issueIgnoreKey,
   planAllFixes,
@@ -83,6 +93,40 @@ function fuzzyAndBoundaryFixture(): PromptSchema {
   schema.objective.goal = '请尽量简洁地给出结论'
   schema.constraints.boundaries.scopeOut = []
   return schema
+}
+
+/** 用修复写入初始化文档，模拟一次生成后文本已经落在 doc 里。 */
+function docFromSchema(schema: PromptSchema): PromptDoc {
+  const texts = fieldTextsOf(schema)
+  let doc = createPromptDoc(FIELD_KEYS)
+  for (const field of FIELD_KEYS) {
+    doc = applyRepair(doc, field, texts[field] ?? '')
+  }
+  return doc
+}
+
+/** 界面里 dirtyFields 的来源：只有真正手改的字段才进这个集合。 */
+function dirtyFieldsOf(doc: PromptDoc): ReadonlySet<FieldKey> {
+  const dirty = new Set<FieldKey>()
+  for (const field of FIELD_KEYS) {
+    if (doc.fields[field]?.dirty === true) {
+      dirty.add(field)
+    }
+  }
+  return dirty
+}
+
+function schemaOfDoc(doc: PromptDoc, base: PromptSchema): PromptSchema {
+  const texts: Partial<Record<FieldKey, string>> = {}
+  for (const field of FIELD_KEYS) {
+    texts[field] = doc.fields[field]?.value ?? ''
+  }
+  return buildSchemaFromFields(texts, {
+    title: base.meta.title,
+    taskType: base.meta.taskType,
+    language: base.meta.language,
+    templateId: base.meta.templateId,
+  })
 }
 
 describe('单项修复', () => {
@@ -251,6 +295,99 @@ describe('批量修复', () => {
     expect(after.length).toBeLessThan(before.length)
     expect(after.some((issue) => issue.ruleId === 'R001')).toBe(false)
     expect(after.some((issue) => issue.ruleId === 'R005')).toBe(false)
+  })
+})
+
+describe('修复写入不污染手改保护（工单 19）', () => {
+  it('修复写回不把字段标记为用户手改，来源与用户编辑不同', () => {
+    const schema = fuzzyAndBoundaryFixture()
+    const doc = docFromSchema(schema)
+    const plan = planAllFixes(schema, diagnose(schema), dirtyFieldsOf(doc))
+    expect(plan.writes.map((write) => write.field)).toContain('objective')
+
+    const repaired = applyFieldWrites(doc, plan.writes)
+    expect(repaired.fields.objective?.dirty).toBe(false)
+    expect(repaired.fields.objective?.origin).toBe('patch')
+    expect(repaired.fields.objective?.status).toBe('done')
+
+    const edited = applyUserEdit(doc, 'objective', '用户手写目标')
+    expect(edited.fields.objective?.dirty).toBe(true)
+    expect(edited.fields.objective?.origin).toBe('user')
+    expect(edited.fields.objective?.status).toBe('edited')
+  })
+
+  it('连续两次一键修复，第二次仍能修第一次修过的字段里新出现的问题', () => {
+    let schema = fuzzyAndBoundaryFixture()
+    let doc = docFromSchema(schema)
+
+    const first = planAllFixes(schema, diagnose(schema), dirtyFieldsOf(doc))
+    expect(first.writes.some((write) => write.field === 'objective')).toBe(true)
+    doc = applyFieldWrites(doc, first.writes)
+    schema = schemaAfterWrites(schema, first.writes)
+
+    // 第一次修复后该字段是「程序写入」，不是手改。
+    expect(doc.fields.objective?.dirty).toBe(false)
+    expect(doc.fields.objective?.origin).toBe('patch')
+
+    // 同一字段收到新内容（重新生成 / 导入），里面又出现可自动修复的问题。
+    doc = startField(doc, 'objective')
+    doc = applyStreamDelta(doc, 'objective', '目标：请尽量简洁地给出结论')
+    doc = commitField(doc, 'objective')
+    schema = schemaOfDoc(doc, schema)
+
+    expect(
+      diagnose(schema).some((issue) => issue.ruleId === 'R001'),
+    ).toBe(true)
+    const second = planAllFixes(schema, diagnose(schema), dirtyFieldsOf(doc))
+    expect(second.skippedFields).toEqual([])
+    expect(second.writes.some((write) => write.field === 'objective')).toBe(
+      true,
+    )
+
+    const repairedAgain = applyFieldWrites(doc, second.writes)
+    expect(repairedAgain.fields.objective?.dirty).toBe(false)
+    expect(repairedAgain.fields.objective?.value).not.toContain('尽量')
+  })
+
+  it('用户真正手改的字段在批量修复里仍被跳过，单项修复仍需二次确认', () => {
+    const schema = fuzzyAndBoundaryFixture()
+    let doc = docFromSchema(schema)
+    doc = applyUserEdit(doc, 'objective', '请尽量简洁地给出结论')
+
+    const dirty = dirtyFieldsOf(doc)
+    expect(dirty.has('objective')).toBe(true)
+
+    const plan = planAllFixes(schema, diagnose(schema), dirty)
+    expect(plan.skippedFields).toContain('objective')
+    expect(plan.writes.some((write) => write.field === 'objective')).toBe(
+      false,
+    )
+
+    const single = planSingleFix(schema, requireIssue(schema, 'R001'), dirty)
+    expect(single.kind).toBe('needs-confirmation')
+  })
+
+  it('修复计划产出的每条写入都标成 repair，接线方不需要自己判断', () => {
+    const schema = fuzzyAndBoundaryFixture()
+    const bulk = planAllFixes(schema, diagnose(schema), new Set())
+    expect(bulk.writes.length).toBeGreaterThan(0)
+    expect(bulk.writes.every((write) => write.kind === 'repair')).toBe(true)
+
+    const single = planSingleFix(schema, requireIssue(schema, 'R001'), new Set())
+    expect(single.writes.length).toBeGreaterThan(0)
+    expect(single.writes.every((write) => write.kind === 'repair')).toBe(true)
+  })
+
+  it('write.kind 决定写回语义：edit 走用户编辑并置 dirty', () => {
+    const schema = fuzzyAndBoundaryFixture()
+    const doc = docFromSchema(schema)
+    const issue = requireIssue(schema, 'R001')
+    const writes = changedFieldWrites(schema, applyFix(schema, issue), 'edit')
+
+    const edited = applyFieldWrites(doc, writes)
+
+    expect(edited.fields.objective?.dirty).toBe(true)
+    expect(edited.fields.objective?.origin).toBe('user')
   })
 })
 

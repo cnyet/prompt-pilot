@@ -30,3 +30,9 @@
 ### 另一条同类问题
 
 修复是 `applyFix → renderFieldText` 整字段重写，字段里解析器无法识别的游离行不会被保留。对用户手改字段，这条被二次确认挡住了；但对 AI 生成的规范文本，目前没有已知问题。若后续发现，归入工单 16 的同类处理。
+
+### 2026-11-10 实现进度
+
+- doc 层：新增 `applyRepair`（origin `'patch'`、dirty false、status done，撤销命令 type `'patch'`）与 `isUserEdited` 判定；复用既有枚举，避免改 FieldBlock / StudioWorkspace 的穷尽映射。`useGeneration` 新增 `repair-field` action 与 `repairField` 方法；`useDiagnostics` 的 `FieldWrite` 增加 `kind: 'repair' | 'edit'`，并提供 `applyFieldWrites` 把计划按 kind 落回文档。目标测试 68 条通过，`tsc` 0。
+- 测试覆盖：`doc.test.ts` 修复与用户编辑 dirty 判定不同 + 撤销/重做一致；`studio-diagnostics.test.ts` 连续两次一键修复、手改字段仍被跳过、计划 kind 与 kind 分派；`studio-chips.test.ts` reducer 连续两次修复与撤销恢复。全量 451 条通过（34 个文件）。
+- 待接线：`StudioWorkspace.tsx` 的 `applyWrites` 仍调用 `updateField`（禁改文件，另一位 agent 正在改）；接线时把写回改成 `repairField(write.field, write.text)` 即可，API 与本单测语义已就绪。来源 chip 沿用 `'patch'`，FieldBlock 现有文案是「补丁写入」、状态是「已生成」，不再是「已手改」。

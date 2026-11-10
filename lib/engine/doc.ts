@@ -13,6 +13,10 @@ import type { PromptSchema } from './schema'
  * - R3 用户编辑立即写 doc        -> applyUserEdit
  * - R4 补丁显式接受才写入        -> applyPatch
  *
+ * 另有一条不改变写入规则的辅助路径：程序修复（lint 一键修复）用
+ * applyRepair 整字段写回，来源记 'patch'、不置 dirty，因此不会被下一轮
+ * 修复当成用户手改跳过（工单 19）。
+ *
  * 文档值取字段文本。渲染层已经把 PromptSchema 投影成可编辑文本，本工单的
  * 手改保护也以字段为粒度；结构化的 schema 留给导入与版本化路径。
  */
@@ -48,7 +52,13 @@ export interface FieldState {
   seq: number
   /** AI 最后一次产出值，用于 diff 与恢复 AI 版本。 */
   aiBaseline: string | null
-  /** 用户是否手改过。R2/R4 都看这个标记。 */
+  /**
+   * 用户是否手改过。R2/R4 都看这个标记。
+   *
+   * 只有 applyUserEdit 会把它置位；AI 写入、单字段重算、程序修复都清零。
+   * 唯一的例外是 R4 显式「覆盖」手改字段：那次写入来自补丁，但用户此前
+   * 的手改仍需要继续挡住后续 AI 覆盖，所以保留 dirty（见 applyPatch）。
+   */
   dirty: boolean
   status: DocFieldStatus
   suggestion: Suggestion | null
@@ -148,6 +158,17 @@ export function getFieldState(
 
 export function pendingTextOf(doc: PromptDoc, path: string): string {
   return doc.pending[path] ?? ''
+}
+
+/**
+ * 「手改」判定：字段来源是用户编辑才算手改。
+ *
+ * 修复写入（applyRepair）、单字段重算（applyFieldRewrite）、补丁（applyPatch）
+ * 与 AI 写入都不算用户手改。保护逻辑统一用这个判定，而不是"字段被写过"，
+ * 否则修复一次之后，下一轮批量修复就会把自己的写入当成用户手改跳过。
+ */
+export function isUserEdited(field: Pick<FieldState, 'origin'>): boolean {
+  return field.origin === 'user'
 }
 
 export function canUndo(doc: PromptDoc): boolean {
@@ -490,6 +511,61 @@ export function applyFieldRewrite(
   return pushCommand(
     nextDoc,
     makeCommand('field-rewrite', 'ai', field, nextField, seq),
+  )
+}
+
+/**
+ * 程序修复写入：诊断面板的「修复」与「一键修复」把整字段新文本写回文档。
+ *
+ * 这是程序对当前文本做的确定性修正，不是用户在输入框里敲的字，因此
+ * origin 记 'patch'、dirty 保持 false：修复过的字段下一轮仍然可以被批量
+ * 修复继续处理，只有 applyUserEdit 才会进入手改保护。
+ *
+ * 复用 `patch` 而不是新增 `repair` 来源：FieldOrigin 与 CommandType 在界面侧
+ * 都是穷尽映射（FieldBlock 的来源标签、StudioWorkspace 的命令标签），新增
+ * 枚举值必须同步改那两个界面文件；语义上修复就是一次显式写入的补丁，
+ * patch 来源对撤销栈与来源展示都成立。
+ *
+ * 不检查 dirty：调用方（planSingleFix）已经让用户在覆盖手改字段前二次确认，
+ * 确认之后这次写入就是新的文档值。撤销会用命令里保存的 before* 恢复文本、
+ * origin 与 dirty，用户手改字段撤销后重新变回「已手改」。
+ */
+export function applyRepair(
+  doc: PromptDoc,
+  path: string,
+  value: string,
+): PromptDoc {
+  const field = doc.fields[path]
+  if (!field) {
+    return doc
+  }
+  const committed = value.trimEnd()
+  // 文本没变、也没有需要清理的手改/建议标记时，不产生空撤销命令。
+  if (
+    field.value === committed &&
+    !field.dirty &&
+    field.suggestion === null &&
+    field.status === 'done'
+  ) {
+    return doc
+  }
+
+  const seq = doc.seq + 1
+  const nextField: FieldState = {
+    ...field,
+    value: committed,
+    origin: 'patch',
+    seq,
+    aiBaseline: committed,
+    dirty: false,
+    status: 'done',
+    suggestion: null,
+    error: undefined,
+  }
+  const nextDoc = { ...withField(doc, path, nextField), seq }
+  return pushCommand(
+    nextDoc,
+    makeCommand('patch', 'patch', field, nextField, seq),
   )
 }
 

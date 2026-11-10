@@ -20,6 +20,11 @@ import {
   normalizeLeafPath,
 } from '@/lib/engine/paths'
 import { renderFieldText } from '@/lib/engine/render'
+import {
+  applyRepair,
+  applyUserEdit,
+  type PromptDoc,
+} from '@/lib/engine/doc'
 
 /** 输入停顿多久后刷新诊断。与 ARCHITECTURE 6.4 的 150ms 约定一致。 */
 export const DIAGNOSTICS_DEBOUNCE_MS = 150
@@ -43,10 +48,20 @@ export interface DiagnosticsSummary {
   hasError: boolean
 }
 
+/**
+ * 一条写入的语义。
+ *
+ * `repair` 是诊断修复：程序对当前文本做确定性修正，写回时 origin 记
+ * 'patch'、不置 dirty；`edit` 保留给真正的用户编辑路径。接线方按 kind
+ * 分派，不需要自己猜这次写入算不算手改。
+ */
+export type FieldWriteKind = 'repair' | 'edit'
+
 /** 一次修复要写回某个字段的完整文本。 */
 export interface FieldWrite {
   field: FieldKey
   text: string
+  kind: FieldWriteKind
 }
 
 export interface SingleFixPlan {
@@ -260,21 +275,44 @@ export function buildIssueExcerpt(
  * 对比修复前后的 schema，只返回渲染文本真的变化的字段。
  *
  * 这是「修复不得顺手重写无关字段」的第一道保险：即使 applyFix 因数据形态
- * 未产生变化，也不会把任何字段标脏。
+ * 未产生变化，也不会把任何字段标脏。默认按修复写入标记，调用方若确实是在
+ * 模拟用户编辑，可显式传 'edit'。
  */
 export function changedFieldWrites(
   before: PromptSchema,
   after: PromptSchema,
+  kind: FieldWriteKind = 'repair',
 ): FieldWrite[] {
   const writes: FieldWrite[] = []
   for (const field of FIELD_KEYS) {
     const beforeText = renderFieldText(before, field)
     const afterText = renderFieldText(after, field)
     if (beforeText !== afterText) {
-      writes.push({ field, text: afterText })
+      writes.push({ field, text: afterText, kind })
     }
   }
   return writes
+}
+
+/**
+ * 按每条写入的 kind 把修复计划落回纯文档状态。
+ *
+ * React 层通过 useGeneration.repairField 走同一条 applyRepair 路径；这个函数
+ * 让计划语义（kind）与文档写入语义（origin/dirty）在一处对齐，测试与后续
+ * 接线可以复用同一套判断，不必各自记住"修复不算手改"。
+ */
+export function applyFieldWrites(
+  doc: PromptDoc,
+  writes: readonly FieldWrite[],
+): PromptDoc {
+  let next = doc
+  for (const write of writes) {
+    next =
+      write.kind === 'repair'
+        ? applyRepair(next, write.field, write.text)
+        : applyUserEdit(next, write.field, write.text)
+  }
+  return next
 }
 
 /**
@@ -312,6 +350,7 @@ export function planSingleFix(
  *
  * 批量修复整字段跳过用户手改过的字段：这些字段里的问题留给单项修复，
  * 由用户二次确认后处理。不可修复与文档级问题不在本函数处理范围内。
+ * 产出的每条 write 都带 `kind: 'repair'`，接线方据此走修复写入而不是用户编辑。
  */
 export function planAllFixes(
   schema: PromptSchema,

@@ -27,6 +27,7 @@ import {
 import {
   acceptSuggestion as acceptSuggestionInDoc,
   applyFieldRewrite,
+  applyRepair,
   applyStreamDelta,
   applyUserEdit,
   commitField,
@@ -66,6 +67,7 @@ export type GenerationAction =
   | { type: 'op-start'; field: FieldKey; action: FieldOp }
   | { type: 'op-progress'; field: FieldKey; text: string }
   | { type: 'field-rewrite'; field: FieldKey; text: string }
+  | { type: 'repair-field'; field: FieldKey; text: string }
   | { type: 'op-fail'; field: FieldKey; message: string }
   | { type: 'usage'; usage: TokenUsage }
   | { type: 'reasoning'; text: string }
@@ -340,6 +342,13 @@ function reduceGenerationState(
         fieldOps: withoutFieldOp(state.fieldOps, action.field),
       }
 
+    case 'repair-field':
+      // 程序修复写回：来源记 patch、不置 dirty，下一轮修复不会跳过该字段。
+      return {
+        ...state,
+        doc: applyRepair(state.doc, action.field, action.text),
+      }
+
     case 'op-fail': {
       const op = state.fieldOps[action.field]
       if (!op) {
@@ -508,6 +517,11 @@ export interface GenerationApi {
   retryFields: (fields: readonly FieldKey[]) => Promise<void>
   runFieldOp: (field: FieldKey, action: FieldOp) => Promise<void>
   updateField: (field: FieldKey, text: string) => void
+  /**
+   * 诊断修复写回。与 updateField 的区别：这是程序写入，不会把字段标成
+   * 用户手改，下一轮修复仍然可以继续处理同一字段。
+   */
+  repairField: (field: FieldKey, text: string) => void
   acceptSuggestion: (field: FieldKey) => void
   discardSuggestion: (field: FieldKey) => void
   undo: () => void
@@ -972,6 +986,10 @@ export function useGeneration(): GenerationApi {
     dispatch({ type: 'edit', field, text })
   }, [])
 
+  const repairField = useCallback((field: FieldKey, text: string) => {
+    dispatch({ type: 'repair-field', field, text })
+  }, [])
+
   const setAssumption = useCallback((path: string, value: string) => {
     dispatch({ type: 'assumption-change', path, value })
   }, [])
@@ -1077,6 +1095,7 @@ export function useGeneration(): GenerationApi {
     retryFields,
     runFieldOp,
     updateField,
+    repairField,
     acceptSuggestion,
     discardSuggestion,
     undo,

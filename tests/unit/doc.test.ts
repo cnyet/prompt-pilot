@@ -3,6 +3,7 @@ import {
   MAX_HISTORY_STEPS,
   acceptSuggestion,
   applyPatch,
+  applyRepair,
   applyStreamDelta,
   applyUserEdit,
   canRedo,
@@ -11,6 +12,7 @@ import {
   createPromptDoc,
   discardSuggestion,
   getFieldState,
+  isUserEdited,
   redo,
   startField,
   undo,
@@ -197,6 +199,67 @@ describe('R4 补丁必须显式接受', () => {
       'accept',
     )
     expect(result.outcome).toBe('unknown-field')
+  })
+})
+
+describe('程序修复写入（工单 19）', () => {
+  it('修复写入不置 dirty，来源记为 patch，与用户编辑的 dirty 判定不同', () => {
+    const doc = createPromptDoc(['objective'])
+    const repaired = applyRepair(doc, 'objective', '同一段文本')
+    const edited = applyUserEdit(doc, 'objective', '同一段文本')
+
+    expect(field(repaired, 'objective').dirty).toBe(false)
+    expect(field(repaired, 'objective').origin).toBe('patch')
+    expect(field(repaired, 'objective').status).toBe('done')
+    expect(isUserEdited(field(repaired, 'objective'))).toBe(false)
+
+    expect(field(edited, 'objective').dirty).toBe(true)
+    expect(field(edited, 'objective').origin).toBe('user')
+    expect(field(edited, 'objective').status).toBe('edited')
+    expect(isUserEdited(field(edited, 'objective'))).toBe(true)
+
+    // 修复过的字段不是手改字段，同一字段可以继续被下一次修复写入。
+    const repairedAgain = applyRepair(
+      repaired,
+      'objective',
+      '第二版修复文本',
+    )
+    expect(field(repairedAgain, 'objective').dirty).toBe(false)
+    expect(field(repairedAgain, 'objective').value).toBe('第二版修复文本')
+    expect(repairedAgain.history.map((command) => command.type)).toEqual([
+      'patch',
+      'patch',
+    ])
+  })
+
+  it('修复写入进撤销栈，撤销恢复手改文本、origin 与 dirty，重做恢复修复结果', () => {
+    let doc = createPromptDoc(['objective'])
+    doc = applyUserEdit(doc, 'objective', '请尽量简洁地给出结论')
+    doc = applyRepair(doc, 'objective', '请简洁地给出结论')
+
+    const undone = undo(doc)
+    expect(field(undone, 'objective').value).toBe('请尽量简洁地给出结论')
+    expect(field(undone, 'objective').origin).toBe('user')
+    expect(field(undone, 'objective').dirty).toBe(true)
+    expect(field(undone, 'objective').status).toBe('edited')
+
+    const redone = redo(undone)
+    expect(field(redone, 'objective').value).toBe('请简洁地给出结论')
+    expect(field(redone, 'objective').origin).toBe('patch')
+    expect(field(redone, 'objective').dirty).toBe(false)
+    expect(field(redone, 'objective').status).toBe('done')
+  })
+
+  it('文本未变的修复不产生空撤销命令', () => {
+    const doc = applyRepair(
+      createPromptDoc(['objective']),
+      'objective',
+      '已修复文本',
+    )
+    const again = applyRepair(doc, 'objective', '已修复文本')
+
+    expect(again).toBe(doc)
+    expect(again.history).toHaveLength(1)
   })
 })
 

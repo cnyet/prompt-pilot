@@ -50,7 +50,10 @@ export interface FieldView {
   status: FieldStatus
   /** 已提交的文档文本。流式过程中始终是最后一次提交的值。 */
   text: string
-  /** 用户是否手改过。手改后不再显示 AI 来源圆点。 */
+  /**
+   * 用户是否手改过。由文档层的写入来源决定：只有用户编辑置位，
+   * 修复、补丁、AI 写入与单字段重算都不置位。
+   */
   dirty: boolean
   origin: FieldOrigin
   aiBaseline: string | null
