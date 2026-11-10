@@ -2,15 +2,52 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Icon, type IconName } from '@/components/ui/Icon'
+import { cn } from '@/lib/utils'
 import { useModelStatus } from './modelStatus'
 
-const TEMPLATES: readonly { label: string; sample: string }[] = [
-  { label: '通用问答', sample: '解释一下什么是向量数据库，面向非技术读者。' },
-  { label: '内容创作', sample: '帮我写一篇关于远程办公的产品博客。' },
-  { label: '代码生成', sample: '用 TypeScript 写一个解析 CSV 的函数，包含错误处理。' },
-  { label: '数据分析', sample: '分析这份月度销售数据，找出下降原因。' },
-  { label: '客服对话', sample: '把这段客服话术改成更专业的版本。' },
-  { label: '结构化抽取', sample: '从订单邮件里抽取订单号、金额和收货城市。' },
+const TEMPLATES: readonly {
+  label: string
+  sample: string
+  icon: IconName
+  tint: string
+}[] = [
+  {
+    label: '通用问答',
+    sample: '解释一下什么是向量数据库，面向非技术读者。',
+    icon: 'spark',
+    tint: 'bg-tint-butter',
+  },
+  {
+    label: '内容创作',
+    sample: '帮我写一篇关于远程办公的产品博客。',
+    icon: 'studio',
+    tint: 'bg-tint-coral',
+  },
+  {
+    label: '代码生成',
+    sample: '用 TypeScript 写一个解析 CSV 的函数，包含错误处理。',
+    icon: 'terminal',
+    tint: 'bg-tint-lavender',
+  },
+  {
+    label: '数据分析',
+    sample: '分析这份月度销售数据，找出下降原因。',
+    icon: 'eval',
+    tint: 'bg-tint-sage',
+  },
+  {
+    label: '客服对话',
+    sample: '把这段客服话术改成更专业的版本。',
+    icon: 'library',
+    tint: 'bg-tint-butter',
+  },
+  {
+    label: '结构化抽取',
+    sample: '从订单邮件里抽取订单号、金额和收货城市。',
+    icon: 'template',
+    tint: 'bg-tint-lavender',
+  },
 ]
 
 const EXAMPLES: readonly string[] = [
@@ -66,7 +103,7 @@ export function RequirementInput({
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col justify-center px-6 py-16">
+    <div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col justify-center px-6 py-16">
       <div className="mb-8">
         <p className="text-caption text-ink-faint">工作台</p>
         <h1 className="mt-1.5 text-display font-semibold text-ink">
@@ -77,7 +114,7 @@ export function RequirementInput({
         </p>
       </div>
 
-      <div className="rounded-panel border border-transparent bg-surface-inset p-4 transition-colors duration-150 focus-within:border-line-strong focus-within:bg-surface focus-within:ring-2 focus-within:ring-accent/25">
+      <div className="rounded-panel border border-transparent bg-surface-inset p-4 transition-colors duration-150 focus-within:border-line-strong focus-within:bg-surface focus-within:ring-1 focus-within:ring-accent/20">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>
@@ -116,14 +153,18 @@ export function RequirementInput({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap justify-start gap-1.5">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {TEMPLATES.map((template) => (
           <button
             key={template.label}
             type="button"
             onClick={() => applySample(template.sample)}
-            className="rounded-chip bg-bg-sunken px-2 py-1 text-caption text-ink-muted transition-colors duration-150 hover:bg-surface-inset hover:text-ink"
+            className={cn(
+              'flex items-center gap-1.5 whitespace-nowrap rounded-control px-2.5 py-2 text-left text-caption font-medium text-ink transition-colors duration-150 hover:brightness-[0.97]',
+              template.tint,
+            )}
           >
+            <Icon name={template.icon} size={15} className="text-ink-muted" />
             {template.label}
           </button>
         ))}

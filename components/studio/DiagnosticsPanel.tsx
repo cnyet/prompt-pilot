@@ -19,11 +19,23 @@ import {
 const LEVEL_ORDER = ['error', 'warn', 'info'] as const
 
 const LEVEL_META: Readonly<
-  Record<LintLevel, { label: string; countClass: string }>
+  Record<LintLevel, { label: string; countClass: string; headerClass: string }>
 > = {
-  error: { label: '错误', countClass: 'border-danger text-danger' },
-  warn: { label: '警告', countClass: 'border-warning text-warning' },
-  info: { label: '提示', countClass: 'border-line text-ink-muted' },
+  error: {
+    label: '错误',
+    countClass: 'border-danger text-danger',
+    headerClass: 'bg-tint-coral',
+  },
+  warn: {
+    label: '警告',
+    countClass: 'border-warning text-warning',
+    headerClass: 'bg-tint-butter',
+  },
+  info: {
+    label: '提示',
+    countClass: 'border-line text-ink-muted',
+    headerClass: 'bg-tint-lavender',
+  },
 }
 
 export interface DiagnosticsPanelProps {
@@ -171,7 +183,7 @@ export function DiagnosticsPanel({
       <div className="min-h-0 flex-1 overflow-auto">
         {summary.total === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-            <span className="flex size-10 items-center justify-center rounded-full bg-bg-sunken text-ink-faint">
+            <span className="flex size-10 items-center justify-center rounded-full bg-tint-sage text-ink-muted">
               <Icon name="alert" size={18} />
             </span>
             <p className="text-body text-ink">没有发现问题</p>
@@ -188,7 +200,12 @@ export function DiagnosticsPanel({
             const meta = LEVEL_META[level]
             return (
               <section key={level} aria-label={`${meta.label}问题`}>
-                <h3 className="flex items-center justify-between border-b border-line-subtle px-3 py-2">
+                <h3
+                  className={cn(
+                    'flex items-center justify-between border-b border-line-subtle px-3 py-2',
+                    meta.headerClass,
+                  )}
+                >
                   <span
                     className={cn(
                       'text-caption font-medium',

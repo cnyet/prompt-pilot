@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   'group flex h-8 items-center gap-2.5 rounded-control px-2 text-label transition-colors duration-150',
                   active
-                    ? 'bg-accent-subtle font-medium text-accent'
+                    ? 'bg-bg-sunken font-medium text-accent'
                     : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
                   collapsed && 'justify-center px-0',
                 )}
