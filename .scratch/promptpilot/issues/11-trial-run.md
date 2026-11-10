@@ -11,3 +11,10 @@
 - [ ] 顶部显示耗时、token、金额，随输出实时累加
 - [ ] 必填变量缺失时给出提示，而不是带着空值运行
 - [ ] 运行历史按版本归档，可回看任意一次
+
+## Comments
+
+- 变量派生与校验纯函数落在 `lib/engine/variables.ts`，六种类型的控件映射、默认值与必填校验有 9 条单测通过。
+- `app/api/run` 的 SSE 流与 `Run` 落库完成，集成测试覆盖成功、取消、无模型拒绝与必填缺失拒绝。
+- 试运行 UI（RunForm / RunDrawer / useTrialRun）接入工作台，reducer 覆盖取消保留输出与失败保留输出，10 条单测通过。
+- 失败路径补测：Mock 限流画像落库为 `failed` 并记录 `LLM_RATE_LIMITED`；`recordRun` 存储失败只告警。集成测试 6 条通过。

@@ -8,9 +8,11 @@ import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
 import { AssumptionChips } from './AssumptionChips'
+import { ExportMenu } from './ExportMenu'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
 import { RequirementInput } from './RequirementInput'
+import { RunDrawer } from './RunDrawer'
 import { ThinkingPanel } from './ThinkingPanel'
 import { useGeneration } from './useGeneration'
 import { formatUsageCost, formatUsageTokens } from './types'
@@ -43,6 +45,12 @@ function formatDuration(ms: number): string {
     return `${Math.round(ms)} 毫秒`
   }
   return `${(ms / 1000).toFixed(1)} 秒`
+}
+
+/** 每次「重新开始」换一个草稿键，Run 记录按它归组。 */
+function createTrialSessionKey(): string {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  return `draft_${uuid ?? Math.random().toString(36).slice(2)}`
 }
 
 export function StudioWorkspace() {
@@ -82,6 +90,7 @@ export function StudioWorkspace() {
   } = useGeneration()
 
   const [submitted, setSubmitted] = useState('')
+  const [sessionKey, setSessionKey] = useState(createTrialSessionKey)
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const [view, setView] = useState<StudioView>('structured')
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -160,6 +169,7 @@ export function StudioWorkspace() {
     }
     reset()
     setSubmitted('')
+    setSessionKey(createTrialSessionKey())
     setCopyState('idle')
   }, [reset])
 
@@ -360,15 +370,32 @@ export function StudioWorkspace() {
             </div>
 
             {hasAnyField && phase !== 'streaming' ? (
-              <AssumptionChips
-                chips={assumptionChips}
-                exportWithoutAssumptions={exportWithoutAssumptions}
-                onSelect={setAssumption}
-                onToggleExport={setExportWithoutAssumptions}
-                disabled={opBusy}
-              />
+              <div className="flex flex-wrap items-start gap-2">
+                <AssumptionChips
+                  chips={assumptionChips}
+                  exportWithoutAssumptions={exportWithoutAssumptions}
+                  onSelect={setAssumption}
+                  onToggleExport={setExportWithoutAssumptions}
+                  disabled={opBusy}
+                />
+                <ExportMenu
+                  schema={schema}
+                  assumptions={assumptions}
+                  omitAssumptions={exportWithoutAssumptions}
+                  onOmitAssumptionsChange={setExportWithoutAssumptions}
+                />
+              </div>
             ) : null}
           </header>
+
+          {hasAnyField ? (
+            <RunDrawer
+              prompt={markdownPreview}
+              variables={viewSchema.input.variables}
+              sessionKey={sessionKey}
+              disabled={isBusy || opBusy}
+            />
+          ) : null}
 
           {error ? (
             <div

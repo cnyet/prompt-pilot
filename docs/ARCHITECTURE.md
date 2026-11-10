@@ -636,11 +636,12 @@ model Run {
   errorCode   String?
   errorMsg    String?
   latencyMs   Int?
-  tokensIn    Int      @default(0)
-  tokensOut   Int      @default(0)
-  cachedTokens Int     @default(0)
-  reasoningTokens Int  @default(0)
-  costCny     Float    @default(0)
+  // 可空：用量缺失代表真「未知」
+  tokensIn    Int?
+  tokensOut   Int?
+  cachedTokens Int?
+  reasoningTokens Int?
+  costCny     Float?
   finishReason String?
   lengthCause String?  // max_tokens | max_completion_tokens | context_window
   attempts    Int      @default(1)
