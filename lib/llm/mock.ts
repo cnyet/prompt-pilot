@@ -38,6 +38,35 @@ export function isMockFaultProfile(value: unknown): value is MockFaultProfile {
   )
 }
 
+/** 没有密钥时用于打通完整链路的「正常」Mock 画像，不属于故障画像。 */
+export const MOCK_VALID_PROFILE = 'valid'
+
+export const MOCK_VALID_CHUNKS: readonly ChatChunk[] = [
+  {
+    delta: '这是 Mock 模型的试运行输出。',
+    usage: { tokensIn: 48, tokensOut: 6, costCny: 0 },
+  },
+  {
+    delta: '变量已按表单填入提示词，',
+    usage: { tokensIn: 48, tokensOut: 14, costCny: 0 },
+  },
+  {
+    delta: '接入方舟后会返回真实模型结果。',
+    usage: { tokensIn: 48, tokensOut: 26, costCny: 0 },
+    finishReason: 'stop',
+  },
+]
+
+/** 试运行与评估共用同一个 normal mock，避免两处各写一份 */
+export function createValidMockProvider(): MockProvider {
+  return new MockProvider({
+    id: 'mock-valid',
+    label: 'Mock 模型 · valid',
+    chunks: MOCK_VALID_CHUNKS,
+    delayMs: 25,
+  })
+}
+
 /** 慢流画像的首字延迟：与验收口径一致，固定 10 秒。 */
 export const MOCK_SLOW_FIRST_TOKEN_MS = 10_000
 

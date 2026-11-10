@@ -25,7 +25,7 @@ import {
   type LlmCallContext,
   type ModelPricingCny,
 } from '@/lib/llm/ledger'
-import { MockProvider } from '@/lib/llm/mock'
+import { MockProvider, createValidMockProvider } from '@/lib/llm/mock'
 import {
   DEFAULT_GENERATE_MODEL_CONFIG_ID,
   MOCK_FAULT_ENV,
@@ -57,21 +57,7 @@ const FREE_PRICING: ModelPricingCny = {
  * 只有显式设置 MOCK_LLM_FAULT=valid 时才注入这份可用的 Mock 脚本。
  * 生产不设置该变量，因此不会伪造输出；无 Key 且无注入时路由直接拒绝运行。
  */
-const MOCK_VALID_CHUNKS: readonly ChatChunk[] = [
-  {
-    delta: '这是 Mock 模型的试运行输出。',
-    usage: { tokensIn: 48, tokensOut: 6, costCny: 0 },
-  },
-  {
-    delta: '变量已按表单填入提示词，',
-    usage: { tokensIn: 48, tokensOut: 14, costCny: 0 },
-  },
-  {
-    delta: '接入方舟后会返回真实模型结果。',
-    usage: { tokensIn: 48, tokensOut: 26, costCny: 0 },
-    finishReason: 'stop',
-  },
-]
+
 
 const MEMBER_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 
@@ -166,12 +152,7 @@ function resolveRunModel(
   // 测试与本地验收的显式注入：没有 Key 时也能走完整条试运行链路。
   if (env[MOCK_FAULT_ENV]?.trim() === 'valid') {
     return {
-      provider: new MockProvider({
-        id: 'mock-valid',
-        label: 'Mock 模型 · valid',
-        chunks: MOCK_VALID_CHUNKS,
-        delayMs: 25,
-      }),
+      provider: createValidMockProvider(),
       providerId: 'mock',
       modelId: 'mock',
       label: 'Mock 模型 · valid',

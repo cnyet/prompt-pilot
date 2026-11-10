@@ -1,7 +1,9 @@
 import { ArkProvider } from './ark'
 import type { RetryOptions } from './errors'
 import {
+  MOCK_VALID_PROFILE,
   MockProvider,
+  createValidMockProvider,
   isMockFaultProfile,
   type MockFaultProfile,
 } from './mock'
@@ -278,6 +280,9 @@ export function getGenerateProvider(
   // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
   // generate 路由的失败分支；有 Key 时仍以真实方舟为准。
   if (!hasArkApiKey(env)) {
+    if (envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE) {
+      return createValidMockProvider()
+    }
     const fault = getMockFaultProfile(env)
     if (fault) {
       return new MockProvider({
