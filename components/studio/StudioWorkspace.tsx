@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
@@ -78,6 +79,49 @@ function createTrialSessionKey(): string {
   return `draft_${uuid ?? Math.random().toString(36).slice(2)}`
 }
 
+type LibrarySaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+interface LibrarySaveState {
+  status: LibrarySaveStatus
+  message: string
+}
+
+interface SavedPromptRef {
+  id: string
+  latestVersionNo: number | null
+}
+
+function readSavedPrompt(payload: unknown): SavedPromptRef | null {
+  if (typeof payload !== 'object' || payload === null) {
+    return null
+  }
+  const prompt = (payload as { prompt?: unknown }).prompt
+  if (typeof prompt !== 'object' || prompt === null) {
+    return null
+  }
+  const record = prompt as { id?: unknown; latestVersionNo?: unknown }
+  if (typeof record.id !== 'string' || record.id.length === 0) {
+    return null
+  }
+  return {
+    id: record.id,
+    latestVersionNo:
+      typeof record.latestVersionNo === 'number'
+        ? record.latestVersionNo
+        : null,
+  }
+}
+
+function readSaveError(payload: unknown): string {
+  if (typeof payload === 'object' && payload !== null) {
+    const message = (payload as { message?: unknown }).message
+    if (typeof message === 'string' && message.length > 0) {
+      return message
+    }
+  }
+  return '保存失败，请稍后重试。'
+}
+
 export function StudioWorkspace() {
   const {
     phase,
@@ -106,6 +150,7 @@ export function StudioWorkspace() {
     retryFields,
     runFieldOp,
     updateField,
+    repairField,
     acceptSuggestion,
     discardSuggestion,
     undo,
@@ -119,6 +164,14 @@ export function StudioWorkspace() {
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const [view, setView] = useState<StudioView>('structured')
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [libraryPromptId, setLibraryPromptId] = useState<string | null>(null)
+  const [librarySave, setLibrarySave] = useState<LibrarySaveState>({
+    status: 'idle',
+    message: '',
+  })
+  const autoBaselineRef = useRef(false)
+  const librarySavingRef = useRef(false)
+  const libraryRequestRef = useRef(0)
 
   const {
     issues: diagnosticsIssues,
@@ -179,10 +232,16 @@ export function StudioWorkspace() {
   const applyWrites = useCallback(
     (writes: readonly FieldWrite[]) => {
       for (const write of writes) {
-        updateField(write.field, write.text)
+        // 修复写入与用户编辑是两种语义：修复不置 dirty，否则下一次
+        // 一键修复会把自己刚修过的字段当成手改字段跳过。
+        if (write.kind === 'repair') {
+          repairField(write.field, write.text)
+        } else {
+          updateField(write.field, write.text)
+        }
       }
     },
-    [updateField],
+    [updateField, repairField],
   )
 
   const handleSelectIssue = useCallback(
@@ -400,6 +459,11 @@ export function StudioWorkspace() {
     setCopyState('idle')
     setDiagnosticsFocus(null)
     setFixNotice(null)
+    autoBaselineRef.current = false
+    librarySavingRef.current = false
+    libraryRequestRef.current += 1
+    setLibraryPromptId(null)
+    setLibrarySave({ status: 'idle', message: '' })
   }, [reset])
 
   const flashCopy = useCallback((next: CopyState) => {
@@ -425,6 +489,170 @@ export function StudioWorkspace() {
     const ok = await copyText(markdown)
     flashCopy(ok ? 'copied' : 'failed')
   }, [fields, title, submitted, flashCopy])
+
+  // 存库用当前已提交的字段，不用流式 pending：pending 不是可保存状态。
+  const buildLibrarySchema = useCallback(() => {
+    const fieldTexts: Partial<Record<FieldKey, string>> = {}
+    for (const field of FIELD_KEYS) {
+      fieldTexts[field] = fields[field].text
+    }
+    return buildSchemaFromFields(fieldTexts, {
+      title: title || submitted || '未命名提示词',
+      taskType: schema.meta.taskType,
+      ...(schema.meta.templateId !== undefined
+        ? { templateId: schema.meta.templateId }
+        : {}),
+      assumptions: mergeAssumptions(assumptions, assumptionChips),
+    })
+  }, [fields, title, submitted, schema, assumptions, assumptionChips])
+
+  const createBaselineV0 = useCallback(async (): Promise<void> => {
+    if (librarySavingRef.current) {
+      return
+    }
+    const sourceInput = submitted.trim()
+    const hasContent = FIELD_KEYS.some(
+      (field) => fields[field].text.trim().length > 0,
+    )
+    if (sourceInput.length === 0 || !hasContent) {
+      return
+    }
+    librarySavingRef.current = true
+    const requestId = libraryRequestRef.current + 1
+    libraryRequestRef.current = requestId
+    setLibrarySave({
+      status: 'saving',
+      message: '正在保存基线 v0',
+    })
+    try {
+      const response = await fetch('/api/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title || undefined,
+          sourceInput,
+          schema: buildLibrarySchema(),
+        }),
+      })
+      const payload: unknown = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(readSaveError(payload))
+      }
+      const saved = readSavedPrompt(payload)
+      if (!saved) {
+        throw new Error('保存成功但返回数据不完整。')
+      }
+      if (libraryRequestRef.current !== requestId) {
+        return
+      }
+      setLibraryPromptId(saved.id)
+      setLibrarySave({
+        status: 'saved',
+        message: '已保存为基线 v0',
+      })
+    } catch (error) {
+      if (libraryRequestRef.current === requestId) {
+        setLibrarySave({
+          status: 'error',
+          message: error instanceof Error ? error.message : '保存基线失败。',
+        })
+      }
+    } finally {
+      if (libraryRequestRef.current === requestId) {
+        librarySavingRef.current = false
+      }
+    }
+  }, [submitted, title, fields, buildLibrarySchema])
+
+  const saveNewVersion = useCallback(async (): Promise<void> => {
+    if (librarySavingRef.current) {
+      return
+    }
+    if (libraryPromptId === null) {
+      await createBaselineV0()
+      return
+    }
+    const hasContent = FIELD_KEYS.some(
+      (field) => fields[field].text.trim().length > 0,
+    )
+    if (!hasContent) {
+      return
+    }
+    librarySavingRef.current = true
+    const requestId = libraryRequestRef.current + 1
+    libraryRequestRef.current = requestId
+    setLibrarySave({
+      status: 'saving',
+      message: '正在保存新版本',
+    })
+    try {
+      const origin = dirtyFields.size > 0 ? 'human_edited' : 'ai_generated'
+      const response = await fetch(
+        `/api/prompts/${encodeURIComponent(libraryPromptId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: {
+              schema: buildLibrarySchema(),
+              origin,
+              changeSummary:
+                dirtyFields.size > 0
+                  ? '保存前手动修改过字段'
+                  : '保存当前生成结果',
+            },
+          }),
+        },
+      )
+      const payload: unknown = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(readSaveError(payload))
+      }
+      const saved = readSavedPrompt(payload)
+      if (!saved) {
+        throw new Error('保存成功但返回数据不完整。')
+      }
+      if (libraryRequestRef.current !== requestId) {
+        return
+      }
+      setLibrarySave({
+        status: 'saved',
+        message:
+          saved.latestVersionNo === null
+            ? '已保存新版本'
+            : `已保存为 v${saved.latestVersionNo}`,
+      })
+    } catch (error) {
+      if (libraryRequestRef.current === requestId) {
+        setLibrarySave({
+          status: 'error',
+          message: error instanceof Error ? error.message : '保存新版本失败。',
+        })
+      }
+    } finally {
+      if (libraryRequestRef.current === requestId) {
+        librarySavingRef.current = false
+      }
+    }
+  }, [libraryPromptId, fields, dirtyFields, buildLibrarySchema, createBaselineV0])
+
+  // 首次生成完成后自动写入 v0；每次「重新开始」会重置这个标记。
+  useEffect(() => {
+    if (phase !== 'done' || autoBaselineRef.current) {
+      return
+    }
+    if (libraryPromptId !== null || submitted.trim().length === 0) {
+      return
+    }
+    const hasContent = FIELD_KEYS.some(
+      (field) => fields[field].text.trim().length > 0,
+    )
+    if (!hasContent) {
+      return
+    }
+    autoBaselineRef.current = true
+    void createBaselineV0()
+  }, [phase, libraryPromptId, submitted, fields, createBaselineV0])
 
   if (phase === 'idle') {
     return <RequirementInput onSubmit={handleSubmit} busy={isBusy} />
@@ -567,8 +795,52 @@ export function StudioWorkspace() {
                 <p className="mt-1 truncate text-caption text-ink-faint">
                   需求：{submitted}
                 </p>
+                {librarySave.message.length > 0 ? (
+                  <p
+                    className={cn(
+                      'mt-1 text-caption',
+                      librarySave.status === 'error'
+                        ? 'text-danger'
+                        : 'text-ink-muted',
+                    )}
+                    aria-live="polite"
+                  >
+                    {librarySave.message}
+                    {libraryPromptId !== null &&
+                    librarySave.status !== 'error' ? (
+                      <>
+                        <span aria-hidden className="mx-1 text-ink-faint">
+                          ·
+                        </span>
+                        <Link
+                          href="/library"
+                          className="text-accent hover:underline"
+                        >
+                          打开提示词库
+                        </Link>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveNewVersion()}
+                  disabled={
+                    !hasAnyField ||
+                    phase === 'streaming' ||
+                    opBusy ||
+                    librarySave.status === 'saving'
+                  }
+                  className="rounded-control bg-accent px-3 py-1.5 text-label text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
+                >
+                  {librarySave.status === 'saving'
+                    ? '正在保存'
+                    : libraryPromptId === null
+                      ? '保存到提示词库'
+                      : '保存新版本'}
+                </button>
                 {!diagnosticsOpen ? (
                   <button
                     type="button"

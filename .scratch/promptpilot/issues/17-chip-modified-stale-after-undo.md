@@ -4,7 +4,7 @@
 
 **Blocked by:** 04 — 假设 chip 与字段级重算
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] 改 chip 后撤销一次，字段文本与该 chip 的「已改」标记同时回退
 - [ ] 撤销一次与 chip 无关的编辑，chip 标记保持不变
