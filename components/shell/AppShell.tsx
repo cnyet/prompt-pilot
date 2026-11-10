@@ -56,6 +56,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  // `\` 折叠侧栏。在输入框里按下时不拦截，避免打断写作。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== '\\' || event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return
+      }
+      event.preventDefault()
+      toggleNav()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [toggleNav])
+
   const toggleTheme = useCallback(() => {
     setDark((prev) => {
       const next = !prev
