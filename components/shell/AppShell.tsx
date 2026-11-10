@@ -3,17 +3,23 @@
 import Link from 'next/link'
 
 import { ModelStatusBadge } from '@/components/studio/modelStatus'
+import { IconButton } from '@/components/ui/Button'
+import { Icon, type IconName } from '@/components/ui/Icon'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { href: '/studio', label: '工作台' },
-  { href: '/library', label: '提示词库' },
-  { href: '/eval', label: '评估' },
-  { href: '/templates', label: '模板' },
-  { href: '/settings', label: '设置' },
-] as const
+  { href: '/studio', label: '工作台', icon: 'studio' },
+  { href: '/library', label: '提示词库', icon: 'library' },
+  { href: '/eval', label: '评估', icon: 'eval' },
+  { href: '/templates', label: '模板', icon: 'template' },
+  { href: '/settings', label: '设置', icon: 'settings' },
+] as const satisfies ReadonlyArray<{
+  href: string
+  label: string
+  icon: IconName
+}>
 
 const PATH_LABEL: Record<string, string> = {
   '/studio': '工作台',
@@ -69,7 +75,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="flex shrink-0 flex-col border-r border-line bg-sidebar"
         style={{ width }}
       >
-        <div className="flex h-12 items-center gap-2 border-b border-line px-3">
+        <div
+          className={cn(
+            'flex h-12 items-center gap-2 border-b border-line-subtle px-3',
+            collapsed && 'justify-center px-0',
+          )}
+        >
           <span className="grid size-6 shrink-0 place-items-center rounded-chip bg-accent text-caption font-semibold text-bg">
             PP
           </span>
@@ -89,57 +100,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-current={active ? 'page' : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  'flex h-8 items-center rounded-control px-2 text-label transition-colors duration-120',
+                  'group flex h-8 items-center gap-2.5 rounded-control px-2 text-label transition-colors duration-150',
                   active
-                    ? 'bg-accent-subtle text-accent font-medium'
+                    ? 'bg-accent-subtle font-medium text-accent'
                     : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
                   collapsed && 'justify-center px-0',
                 )}
               >
+                <Icon
+                  name={item.icon}
+                  size={16}
+                  className={
+                    active
+                      ? 'text-accent'
+                      : 'text-ink-faint group-hover:text-ink'
+                  }
+                />
                 <span className={cn('truncate', collapsed && 'sr-only')}>
                   {item.label}
                 </span>
-                {collapsed && (
-                  <span aria-hidden className="text-caption">
-                    {item.label.slice(0, 1)}
-                  </span>
-                )}
               </Link>
             )
           })}
         </nav>
 
-        <div className="border-t border-line p-2">
-          <button
-            type="button"
+        <div
+          className={cn(
+            'flex border-t border-line-subtle p-2',
+            collapsed ? 'justify-center' : 'justify-end',
+          )}
+        >
+          <IconButton
+            icon="panel"
+            label={collapsed ? '展开导航' : '折叠导航'}
             onClick={toggleNav}
-            aria-label={collapsed ? '展开导航' : '折叠导航'}
             aria-expanded={!collapsed}
-            className="flex h-8 w-full items-center justify-center rounded-control text-caption text-ink-faint hover:bg-bg-sunken hover:text-ink-muted"
-          >
-            {collapsed ? '»' : '«  折叠'}
-          </button>
+            size="sm"
+          />
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-surface px-4">
-          <div className="flex items-center gap-2 text-label">
+          <div className="flex min-w-0 items-center gap-1.5 text-caption">
             <span className="text-ink-faint">工作区</span>
-            <span className="text-ink-faint">/</span>
-            <span className="font-medium">{pageLabel}</span>
+            <Icon name="chevron-right" size={12} className="text-ink-faint" />
+            <span className="truncate text-label font-medium text-ink">
+              {pageLabel}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <ModelStatusBadge />
-            <button
-              type="button"
+            <span aria-hidden className="h-4 w-px bg-line-subtle" />
+            <IconButton
+              icon={mounted && dark ? 'sun' : 'moon'}
+              label={
+                !mounted
+                  ? '切换主题'
+                  : dark
+                    ? '切换到浅色主题'
+                    : '切换到深色主题'
+              }
               onClick={toggleTheme}
-              aria-label={dark ? '切换到浅色' : '切换到深色'}
-              className="h-7 rounded-control border border-line px-2 text-caption text-ink-muted hover:bg-bg-sunken hover:text-ink"
-            >
-              {mounted ? (dark ? '深色' : '浅色') : '主题'}
-            </button>
+              size="sm"
+            />
           </div>
         </header>
 

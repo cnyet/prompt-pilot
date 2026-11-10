@@ -2,15 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Icon, type IconName } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 
-const NAV = [
-  { href: '/studio', label: '工作台' },
-  { href: '/library', label: '提示词库' },
-  { href: '/eval', label: '评估' },
-  { href: '/templates', label: '模板' },
-  { href: '/settings', label: '设置' },
-] as const
+const NAV: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
+  { href: '/studio', label: '工作台', icon: 'studio' },
+  { href: '/library', label: '提示词库', icon: 'library' },
+  { href: '/eval', label: '评估', icon: 'eval' },
+  { href: '/templates', label: '模板', icon: 'template' },
+  { href: '/settings', label: '设置', icon: 'settings' },
+]
 
 /**
  * 窄屏下的主导航。侧边导航是固定 240px 的桌面布局，在手机上会把内容
@@ -34,12 +35,13 @@ export function MobileNav() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'shrink-0 rounded-control px-2.5 py-1 text-label transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-control px-2.5 py-1.5 text-label transition-colors',
               active
                 ? 'bg-accent-subtle font-medium text-accent'
                 : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
             )}
           >
+            <Icon name={item.icon} size={15} />
             {item.label}
           </Link>
         )

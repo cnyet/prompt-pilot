@@ -8,6 +8,8 @@ import {
   type ExportResult,
 } from '@/lib/engine/export'
 import type { Assumption, PromptSchema } from '@/lib/engine/schema'
+import { Button, buttonStyles } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
 
@@ -188,7 +190,7 @@ export function ExportMenu({
   }
 
   return (
-    <div ref={rootRef} className="relative inline-block">
+    <div ref={rootRef} className="inline-block">
       <button
         ref={triggerRef}
         type="button"
@@ -198,13 +200,13 @@ export function ExportMenu({
         aria-controls={open ? panelId : undefined}
         aria-keyshortcuts="Meta+E Control+E"
         title={open ? '关闭导出' : '导出（⌘E）'}
-        className={cn(
-          'rounded-control border px-3 py-1.5 text-label transition-colors',
-          open
-            ? 'border-line-strong text-ink'
-            : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
-        )}
+        className={buttonStyles({
+          variant: 'ghost',
+          size: 'sm',
+          className: open ? 'text-ink' : undefined,
+        })}
       >
+        <Icon name="download" size={14} />
         导出
       </button>
 
@@ -221,12 +223,12 @@ export function ExportMenu({
             }
             setOpen(false)
           }}
-          className="absolute left-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface p-3"
+          className="absolute right-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface-raised p-3 shadow-overlay"
         >
           <div
             role="group"
             aria-label="导出格式"
-            className="flex items-center gap-1 border-b border-line"
+            className="flex items-center gap-1 border-b border-line-subtle"
           >
             {FORMAT_ORDER.map((id) => {
               const selected = id === format
@@ -288,7 +290,7 @@ export function ExportMenu({
               <pre
                 tabIndex={0}
                 aria-label="导出预览"
-                className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control border border-line bg-bg-sunken p-2.5 font-mono text-caption text-ink-muted"
+                className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-inset p-2.5 font-mono text-caption text-ink-muted"
               >
                 {result.content}
               </pre>
@@ -296,7 +298,7 @@ export function ExportMenu({
           ) : (
             <div
               role="alert"
-              className="mt-2 rounded-control border border-line bg-bg-sunken px-2.5 py-2"
+              className="mt-2 rounded-control bg-surface-inset px-2.5 py-2"
             >
               <p className="text-caption font-medium text-danger">
                 导出内容有语法问题，已阻止复制
@@ -315,17 +317,15 @@ export function ExportMenu({
             <p className="min-w-0 text-caption text-ink-faint">
               {active.hint}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => void handleCopy()}
               disabled={!result.ok}
-              className={cn(
-                'shrink-0 rounded-control bg-accent px-3 py-1.5 text-label font-medium text-bg transition-colors hover:bg-accent-hover',
-                'disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint',
-              )}
+              className="shrink-0"
             >
               <span aria-live="polite">{copyLabel}</span>
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}

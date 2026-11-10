@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import type { FieldKey } from '@/lib/engine/schema'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
+import { Button, IconButton } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import {
   LINT_LEVEL_TEXT_CLASS,
@@ -85,57 +87,60 @@ export function DiagnosticsPanel({
       className="flex max-h-[calc(100vh-3rem)] min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-surface"
       aria-busy={busy}
     >
-      <header className="flex items-start justify-between gap-2 border-b border-line px-3 py-2.5">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-label font-medium text-ink">诊断</h2>
-            <span
-              className={cn(
-                'rounded-chip border px-1.5 py-0.5 text-caption tnum',
-                summary.hasError
-                  ? 'border-danger text-danger'
-                  : 'border-line text-ink-muted',
-              )}
-              title={
-                summary.hasError ? '存在必须处理的问题' : '当前没有错误级问题'
-              }
-            >
-              {summary.total}
-            </span>
+      <header className="border-b border-line-subtle px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-label font-medium text-ink">诊断</h2>
+              <span
+                className={cn(
+                  'rounded-chip px-1.5 py-0.5 text-caption tnum',
+                  summary.hasError
+                    ? 'bg-diff-del text-danger'
+                    : 'bg-bg-sunken text-ink-muted',
+                )}
+                title={
+                  summary.hasError ? '存在必须处理的问题' : '当前没有错误级问题'
+                }
+              >
+                {summary.total} 条
+              </span>
+            </div>
+            <p className="mt-0.5 text-caption text-ink-faint">
+              本地规则检查，输入停顿后刷新
+            </p>
           </div>
-          <p className="mt-0.5 text-caption text-ink-faint">
-            本地规则检查，输入停顿后刷新
-          </p>
+          <IconButton
+            icon="panel"
+            label="收起诊断面板"
+            onClick={onCollapse}
+            size="sm"
+            className="-mr-1 -mt-1"
+          />
         </div>
-        <button
-          type="button"
-          onClick={onCollapse}
-          title="收起诊断面板"
-          className="shrink-0 rounded-control border border-line px-1.5 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-        >
-          收起
-        </button>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {LEVEL_ORDER.map((level) => (
+            <span
+              key={level}
+              className={cn(
+                'text-caption tnum',
+                summary[level] > 0
+                  ? LINT_LEVEL_TEXT_CLASS[level]
+                  : 'text-ink-faint',
+              )}
+            >
+              {LEVEL_META[level].label} {summary[level]}
+            </span>
+          ))}
+        </div>
       </header>
 
-      <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
-        {LEVEL_ORDER.map((level) => (
-          <span
-            key={level}
-            className={cn(
-              'text-caption tnum',
-              summary[level] > 0
-                ? LINT_LEVEL_TEXT_CLASS[level]
-                : 'text-ink-faint',
-            )}
-          >
-            {LEVEL_META[level].label} {summary[level]}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <button
-          type="button"
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-3 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon="wand"
           onClick={onFixAll}
           disabled={busy || fixableCount === 0}
           title={
@@ -143,17 +148,10 @@ export function DiagnosticsPanel({
               ? '没有可自动修复的问题'
               : '批量修复所有未手改字段里的可修复问题'
           }
-          className={cn(
-            'rounded-control border px-2.5 py-1 text-caption transition-colors',
-            fixableCount === 0
-              ? 'border-line text-ink-faint'
-              : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
-            'disabled:cursor-not-allowed disabled:text-ink-faint',
-          )}
         >
           全部修复
           {fixableCount > 0 ? `（${fixableCount}）` : ''}
-        </button>
+        </Button>
         {skippedIssueCount > 0 ? (
           <span className="text-caption text-warning tnum">
             {skippedIssueCount} 条在手改字段里，需单条确认
@@ -164,7 +162,7 @@ export function DiagnosticsPanel({
       {notice ? (
         <p
           role="status"
-          className="border-b border-line bg-bg-sunken px-3 py-1.5 text-caption text-ink-muted"
+          className="border-b border-line-subtle bg-surface-inset px-3 py-1.5 text-caption text-ink-muted"
         >
           {notice}
         </p>
@@ -172,9 +170,12 @@ export function DiagnosticsPanel({
 
       <div className="min-h-0 flex-1 overflow-auto">
         {summary.total === 0 ? (
-          <div className="px-3 py-10 text-center">
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+            <span className="flex size-10 items-center justify-center rounded-full bg-bg-sunken text-ink-faint">
+              <Icon name="alert" size={18} />
+            </span>
             <p className="text-body text-ink">没有发现问题</p>
-            <p className="mt-1 text-caption text-ink-faint">
+            <p className="text-caption text-ink-faint">
               继续编辑字段，诊断会自动刷新
             </p>
           </div>
@@ -187,7 +188,7 @@ export function DiagnosticsPanel({
             const meta = LEVEL_META[level]
             return (
               <section key={level} aria-label={`${meta.label}问题`}>
-                <h3 className="flex items-center justify-between border-b border-line bg-bg-sunken px-3 py-1.5">
+                <h3 className="flex items-center justify-between border-b border-line-subtle px-3 py-2">
                   <span
                     className={cn(
                       'text-caption font-medium',
@@ -196,12 +197,7 @@ export function DiagnosticsPanel({
                   >
                     {meta.label}
                   </span>
-                  <span
-                    className={cn(
-                      'rounded-chip border px-1.5 text-caption tnum',
-                      meta.countClass,
-                    )}
-                  >
+                  <span className="text-caption text-ink-faint tnum">
                     {list.length}
                   </span>
                 </h3>
@@ -210,8 +206,7 @@ export function DiagnosticsPanel({
                     const key = issueIgnoreKey(issue)
                     const field = issueField(issue)
                     const canFix = issue.fixable && field !== null
-                    const dirty =
-                      field !== null && dirtyFields.has(field)
+                    const dirty = field !== null && dirtyFields.has(field)
                     const location = formatIssueLocation(
                       issue,
                       field === null ? undefined : fieldTexts[field],
@@ -225,36 +220,34 @@ export function DiagnosticsPanel({
                       <li
                         key={`${key}-${issueIndex}`}
                         className={cn(
-                          'border-b border-line last:border-b-0',
+                          'group border-b border-line-subtle last:border-b-0',
                           activeIssueKey === key ? 'bg-bg-sunken' : '',
                         )}
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-1">
                           <button
                             type="button"
                             onClick={() => onSelect(issue)}
                             aria-label={`定位到${location}，${issue.ruleId}，${issue.message}`}
-                            className="min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-bg-sunken"
+                            className="min-w-0 flex-1 px-3 py-2.5 text-left transition-colors duration-150 hover:bg-bg-sunken"
                           >
-                            <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-caption">
                               <span
                                 className={cn(
-                                  'text-caption font-medium',
+                                  'font-medium',
                                   LINT_LEVEL_TEXT_CLASS[issue.level],
                                 )}
                               >
                                 {LEVEL_META[issue.level].label}
                               </span>
-                              <span className="font-mono text-caption text-ink-faint">
+                              <span className="font-mono text-ink-faint">
                                 {issue.ruleId}
                               </span>
-                              <span className="text-caption text-ink-muted">
+                              <span className="text-ink-muted">
                                 {location}
                               </span>
                               {dirty ? (
-                                <span className="text-caption text-warning">
-                                  手改字段
-                                </span>
+                                <span className="text-warning">手改字段</span>
                               ) : null}
                             </span>
                             <span className="mt-1 block text-body text-ink">
@@ -265,7 +258,7 @@ export function DiagnosticsPanel({
                                 「{excerpt.match}」
                               </span>
                             ) : null}
-                            <span className="mt-1 block text-caption text-ink-muted">
+                            <span className="mt-1.5 block text-caption text-ink-muted">
                               为什么：{issue.why}
                             </span>
                             <span className="mt-0.5 block text-caption text-ink-muted">
@@ -273,55 +266,54 @@ export function DiagnosticsPanel({
                             </span>
                           </button>
 
-                          <div className="flex shrink-0 flex-col items-end gap-1 py-2.5 pr-3">
+                          <div className="flex shrink-0 flex-col items-end gap-1 py-2 pr-2 opacity-0 transition-opacity duration-150 pointer-events-none focus-within:pointer-events-auto focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
                             {canFix ? (
-                              <button
-                                type="button"
+                              <IconButton
+                                icon="wand"
+                                label={`修复 ${issue.ruleId}`}
                                 onClick={() => handleFixClick(issue)}
                                 disabled={busy}
-                                className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
-                              >
-                                修复
-                              </button>
+                                size="sm"
+                              />
                             ) : (
-                              <span className="text-caption text-ink-faint">
+                              <span className="px-1 text-caption text-ink-faint">
                                 手动
                               </span>
                             )}
-                            <button
-                              type="button"
+                            <IconButton
+                              icon="eye-off"
+                              label={`忽略 ${issue.ruleId}`}
                               onClick={() => onIgnore(issue)}
-                              className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-faint transition-colors hover:border-line-strong hover:text-ink"
-                            >
-                              忽略
-                            </button>
+                              size="sm"
+                            />
                           </div>
                         </div>
 
                         {confirming ? (
-                          <div className="border-t border-line bg-bg-sunken px-3 py-2">
+                          <div className="border-t border-line-subtle bg-surface-inset px-3 py-2">
                             <p className="text-caption text-warning">
                               该字段你手改过。修复会按诊断结果重写这一字段，可能覆盖你的改动。
                             </p>
-                            <div className="mt-1.5 flex items-center gap-2">
-                              <button
-                                type="button"
+                            <div className="mt-1.5 flex items-center gap-1">
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => {
                                   onFix(issue, { confirmed: true })
                                   setConfirmKey(null)
                                 }}
                                 disabled={busy}
-                                className="rounded-control border border-line px-2 py-0.5 text-caption font-medium text-warning transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:text-ink-faint"
+                                className="text-warning"
                               >
                                 确认修复
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setConfirmKey(null)}
-                                className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
                               >
                                 取消
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         ) : null}
@@ -336,17 +328,13 @@ export function DiagnosticsPanel({
       </div>
 
       {ignoredCount > 0 ? (
-        <footer className="flex items-center justify-between gap-2 border-t border-line px-3 py-2">
+        <footer className="flex items-center justify-between gap-2 border-t border-line-subtle px-3 py-2">
           <span className="text-caption text-ink-faint tnum">
             已忽略 {ignoredCount} 条
           </span>
-          <button
-            type="button"
-            onClick={onRestoreIgnored}
-            className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-          >
+          <Button variant="ghost" size="sm" onClick={onRestoreIgnored}>
             恢复
-          </button>
+          </Button>
         </footer>
       ) : null}
     </section>

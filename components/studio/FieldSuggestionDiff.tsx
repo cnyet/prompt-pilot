@@ -13,7 +13,7 @@ export function FieldSuggestionDiff({
   const lines = diffLines(current, suggested)
 
   return (
-    <div className="border-t border-line bg-bg-sunken px-4 py-3">
+    <div className="border-t border-line-subtle bg-surface-inset px-3 py-3">
       <div className="flex flex-wrap items-center gap-4 text-caption text-ink-faint">
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="size-1.5 rounded-full bg-danger" />
@@ -25,7 +25,7 @@ export function FieldSuggestionDiff({
         </span>
         <span>减号是当前版本，加号是 AI 建议</span>
       </div>
-      <ol className="mt-2 max-h-64 overflow-auto rounded-control border border-line bg-surface py-1 font-mono text-caption">
+      <ol className="mt-2 max-h-64 overflow-auto rounded-control bg-surface py-1 font-mono text-caption">
         {lines.map((line, index) => (
           <li
             key={`${index}-${line.kind}`}

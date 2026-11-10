@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Button } from '@/components/ui/Button'
 import { useModelStatus } from './modelStatus'
 
 const TEMPLATES: readonly { label: string; sample: string }[] = [
@@ -65,8 +66,18 @@ export function RequirementInput({
   }
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-center px-6 py-16">
-      <div className="w-full max-w-[640px] self-center rounded-panel border border-line bg-surface p-4 transition-colors focus-within:border-accent">
+    <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col justify-center px-6 py-16">
+      <div className="mb-8">
+        <p className="text-caption text-ink-faint">工作台</p>
+        <h1 className="mt-1.5 text-display font-semibold text-ink">
+          把一句话变成结构化提示词
+        </h1>
+        <p className="mt-2 max-w-[56ch] text-body text-ink-muted">
+          先写清要做什么，生成后可以逐字段修改、诊断与试运行。
+        </p>
+      </div>
+
+      <div className="rounded-panel border border-transparent bg-surface-inset p-4 transition-colors duration-150 focus-within:border-line-strong focus-within:bg-surface focus-within:ring-2 focus-within:ring-accent/25">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>
@@ -79,7 +90,7 @@ export function RequirementInput({
           onKeyDown={handleKeyDown}
           placeholder="用一句话说清你要做什么，也可以直接粘贴一份已有的提示词。"
           aria-describedby="requirement-hint"
-          className="h-24 w-full resize-none rounded-control bg-transparent text-body-lg text-ink placeholder:text-ink-faint"
+          className="h-24 w-full resize-none bg-transparent text-body-lg text-ink placeholder:text-ink-faint focus:outline-none"
         />
         <div className="mt-2 flex items-center justify-between gap-4">
           <p id="requirement-hint" className="text-caption text-ink-faint">
@@ -89,35 +100,36 @@ export function RequirementInput({
           </p>
           <div className="flex items-center gap-3">
             <span className="hidden text-caption text-ink-faint sm:inline">
-              Enter 或 ⌘Enter 生成，Shift + Enter 换行
+              Enter 生成，Shift + Enter 换行
             </span>
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
+              icon="spark"
               onClick={submit}
               disabled={!canSubmit}
               aria-describedby="requirement-hint"
-              className="rounded-control bg-accent px-3 py-1.5 text-label font-medium text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
             >
               生成
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+      <div className="mt-4 flex flex-wrap justify-start gap-1.5">
         {TEMPLATES.map((template) => (
           <button
             key={template.label}
             type="button"
             onClick={() => applySample(template.sample)}
-            className="rounded-chip border border-line px-2 py-1 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+            className="rounded-chip bg-bg-sunken px-2 py-1 text-caption text-ink-muted transition-colors duration-150 hover:bg-surface-inset hover:text-ink"
           >
             {template.label}
           </button>
         ))}
       </div>
 
-      <div className="mx-auto mt-10 w-full max-w-[640px] border-t border-line pt-4">
+      <div className="mt-10 w-full border-t border-line-subtle pt-4">
         <p className="text-caption text-ink-faint">试试这些</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {EXAMPLES.map((example) => (
@@ -125,7 +137,7 @@ export function RequirementInput({
               <button
                 type="button"
                 onClick={() => applySample(example)}
-                className="text-left text-body text-ink-muted transition-colors hover:text-ink"
+                className="text-left text-body text-ink-muted transition-colors duration-150 hover:text-ink"
               >
                 {example}
               </button>
@@ -134,7 +146,7 @@ export function RequirementInput({
         </ul>
       </div>
 
-      <p className="mt-8 text-center text-caption text-ink-faint">
+      <p className="mt-8 text-caption text-ink-faint">
         {model.status === 'loading'
           ? '正在确认模型可用性。'
           : model.status === 'available'

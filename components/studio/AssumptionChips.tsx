@@ -5,6 +5,7 @@ import {
   ASSUMPTION_SOURCE_LABELS,
   type AssumptionChip,
 } from '@/lib/engine/assumptions'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 
 function chipTitle(chip: AssumptionChip): string {
@@ -41,29 +42,8 @@ export function AssumptionChips({
     chips.find((chip) => chip.path === openPath) ?? null
 
   return (
-    <section
-      aria-label="生成假设"
-      className="mt-4 rounded-panel border border-line bg-surface px-3 py-2.5"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-caption text-ink-faint">模型替你做的决定</p>
-          <p className="mt-0.5 text-caption text-ink-muted">
-            点开可改。只重算受影响的字段，其余字段保持原样。
-          </p>
-        </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-caption text-ink-muted">
-          <input
-            type="checkbox"
-            checked={exportWithoutAssumptions}
-            onChange={(event) => onToggleExport(event.target.checked)}
-            className="size-3.5 rounded-chip border-line accent-[var(--accent)]"
-          />
-          导出时剔除假设注释
-        </label>
-      </div>
-
-      <ul className="mt-2.5 flex flex-wrap gap-1.5">
+    <section aria-label="生成假设" className="min-w-0">
+      <ul className="flex flex-wrap gap-1.5">
         {chips.map((chip) => {
           const open = openPath === chip.path
           const blocked = disabled || !chip.applicable
@@ -71,26 +51,22 @@ export function AssumptionChips({
             <li key={chip.path}>
               <button
                 type="button"
-                onClick={() =>
-                  setOpenPath(open ? null : chip.path)
-                }
+                onClick={() => setOpenPath(open ? null : chip.path)}
                 disabled={blocked}
                 aria-expanded={open}
                 aria-controls={`${panelId}-${chip.path}`}
                 title={chipTitle(chip)}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-chip border px-2 py-1 text-caption transition-colors',
+                  'inline-flex items-center gap-1 rounded-chip px-2 py-1 text-caption transition-colors duration-150',
                   chip.modified
-                    ? 'border-accent bg-accent-subtle text-accent'
-                    : 'border-line bg-bg-sunken text-ink-muted hover:border-line-strong hover:text-ink',
+                    ? 'bg-accent-subtle text-accent'
+                    : 'bg-bg-sunken text-ink-muted hover:bg-surface-inset hover:text-ink',
                   blocked &&
-                    'cursor-not-allowed opacity-60 hover:border-line hover:text-ink-muted',
+                    'cursor-not-allowed opacity-60 hover:bg-bg-sunken hover:text-ink-muted',
                 )}
               >
                 <span
-                  className={
-                    chip.modified ? 'text-accent' : 'text-ink-faint'
-                  }
+                  className={chip.modified ? 'text-accent' : 'text-ink-faint'}
                 >
                   {chip.label}
                 </span>
@@ -107,19 +83,40 @@ export function AssumptionChips({
                     已改
                   </span>
                 ) : null}
-                <span aria-hidden className="text-ink-faint">
-                  {open ? '▴' : '▾'}
-                </span>
+                <Icon
+                  name="chevron-right"
+                  size={12}
+                  className={cn(
+                    'text-ink-faint transition-transform duration-150',
+                    open && 'rotate-90',
+                  )}
+                />
               </button>
             </li>
           )
         })}
       </ul>
 
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 text-caption text-ink-faint">
+          <span className="text-ink-muted">模型替你做的决定</span>
+          。点开可改，只重算受影响的字段，其余字段保持原样。
+        </p>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-caption text-ink-muted">
+          <input
+            type="checkbox"
+            checked={exportWithoutAssumptions}
+            onChange={(event) => onToggleExport(event.target.checked)}
+            className="size-3.5 rounded-chip border-line accent-[var(--accent)]"
+          />
+          导出时剔除假设注释
+        </label>
+      </div>
+
       {openChip ? (
         <div
           id={`${panelId}-${openChip.path}`}
-          className="mt-2 border-t border-line pt-2"
+          className="mt-3 border-t border-line-subtle pt-3"
         >
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="text-caption text-ink-faint">
@@ -137,11 +134,11 @@ export function AssumptionChips({
                     setOpenPath(null)
                   }}
                   className={cn(
-                    'rounded-control border px-2 py-0.5 text-caption transition-colors',
+                    'rounded-control px-2 py-0.5 text-caption transition-colors duration-150',
                     current
-                      ? 'border-accent text-accent'
-                      : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
-                    'disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:border-line',
+                      ? 'bg-accent-subtle text-accent'
+                      : 'bg-surface-inset text-ink-muted hover:bg-bg-sunken hover:text-ink',
+                    'disabled:cursor-not-allowed disabled:text-ink-faint',
                   )}
                 >
                   {candidate}

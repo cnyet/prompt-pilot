@@ -20,14 +20,14 @@ export function ThinkingPanel({ text, streaming }: ThinkingPanelProps) {
   const chars = Array.from(text).length
 
   return (
-    <details className="mb-4 rounded-panel border border-line bg-bg-sunken">
+    <details className="mb-4 rounded-panel bg-bg-sunken">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-label text-ink-muted">
         <span>思考</span>
         <span className="text-caption text-ink-faint tnum">
           {streaming ? '生成中' : '已结束'} · {chars} 字
         </span>
       </summary>
-      <div className="border-t border-line px-4 py-3">
+      <div className="border-t border-line-subtle px-4 py-3">
         <p className="mb-2 text-caption text-ink-faint">
           仅用于查看模型的推理过程，不会写入提示词正文。
         </p>

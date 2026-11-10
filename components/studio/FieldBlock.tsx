@@ -2,6 +2,8 @@
 
 import { useId, useState } from 'react'
 import { FIELD_LABELS, type FieldKey } from '@/lib/engine/schema'
+import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import { FieldSuggestionDiff } from './FieldSuggestionDiff'
 import {
@@ -177,14 +179,11 @@ export function FieldBlock({
 
   return (
     <section
-      className={cn(
-        'overflow-hidden rounded-panel border bg-surface',
-        active ? 'border-line-strong' : 'border-line',
-      )}
+      className={cn('py-4', index > 1 && 'border-t border-line-subtle')}
       aria-labelledby={`${editorId}-title`}
       aria-busy={running}
     >
-      <div className="border-b border-line px-4 py-2.5">
+      <div className="pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
@@ -194,9 +193,14 @@ export function FieldBlock({
             aria-controls={`${editorId}-body`}
             className="flex min-w-0 items-center gap-2 text-left disabled:cursor-default"
           >
-            <span aria-hidden className="text-caption text-ink-faint">
-              {expanded ? '▾' : '▸'}
-            </span>
+            <Icon
+              name="chevron-right"
+              size={12}
+              className={cn(
+                'text-ink-faint transition-transform duration-150',
+                expanded && 'rotate-90',
+              )}
+            />
             <span className="text-caption text-ink-faint tnum">
               {String(index).padStart(2, '0')}
             </span>
@@ -212,36 +216,35 @@ export function FieldBlock({
             {showSourceMark ? (
               <span
                 title="这一版由 AI 产出，手改后标记消失"
-                className="inline-flex items-center gap-1 rounded-chip border border-line bg-accent-subtle px-1.5 py-0.5 text-caption text-accent"
+                className="inline-flex items-center gap-1 rounded-chip bg-accent-subtle px-1.5 py-0.5 text-caption text-accent"
               >
                 <span aria-hidden className="size-1.5 rounded-full bg-accent" />
                 {sourceLabel(state)}
               </span>
             ) : null}
             <span
-              className={cn(
-                'text-caption',
-                statusClass(state, opState),
-              )}
+              className={cn('text-caption', statusClass(state, opState))}
               aria-live="polite"
             >
               {statusLabel(state, phase, scheduled, opState)}
             </span>
             {showHeaderRetry ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="redo"
                 onClick={onRetry}
                 disabled={busy}
-                className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
+                className="-my-1"
               >
                 重试
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
 
         {expanded ? (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="text-caption text-ink-faint">重算</span>
             {FIELD_OPS.map((op) => (
               <button
@@ -252,11 +255,11 @@ export function FieldBlock({
                 aria-busy={running && opState.action === op}
                 title={`${FIELD_OP_LABELS[op]}：${FIELD_OP_DESCRIPTIONS[op]}`}
                 className={cn(
-                  'rounded-control border border-line px-2 py-0.5 text-caption transition-colors',
+                  'rounded-chip px-2 py-0.5 text-caption transition-colors duration-150',
                   running && opState.action === op
-                    ? 'text-accent'
-                    : 'text-ink-muted hover:border-line-strong hover:text-ink',
-                  'disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:border-line',
+                    ? 'bg-accent-subtle text-accent'
+                    : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
+                  'disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent',
                 )}
               >
                 {FIELD_OP_LABELS[op]}
@@ -279,33 +282,34 @@ export function FieldBlock({
       {expanded ? (
         <div id={`${editorId}-body`}>
           {state.suggestion ? (
-            <div className="border-b border-line bg-accent-subtle px-4 py-2">
+            <div className="my-2 rounded-panel bg-accent-subtle px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-caption text-ink-muted">
                   AI 有新版本。你手改的内容已保留。
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
+                <div className="flex flex-wrap items-center gap-1">
+                  <Button
+                    variant="quiet"
+                    size="sm"
                     onClick={() => setShowDiff((previous) => !previous)}
-                    className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
                   >
                     {showDiff ? '收起差异' : '查看差异'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    size="sm"
                     onClick={onAcceptSuggestion}
-                    className="rounded-control border border-line px-2 py-0.5 text-caption font-medium text-accent transition-colors hover:border-line-strong"
+                    className="font-medium text-accent"
                   >
                     采纳
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    size="sm"
                     onClick={onDiscardSuggestion}
-                    className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
                   >
                     丢弃
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -319,7 +323,7 @@ export function FieldBlock({
           ) : null}
 
           {waiting ? (
-            <div className="flex flex-col gap-2 px-4 py-4" aria-hidden>
+            <div className="flex flex-col gap-2 py-4" aria-hidden>
               <div
                 className="h-3 w-2/3 animate-pulse rounded-chip bg-bg-sunken"
                 style={{ animationDuration: '1.4s' }}
@@ -342,28 +346,30 @@ export function FieldBlock({
               onChange={(event) => onChange(event.target.value)}
               aria-label={`${FIELD_LABELS[field]}内容`}
               className={cn(
-                'w-full resize-y bg-transparent px-4 py-3 text-body-lg focus-visible:-outline-offset-2',
+                'w-full resize-y rounded-control bg-transparent px-0 py-2 text-body-lg focus-visible:-outline-offset-2',
                 running ? 'text-ink-muted' : 'text-ink',
               )}
             />
           ) : (
-            <div className="flex flex-col items-start gap-2 px-4 py-4">
+            <div className="flex flex-col items-start gap-2 py-3">
               <p className="text-body text-ink-faint">未生成</p>
               {showBodyRetry ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="redo"
                   onClick={onRetry}
                   disabled={busy}
-                  className="rounded-control border border-line px-2.5 py-1 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
+                  className="-ml-2"
                 >
                   重试此字段
-                </button>
+                </Button>
               ) : null}
             </div>
           )}
 
           {streaming && state.dirty && hasPending ? (
-            <details className="border-t border-line px-4 py-2">
+            <details className="border-t border-line-subtle py-2">
               <summary className="cursor-pointer text-caption text-ink-faint">
                 AI 正在生成的版本，{Array.from(state.pendingText).length} 字
               </summary>
@@ -374,7 +380,7 @@ export function FieldBlock({
           ) : null}
 
           {state.error ? (
-            <p className="border-t border-line px-4 py-2 text-caption text-danger">
+            <p className="border-t border-line-subtle py-2 text-caption text-danger">
               {state.error}
             </p>
           ) : null}

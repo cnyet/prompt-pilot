@@ -16,6 +16,8 @@ import { renderMarkdownDocument } from '@/lib/engine/render'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
+import { Button, buttonStyles } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { AssumptionChips } from './AssumptionChips'
 import { DiagnosticsPanel } from './DiagnosticsPanel'
 import {
@@ -870,7 +872,7 @@ export function StudioWorkspace() {
         role="tablist"
         aria-label="工作台分区"
         onKeyDown={handlePaneKeyDown}
-        className="sticky top-0 z-20 -mx-4 mb-4 flex gap-1 border-b border-line bg-bg px-4 py-2 min-[1440px]:hidden"
+        className="sticky top-0 z-20 -mx-4 mb-5 flex gap-1 border-b border-line-subtle bg-bg px-4 py-2 min-[1440px]:hidden"
       >
         {STUDIO_PANES.map((pane) => {
           const active = mobilePane === pane.id
@@ -885,10 +887,10 @@ export function StudioWorkspace() {
               tabIndex={active ? 0 : -1}
               onClick={() => selectPane(pane.id)}
               className={cn(
-                'rounded-control border px-3 py-1.5 text-label transition-colors',
+                'rounded-control px-3 py-1.5 text-label transition-colors duration-150',
                 active
-                  ? 'border-line-strong bg-surface text-ink'
-                  : 'border-transparent text-ink-muted hover:border-line hover:text-ink',
+                  ? 'bg-surface-raised font-medium text-ink'
+                  : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
               )}
             >
               {pane.label}
@@ -922,14 +924,14 @@ export function StudioWorkspace() {
             'hidden min-[1440px]:block',
           )}
         >
-          <div className="sticky top-6 rounded-panel border border-line bg-surface p-4">
-            <p className="text-label font-medium text-ink">原始需求</p>
-            <p className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-body text-ink-muted">
+          <div className="sticky top-6 rounded-panel bg-surface-inset p-4">
+            <p className="text-caption font-medium text-ink-faint">原始需求</p>
+            <p className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-body text-ink">
               {submitted}
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-1.5">
               <span
-                className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-ink-muted"
+                className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted"
                 title={
                   modelStatus.status === 'available'
                     ? modelStatus.modelLabel ?? '模型可用'
@@ -938,26 +940,27 @@ export function StudioWorkspace() {
               >
                 {modelStatusLabel(modelStatus)}
               </span>
-              <span className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-ink-muted tnum">
+              <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted tnum">
                 {filledCount} / {FIELD_KEYS.length} 字段
               </span>
               {suggestionCount > 0 ? (
-                <span className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption text-warning tnum">
+                <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-warning tnum">
                   {suggestionCount} 条建议待处理
                 </span>
               ) : null}
             </div>
-            <p className="mt-4 text-caption text-ink-faint">
+            <p className="mt-4 border-t border-line-subtle pt-3 text-caption text-ink-faint">
               流式生成过程中也可以直接改字。改动会立即写入文档，后到的 AI
               内容只会作为建议保留。
             </p>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleReset}
-              className="mt-4 w-full rounded-control border border-line px-2.5 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+              className="mt-3 w-full"
             >
               重新开始
-            </button>
+            </Button>
           </div>
         </aside>
 
@@ -971,45 +974,65 @@ export function StudioWorkspace() {
           )}
           aria-busy={isBusy}
         >
-          <header className="mb-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-caption text-ink-faint">结构化提示词</p>
-                <h2 className="mt-1 truncate text-h2 text-ink">{displayTitle}</h2>
-                <p className="mt-1 truncate text-caption text-ink-faint">
-                  需求：{submitted}
-                </p>
-                {librarySave.message.length > 0 ? (
-                  <p
+          <header className="mb-6">
+            <p className="text-caption text-ink-faint">结构化提示词</p>
+            <h1 className="mt-1.5 text-display font-semibold text-ink">
+              {displayTitle}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-caption">
+              <span
+                className="max-w-[42ch] truncate rounded-chip bg-surface-inset px-2 py-0.5 text-ink-muted"
+                title={submitted}
+              >
+                需求：{submitted}
+              </span>
+              <span className="rounded-chip bg-surface-inset px-2 py-0.5 text-ink-muted tnum">
+                {filledCount} / {FIELD_KEYS.length} 字段
+              </span>
+              {suggestionCount > 0 ? (
+                <span className="rounded-chip bg-surface-inset px-2 py-0.5 text-warning tnum">
+                  {suggestionCount} 条建议待处理
+                </span>
+              ) : null}
+              {librarySave.message.length > 0 ? (
+                <span
+                  aria-live="polite"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-chip px-2 py-0.5',
+                    librarySave.status === 'error'
+                      ? 'bg-diff-del text-danger'
+                      : 'bg-accent-subtle text-accent',
+                  )}
+                >
+                  <span
+                    aria-hidden
                     className={cn(
-                      'mt-1 text-caption',
+                      'size-1.5 rounded-full',
                       librarySave.status === 'error'
-                        ? 'text-danger'
-                        : 'text-ink-muted',
+                        ? 'bg-danger'
+                        : 'bg-accent',
                     )}
-                    aria-live="polite"
-                  >
-                    {librarySave.message}
-                    {libraryPromptId !== null &&
-                    librarySave.status !== 'error' ? (
-                      <>
-                        <span aria-hidden className="mx-1 text-ink-faint">
-                          ·
-                        </span>
-                        <Link
-                          href="/library"
-                          className="text-accent hover:underline"
-                        >
-                          打开提示词库
-                        </Link>
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
+                  />
+                  {librarySave.message}
+                  {libraryPromptId !== null &&
+                  librarySave.status !== 'error' ? (
+                    <Link
+                      href="/library"
+                      className="underline-offset-2 hover:underline"
+                    >
+                      查看
+                    </Link>
+                  ) : null}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="relative mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon="bookmark"
                   onClick={() => void saveNewVersion()}
                   disabled={
                     !hasAnyField ||
@@ -1019,134 +1042,118 @@ export function StudioWorkspace() {
                   }
                   title="保存版本（⌘S）"
                   aria-keyshortcuts="Meta+S Control+S"
-                  className="rounded-control bg-accent px-3 py-1.5 text-label text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
                 >
                   {librarySave.status === 'saving'
                     ? '正在保存'
                     : libraryPromptId === null
                       ? '保存到提示词库'
                       : '保存新版本'}
-                </button>
-                {!diagnosticsOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => selectPane('diagnostics')}
-                    title="展开诊断面板"
-                    className={cn(
-                      'rounded-control border px-2.5 py-1.5 text-label transition-colors',
-                      diagnosticsSummary.hasError
-                        ? 'border-danger text-danger hover:bg-bg-sunken'
-                        : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
-                    )}
-                  >
-                    诊断 {diagnosticsSummary.total}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  className="min-[1440px]:hidden"
+                >
+                  重新开始
+                </Button>
+              </div>
+              <span aria-hidden className="h-5 w-px bg-line-subtle" />
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="undo"
                   onClick={undo}
                   disabled={!canUndo}
                   title="撤销（⌘Z）"
-                  className="rounded-control border border-line px-2.5 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
                 >
                   撤销
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="redo"
                   onClick={redo}
                   disabled={!canRedo}
                   title="重做（⇧⌘Z）"
-                  className="rounded-control border border-line px-2.5 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
                 >
                   重做
-                </button>
-                <button
-                  type="button"
+                </Button>
+                {!diagnosticsOpen ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon="alert"
+                    onClick={() => selectPane('diagnostics')}
+                    title="展开诊断面板"
+                    className={
+                      diagnosticsSummary.hasError ? 'text-danger' : undefined
+                    }
+                  >
+                    诊断 {diagnosticsSummary.total}
+                  </Button>
+                ) : null}
+              </div>
+              <span aria-hidden className="h-5 w-px bg-line-subtle" />
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="copy"
                   onClick={() => void handleCopy()}
                   disabled={!hasAnyField || phase === 'streaming'}
                   className={cn(
-                    'rounded-control border border-line px-3 py-1.5 text-label transition-colors',
-                    copyState === 'failed'
-                      ? 'text-danger'
-                      : 'text-ink-muted hover:border-line-strong hover:text-ink',
-                    'disabled:cursor-not-allowed disabled:text-ink-faint',
+                    copyState === 'failed' ? 'text-danger' : undefined,
+                    'disabled:cursor-not-allowed',
                   )}
                 >
                   {copyLabel}
-                </button>
+                </Button>
+                {hasAnyField && phase !== 'streaming' ? (
+                  <ExportMenu
+                    schema={schema}
+                    assumptions={assumptions}
+                    omitAssumptions={exportWithoutAssumptions}
+                    onOmitAssumptionsChange={setExportWithoutAssumptions}
+                  />
+                ) : null}
                 <Link
                   href="/library"
-                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                  className={buttonStyles({ variant: 'ghost', size: 'sm' })}
                 >
+                  <Icon name="library" size={14} />
                   提示词库
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink min-[1440px]:hidden"
-                >
-                  重新开始
-                </button>
               </div>
             </div>
-
-            {hasAnyField && phase !== 'streaming' ? (
-              <div className="flex flex-wrap items-start gap-2">
-                <AssumptionChips
-                  chips={assumptionChips}
-                  exportWithoutAssumptions={exportWithoutAssumptions}
-                  onSelect={setAssumption}
-                  onToggleExport={setExportWithoutAssumptions}
-                  disabled={opBusy}
-                />
-                <ExportMenu
-                  schema={schema}
-                  assumptions={assumptions}
-                  omitAssumptions={exportWithoutAssumptions}
-                  onOmitAssumptionsChange={setExportWithoutAssumptions}
-                />
-              </div>
-            ) : null}
           </header>
-
-          {hasAnyField ? (
-            <RunDrawer
-              prompt={markdownPreview}
-              variables={viewSchema.input.variables}
-              sessionKey={sessionKey}
-              disabled={isBusy || opBusy}
-              generationPhase={phase}
-              generationRound={generationRound}
-              autoRunStopped={autoRunStopped}
-            />
-          ) : null}
 
           {error ? (
             <div
               role="alert"
-              className="mb-4 rounded-panel border border-line bg-surface p-4"
+              className="mb-4 flex items-start gap-3 rounded-panel bg-surface-inset p-4"
             >
-              <div className="flex items-start gap-3">
-                <span
-                  aria-hidden
-                  className="mt-1.5 size-1.5 shrink-0 rounded-full bg-danger"
-                />
-                <div className="min-w-0">
-                  <p className="text-label font-medium text-ink">
-                    {error.message}
-                  </p>
-                  <p className="mt-1 text-body text-ink-muted">{error.hint}</p>
-                  {error.retryable && missingFields.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => void retryFields(missingFields)}
-                      disabled={isBusy}
-                      className="mt-3 rounded-control border border-line px-2.5 py-1 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
-                    >
-                      重试未生成字段
-                    </button>
-                  ) : null}
-                </div>
+              <span className="mt-0.5 text-danger">
+                <Icon name="alert" size={16} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-label font-medium text-ink">
+                  {error.message}
+                </p>
+                <p className="mt-1 text-body text-ink-muted">{error.hint}</p>
+                {error.retryable && missingFields.length > 0 ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon="redo"
+                    onClick={() => void retryFields(missingFields)}
+                    disabled={isBusy}
+                    className="mt-2 -ml-2"
+                  >
+                    重试未生成字段
+                  </Button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1158,7 +1165,7 @@ export function StudioWorkspace() {
           <div
             role="tablist"
             aria-label="中栏视图"
-            className="mb-4 flex items-center gap-1 border-b border-line"
+            className="mb-4 flex items-center gap-1 border-b border-line-subtle"
           >
             {STUDIO_VIEWS.map((item) => {
               const active = view === item.id
@@ -1171,10 +1178,8 @@ export function StudioWorkspace() {
                   onClick={() => setView(item.id)}
                   title={`${item.label}（${item.hint}）`}
                   className={cn(
-                    'relative px-3 py-2 text-label transition-colors',
-                    active
-                      ? 'text-ink'
-                      : 'text-ink-muted hover:text-ink',
+                    'relative px-3 py-2 text-label transition-colors duration-150',
+                    active ? 'text-ink' : 'text-ink-muted hover:text-ink',
                   )}
                 >
                   {item.label}
@@ -1190,7 +1195,7 @@ export function StudioWorkspace() {
           </div>
 
           {view === 'structured' ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col">
               {FIELD_KEYS.map((field, index) => {
                 const focus =
                   diagnosticsFocus !== null &&
@@ -1204,7 +1209,7 @@ export function StudioWorkspace() {
                       fieldWrapperRefs.current[field] = node
                     }}
                     className={cn(
-                      'scroll-mt-6 rounded-panel',
+                      'scroll-mt-6',
                       focus !== null
                         ? focus.level === 'error'
                           ? 'ring-1 ring-danger'
@@ -1215,7 +1220,7 @@ export function StudioWorkspace() {
                     )}
                   >
                     {focus !== null ? (
-                      <div className="mb-2 rounded-panel border border-line bg-bg-sunken px-3 py-2">
+                      <div className="mb-2 rounded-panel bg-bg-sunken px-3 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <p className="min-w-0 text-caption">
                             <span
@@ -1231,13 +1236,14 @@ export function StudioWorkspace() {
                               · {focus.location}
                             </span>
                           </p>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setDiagnosticsFocus(null)}
-                            className="shrink-0 rounded-control border border-line px-1.5 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                            className="-my-1 shrink-0"
                           >
                             关闭
-                          </button>
+                          </Button>
                         </div>
                         {focus.excerpt ? (
                           <p className="mt-1 whitespace-pre-wrap break-words text-body text-ink">
@@ -1284,27 +1290,19 @@ export function StudioWorkspace() {
               })}
             </div>
           ) : view === 'rendered' ? (
-            <div className="overflow-hidden rounded-panel border border-line bg-surface">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+            <div className="overflow-hidden rounded-panel bg-surface-inset">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2">
                 <p className="text-caption text-ink-faint">
                   按当前八字段文本渲染的 Markdown
                 </p>
-                <button
-                  type="button"
-                  onClick={() => void handleCopy()}
-                  disabled={!hasAnyField || phase === 'streaming'}
-                  className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
-                >
-                  {copyLabel}
-                </button>
               </div>
               <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-body text-ink">
                 {markdownPreview}
               </pre>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-panel border border-line bg-surface">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+            <div className="overflow-hidden rounded-panel bg-surface-inset">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2">
                 <p className="text-caption text-ink-faint">
                   由字段文本按结构化路径解析生成的 schema
                 </p>
@@ -1318,7 +1316,31 @@ export function StudioWorkspace() {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          {hasAnyField && phase !== 'streaming' ? (
+            <div className="mt-6 border-t border-line-subtle pt-4">
+              <AssumptionChips
+                chips={assumptionChips}
+                exportWithoutAssumptions={exportWithoutAssumptions}
+                onSelect={setAssumption}
+                onToggleExport={setExportWithoutAssumptions}
+                disabled={opBusy}
+              />
+            </div>
+          ) : null}
+
+          {hasAnyField ? (
+            <RunDrawer
+              prompt={markdownPreview}
+              variables={viewSchema.input.variables}
+              sessionKey={sessionKey}
+              disabled={isBusy || opBusy}
+              generationPhase={phase}
+              generationRound={generationRound}
+              autoRunStopped={autoRunStopped}
+            />
+          ) : null}
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle pt-4">
             <div className="min-w-0">
               <p className="text-caption text-ink-muted tnum" aria-live="polite">
                 {statusText}
@@ -1331,26 +1353,17 @@ export function StudioWorkspace() {
                 {historyText}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {phase === 'streaming' ? (
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  className="rounded-control border border-line px-3 py-1.5 text-label font-medium text-danger transition-colors hover:bg-bg-sunken"
-                >
-                  停止生成
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handleCopy()}
-                  disabled={!hasAnyField}
-                  className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:text-ink-faint"
-                >
-                  {copyLabel}
-                </button>
-              )}
-            </div>
+            {phase === 'streaming' ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="stop"
+                onClick={handleStop}
+                className="text-danger"
+              >
+                停止生成
+              </Button>
+            ) : null}
           </div>
         </section>
 

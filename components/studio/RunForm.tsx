@@ -79,7 +79,7 @@ export function RunForm({
 }: RunFormProps) {
   if (fields.length === 0) {
     return (
-      <p className="rounded-control border border-line bg-bg-sunken px-3 py-2 text-caption text-ink-muted">
+      <p className="rounded-control bg-surface-inset px-3 py-2 text-caption text-ink-muted">
         该提示词没有声明变量，可以直接试运行。
       </p>
     )

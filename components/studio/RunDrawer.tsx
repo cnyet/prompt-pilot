@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PromptVariable } from '@/lib/engine/schema'
+import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import { RunForm } from './RunForm'
 import { formatUsageCost } from './types'
@@ -270,44 +272,86 @@ export function RunDrawer({
   return (
     <section
       aria-labelledby="trial-run-heading"
-      className="mb-5 overflow-hidden rounded-panel border border-line bg-surface"
+      className="mt-6 overflow-hidden rounded-panel border border-line bg-surface"
     >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
-          className="flex items-center gap-2 text-label font-medium text-ink"
-        >
-          <span aria-hidden className="text-caption text-ink-faint">
-            {expanded ? '▾' : '▸'}
-          </span>
-          <span id="trial-run-heading">试运行</span>
-          <span
-            className={cn('text-caption', phaseClass(trial.state.phase))}
-            aria-live="polite"
+      <div className="border-b border-line-subtle px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="flex items-center gap-2 text-label font-medium text-ink"
           >
-            {phaseLabel(trial.state.phase)}
-          </span>
-        </button>
+            <Icon
+              name="chevron-right"
+              size={14}
+              className={cn(
+                'text-ink-faint transition-transform duration-150',
+                expanded && 'rotate-90',
+              )}
+            />
+            <span id="trial-run-heading">试运行</span>
+            <span
+              className={cn(
+                'text-caption font-normal',
+                phaseClass(trial.state.phase),
+              )}
+              aria-live="polite"
+            >
+              {phaseLabel(trial.state.phase)}
+            </span>
+          </button>
 
-        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-ink-faint tnum">
-          <div className="flex items-center gap-1">
-            <dt>模型</dt>
-            <dd className="text-ink-muted">
+          <span className="ml-auto hidden text-caption text-ink-faint sm:inline">
+            ⌘Enter 试运行
+          </span>
+          {trial.isRunning ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="stop"
+              onClick={trial.cancel}
+              className="text-danger"
+            >
+              停止运行
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="play"
+              onClick={() => {
+                setSelectedRunId(null)
+                void trial.run()
+              }}
+              disabled={!trial.canRun}
+              title={runDisabledReason || '试运行（⌘Enter）'}
+              aria-keyshortcuts="Meta+Enter Control+Enter"
+            >
+              试运行
+            </Button>
+          )}
+        </div>
+
+        <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1.5">
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <dt className="shrink-0 text-caption text-ink-faint">模型</dt>
+            <dd className="truncate text-right text-caption text-ink-muted">
               {trial.availability.model?.label ??
                 trial.state.modelLabel ??
                 '未知'}
             </dd>
           </div>
-          <div className="flex items-center gap-1">
-            <dt>耗时</dt>
-            <dd className="text-ink-muted">{formatDuration(durationMs)}</dd>
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <dt className="shrink-0 text-caption text-ink-faint">耗时</dt>
+            <dd className="text-right text-caption text-ink-muted tnum">
+              {formatDuration(durationMs)}
+            </dd>
           </div>
-          <div className="flex items-center gap-1">
-            <dt>token</dt>
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <dt className="shrink-0 text-caption text-ink-faint">token</dt>
             <dd
-              className="text-ink-muted"
+              className="text-right text-caption text-ink-muted tnum"
               title={
                 usage == null && trial.estimate !== null
                   ? '运行中按字符数估算，收到模型用量后以实际值为准。'
@@ -317,44 +361,17 @@ export function RunDrawer({
               {tokens}
             </dd>
           </div>
-          <div className="flex items-center gap-1">
-            <dt>金额</dt>
-            <dd className="text-ink-muted">{cost}</dd>
+          <div className="flex min-w-0 items-baseline justify-between gap-2">
+            <dt className="shrink-0 text-caption text-ink-faint">金额</dt>
+            <dd className="text-right text-caption text-ink-muted tnum">
+              {cost}
+            </dd>
           </div>
         </dl>
-
-        <div className="ml-auto flex items-center gap-2">
-          {trial.isRunning ? (
-            <button
-              type="button"
-              onClick={trial.cancel}
-              className="rounded-control border border-line px-3 py-1.5 text-label font-medium text-danger transition-colors hover:bg-bg-sunken"
-            >
-              停止运行
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedRunId(null)
-                void trial.run()
-              }}
-              disabled={!trial.canRun}
-              title={runDisabledReason || '试运行（⌘Enter）'}
-              aria-keyshortcuts="Meta+Enter Control+Enter"
-              className="rounded-control bg-accent px-3 py-1.5 text-label font-medium text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
-            >
-              试运行
-            </button>
-          )}
-        </div>
-        <span className="hidden text-caption text-ink-faint sm:inline">
-          ⌘Enter 试运行
-        </span>
       </div>
 
       {autoNotice !== null && autoNotice.outcome !== 'unavailable' ? (
-        <div className="border-b border-line bg-bg-sunken px-4 py-2">
+        <div className="border-b border-line-subtle bg-surface-inset px-4 py-2">
           <p className="text-caption text-ink-muted" role="status">
             {autoNotice.message}
           </p>
@@ -362,7 +379,7 @@ export function RunDrawer({
       ) : null}
 
       {!trial.availability.available ? (
-        <div className="border-b border-line bg-bg-sunken px-4 py-2">
+        <div className="border-b border-line-subtle bg-surface-inset px-4 py-2">
           <p className="text-caption text-ink-muted" role="status">
             {trial.availability.status === 'loading'
               ? '正在确认可用模型。'
@@ -372,7 +389,7 @@ export function RunDrawer({
       ) : null}
 
       {expanded ? (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+        <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0">
             <p className="mb-2 text-caption text-ink-faint">变量</p>
             <RunForm
@@ -403,13 +420,13 @@ export function RunDrawer({
                   已输出 {Array.from(displayOutput).length} 字
                 </span>
                 {selectedRun ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="quiet"
+                    size="sm"
                     onClick={() => setSelectedRunId(null)}
-                    className="text-caption text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
                   >
                     返回本次输出
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -417,13 +434,13 @@ export function RunDrawer({
               ref={outputRef}
               aria-label="试运行输出"
               aria-busy={trial.isRunning}
-              className="max-h-80 min-h-32 overflow-auto whitespace-pre-wrap break-words rounded-control border border-line bg-bg-sunken px-3 py-2 font-mono text-caption text-ink"
+              className="max-h-80 min-h-32 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-inset px-3 py-2 font-mono text-caption text-ink"
             >
               {displayOutput.length > 0 ? displayOutput : outputPlaceholder}
             </pre>
 
             {displayReasoning.length > 0 ? (
-              <details className="mt-2 rounded-control border border-line bg-surface px-3 py-2">
+              <details className="mt-2 rounded-control bg-surface-inset px-3 py-2">
                 <summary className="cursor-pointer text-caption text-ink-muted">
                   思考过程
                 </summary>
@@ -443,9 +460,9 @@ export function RunDrawer({
       ) : null}
 
       {trial.history.length > 0 ? (
-        <div className="border-t border-line px-4 py-3">
+        <div className="border-t border-line-subtle px-4 py-3">
           <p className="mb-2 text-caption text-ink-faint">本会话运行记录</p>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {trial.history.map((item) => {
               const active = item.id === selectedRunId
               return (
@@ -456,10 +473,10 @@ export function RunDrawer({
                     disabled={trial.isRunning}
                     aria-pressed={active}
                     className={cn(
-                      'rounded-chip border px-2 py-1 text-caption tnum transition-colors disabled:cursor-not-allowed disabled:text-ink-faint',
+                      'rounded-chip px-2 py-1 text-caption tnum transition-colors duration-150 disabled:cursor-not-allowed disabled:text-ink-faint',
                       active
-                        ? 'border-accent bg-accent-subtle text-accent'
-                        : 'border-line bg-bg-sunken text-ink-muted hover:border-line-strong hover:text-ink',
+                        ? 'bg-accent-subtle text-accent'
+                        : 'bg-bg-sunken text-ink-muted hover:bg-surface-inset hover:text-ink',
                     )}
                   >
                     {formatTime(item.createdAt)} ·{' '}
