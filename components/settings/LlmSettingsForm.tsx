@@ -65,14 +65,60 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     modelEvaluate: initial.modelEvaluate.value,
   })
   const [touched, setTouched] = useState<ReadonlySet<FieldKey>>(new Set())
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<FieldKey, string>>
+  >({})
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const markTouched = (field: FieldKey) => {
     setTouched((prev) => new Set(prev).add(field))
+    setFieldErrors((prev) => {
+      if (!(field in prev)) {
+        return prev
+      }
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
     setMessage(null)
     setError(null)
+  }
+
+  /** 提交前本地校验：错误贴在字段下，不等服务端往返 */
+  const validate = (): boolean => {
+    const next: Partial<Record<FieldKey, string>> = {}
+    if (touched.has('baseUrl')) {
+      const value = values.baseUrl.trim()
+      if (value.length > 0) {
+        let ok = false
+        try {
+          const parsed = new URL(value)
+          ok = parsed.protocol === 'http:' || parsed.protocol === 'https:'
+        } catch {
+          ok = false
+        }
+        if (!ok) {
+          next.baseUrl = '填完整的 http(s) 地址，例如 https://ark.cn-beijing.volces.com/api/v3。'
+        }
+      }
+    }
+    const modelRe = /^[A-Za-z0-9._:-]{1,120}$/
+    if (touched.has('modelGenerate')) {
+      const value = values.modelGenerate.trim()
+      if (value.length > 0 && !modelRe.test(value)) {
+        next.modelGenerate = '只能用字母、数字、点、下划线、冒号或连字符。'
+      }
+    }
+    if (touched.has('modelEvaluate')) {
+      const value = values.modelEvaluate.trim()
+      if (value.length > 0 && !modelRe.test(value)) {
+        next.modelEvaluate = '只能用字母、数字、点、下划线、冒号或连字符。'
+      }
+    }
+    setFieldErrors(next)
+    return Object.keys(next).length === 0
   }
 
   const hasOverrides =
@@ -134,6 +180,10 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
       setMessage('没有改动需要保存。')
       return
     }
+    if (!validate()) {
+      setError(null)
+      return
+    }
     void submit(payload)
   }
 
@@ -153,6 +203,16 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     source: SettingSource,
     input: React.ReactNode,
   ) => (
+    fieldBody(key, label, hint, source, input)
+  )
+
+  const fieldBody = (
+    key: FieldKey,
+    label: string,
+    hint: string,
+    source: SettingSource,
+    input: React.ReactNode,
+  ) => (
     <div className="flex flex-col gap-1.5 py-3">
       <div className="flex items-center gap-2">
         <label
@@ -164,12 +224,21 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         <SourceBadge source={source} />
       </div>
       {input}
-      <p className="text-caption text-ink-faint">{hint}</p>
+      {fieldErrors[key] ? (
+        <p
+          id={`setting-${key}-error`}
+          role="alert"
+          className="text-caption text-danger"
+        >
+          {fieldErrors[key]}
+        </p>
+      ) : null}
+      <p id={`setting-${key}-hint`} className="text-caption text-ink-faint">{hint}</p>
     </div>
   )
 
   const inputClass =
-    'h-8 w-full rounded-control border border-line bg-surface-inset px-2.5 text-label text-ink transition-colors placeholder:text-ink-faint focus:border-line-strong focus:bg-surface focus:outline-none'
+    'h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink shadow-[inset_0_1px_0_oklch(0.5_0.01_80/0.03)] transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none'
 
   return (
     <div className="rounded-panel border border-line bg-surface">
@@ -204,6 +273,10 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           view.baseUrl.source,
           <input
             id="setting-baseUrl"
+            aria-invalid={fieldErrors.baseUrl ? true : undefined}
+            aria-describedby={
+              fieldErrors.baseUrl ? 'setting-baseUrl-error' : 'setting-baseUrl-hint'
+            }
             value={values.baseUrl}
             onChange={(event) => {
               markTouched('baseUrl')
@@ -220,6 +293,12 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           view.modelGenerate.source,
           <input
             id="setting-modelGenerate"
+            aria-invalid={fieldErrors.modelGenerate ? true : undefined}
+            aria-describedby={
+              fieldErrors.modelGenerate
+                ? 'setting-modelGenerate-error'
+                : 'setting-modelGenerate-hint'
+            }
             value={values.modelGenerate}
             onChange={(event) => {
               markTouched('modelGenerate')
@@ -239,6 +318,12 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           view.modelEvaluate.source,
           <input
             id="setting-modelEvaluate"
+            aria-invalid={fieldErrors.modelEvaluate ? true : undefined}
+            aria-describedby={
+              fieldErrors.modelEvaluate
+                ? 'setting-modelEvaluate-error'
+                : 'setting-modelEvaluate-hint'
+            }
             value={values.modelEvaluate}
             onChange={(event) => {
               markTouched('modelEvaluate')

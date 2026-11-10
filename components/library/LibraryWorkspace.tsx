@@ -357,7 +357,7 @@ export function LibraryWorkspace() {
     listState === 'ready' && prompts.length === 0 && activeQuery.length > 0
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-10">
+    <div className="mx-auto w-full max-w-[1180px] px-6 py-8 lg:px-10">
       <PageHeader
         title="提示词库"
         description="首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。"
@@ -371,10 +371,28 @@ export function LibraryWorkspace() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && query.length > 0) {
+                    event.preventDefault()
+                    setQuery('')
+                  }
+                }}
                 aria-label="搜索提示词"
                 placeholder="搜索标题、描述、标签、正文"
-                className="h-8 w-full rounded-control border border-line bg-surface-inset pl-8 pr-2 text-label text-ink transition-colors placeholder:text-ink-faint focus:border-line-strong focus:bg-surface focus:outline-none"
+                className={cn(
+                  'h-8 w-full rounded-control border border-line bg-surface pl-8 text-label text-ink transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none',
+                  query.length > 0 ? 'pr-8' : 'pr-2',
+                )}
               />
+              {query.length > 0 ? (
+                <IconButton
+                  icon="close"
+                  label="清空搜索"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-faint"
+                  onClick={() => setQuery('')}
+                />
+              ) : null}
             </div>
             <Link href="/studio" className={buttonStyles({ variant: 'primary', size: 'md' })}>
               <Icon name="plus" size={15} />
@@ -477,7 +495,7 @@ export function LibraryWorkspace() {
                           active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
                         )}
                       >
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-4 py-3.5 align-top">
                           <button
                             type="button"
                             onClick={() => openPrompt(prompt.id)}
@@ -495,7 +513,7 @@ export function LibraryWorkspace() {
                             </span>
                           </button>
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-4 py-3.5 align-top">
                           <span className="block text-body text-ink tnum">
                             {prompt.versionCount} 个
                           </span>
@@ -505,7 +523,7 @@ export function LibraryWorkspace() {
                               : `最新 v${prompt.latestVersionNo}`}
                           </span>
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-4 py-3.5 align-top">
                           <time
                             dateTime={prompt.updatedAt}
                             className="block text-caption text-ink-muted tnum"
@@ -518,7 +536,7 @@ export function LibraryWorkspace() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-4 py-3.5 align-top">
                           <button
                             type="button"
                             onClick={() => openPrompt(prompt.id)}

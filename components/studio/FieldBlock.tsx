@@ -16,82 +16,73 @@ import {
   type GenerationPhase,
 } from './types'
 
-function statusLabel(
+
+
+
+
+/**
+ * 字段的单一状态标签。
+ * 原先「AI 生成」与「已生成」并排显示，两者说的是同一件事，读起来像噪音。
+ * 现在按优先级只出一个：进行中 > 待处理 > 稳定态（按来源命名）。
+ */
+function fieldStatus(
   state: FieldView,
   phase: GenerationPhase,
   scheduled: boolean,
   opState: FieldOpState | undefined,
-): string {
+): { label: string; tone: 'accent' | 'danger' | 'warning' | 'muted' | 'faint'; dot: boolean } {
   if (opState?.status === 'running') {
-    return '重算中'
+    return { label: '重算中', tone: 'accent', dot: true }
   }
   if (opState?.status === 'failed') {
-    return '重算失败'
+    return { label: '重算失败', tone: 'danger', dot: false }
   }
   if (state.suggestion) {
-    return '有新版本'
+    return { label: '有新版本', tone: 'warning', dot: true }
   }
   switch (state.status) {
     case 'streaming':
-      return '生成中'
+      return { label: '生成中', tone: 'accent', dot: true }
     case 'edited':
-      return '已手改'
+      return { label: '已手改', tone: 'muted', dot: false }
     case 'done':
-      return '已生成'
+      if (state.origin === 'patch') {
+        return { label: '已修复', tone: 'muted', dot: false }
+      }
+      if (state.origin === 'import') {
+        return { label: '导入内容', tone: 'muted', dot: false }
+      }
+      if (state.origin === 'user' || state.origin === 'user_input') {
+        return { label: '你的输入', tone: 'muted', dot: false }
+      }
+      return { label: 'AI 生成', tone: 'muted', dot: true }
     case 'partial':
-      return '已停止'
+      return { label: '已停止', tone: 'warning', dot: false }
     case 'failed':
-      return '生成失败'
+      return { label: '生成失败', tone: 'danger', dot: false }
     case 'suggested':
-      return '有新版本'
+      return { label: '有新版本', tone: 'warning', dot: true }
     case 'idle':
-      return phase === 'streaming' && scheduled ? '等待生成' : '未生成'
+      return phase === 'streaming' && scheduled
+        ? { label: '等待生成', tone: 'faint', dot: false }
+        : { label: '未生成', tone: 'faint', dot: false }
   }
 }
 
-function statusClass(
-  state: FieldView,
-  opState: FieldOpState | undefined,
-): string {
-  if (opState?.status === 'running') {
-    return 'text-accent'
-  }
-  if (opState?.status === 'failed') {
-    return 'text-danger'
-  }
-  if (state.suggestion) {
-    return 'text-warning'
-  }
-  switch (state.status) {
-    case 'streaming':
-      return 'text-accent'
-    case 'edited':
-      return 'text-ink-muted'
-    case 'failed':
-      return 'text-danger'
-    case 'done':
-      return 'text-ink-muted'
-    case 'partial':
-      return 'text-warning'
-    case 'suggested':
-      return 'text-warning'
-    case 'idle':
-      return 'text-ink-faint'
-  }
+const TONE_TEXT: Record<'accent' | 'danger' | 'warning' | 'muted' | 'faint', string> = {
+  accent: 'text-accent',
+  danger: 'text-danger',
+  warning: 'text-warning',
+  muted: 'text-ink-muted',
+  faint: 'text-ink-faint',
 }
 
-function sourceLabel(state: FieldView): string {
-  switch (state.origin) {
-    case 'ai':
-      return 'AI 生成'
-    case 'patch':
-      return '补丁写入'
-    case 'import':
-      return '导入内容'
-    case 'user':
-    case 'user_input':
-      return '用户输入'
-  }
+const TONE_DOT: Record<'accent' | 'danger' | 'warning' | 'muted' | 'faint', string> = {
+  accent: 'bg-accent',
+  danger: 'bg-danger',
+  warning: 'bg-warning',
+  muted: 'bg-ink-faint',
+  faint: 'bg-line-strong',
 }
 
 export function FieldBlock({
@@ -164,12 +155,6 @@ export function FieldBlock({
     return total + Math.max(1, Math.ceil(Array.from(line).length / 34))
   }, 0)
   const rows = Math.min(18, Math.max(3, lineCount))
-  const showSourceMark =
-    !running &&
-    !state.dirty &&
-    state.status !== 'idle' &&
-    displayText.trim().length > 0
-
   const opsDisabled =
     busy ||
     opBusy ||
@@ -213,21 +198,26 @@ export function FieldBlock({
           </button>
 
           <div className="flex shrink-0 items-center gap-2">
-            {showSourceMark ? (
-              <span
-                title="这一版由 AI 产出，手改后标记消失"
-                className="inline-flex items-center gap-1 rounded-chip bg-accent-subtle px-1.5 py-0.5 text-caption text-accent"
-              >
-                <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-                {sourceLabel(state)}
-              </span>
-            ) : null}
-            <span
-              className={cn('text-caption', statusClass(state, opState))}
-              aria-live="polite"
-            >
-              {statusLabel(state, phase, scheduled, opState)}
-            </span>
+            {(() => {
+              const status = fieldStatus(state, phase, scheduled, opState)
+              return (
+                <span
+                  aria-live="polite"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 text-caption',
+                    TONE_TEXT[status.tone],
+                  )}
+                >
+                  {status.dot ? (
+                    <span
+                      aria-hidden
+                      className={cn('size-1.5 rounded-full', TONE_DOT[status.tone])}
+                    />
+                  ) : null}
+                  {status.label}
+                </span>
+              )
+            })()}
             {showHeaderRetry ? (
               <Button
                 variant="ghost"
