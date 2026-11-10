@@ -78,6 +78,8 @@ export interface ProviderOverrides {
   /** 单测注入假 transport；生产不传，走全局 fetch */
   fetch?: typeof globalThis.fetch
   retry?: RetryOptions
+  /** 允许在没有密钥时用 MOCK_LLM_FAULT=valid 的 Mock provider（试运行 / 评估用） */
+  allowValidMock?: boolean
 }
 
 export function isEndpointId(model: string): boolean {
@@ -280,7 +282,12 @@ export function getGenerateProvider(
   // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
   // generate 路由的失败分支；有 Key 时仍以真实方舟为准。
   if (!hasArkApiKey(env)) {
-    if (envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE) {
+    // valid 画像需要显式申请：试运行与评估要它，生成不要（生成应继续走
+    // 离线 composer，否则会用 mock 文本去解析结构化输出）。
+    if (
+      overrides.allowValidMock &&
+      envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE
+    ) {
       return createValidMockProvider()
     }
     const fault = getMockFaultProfile(env)

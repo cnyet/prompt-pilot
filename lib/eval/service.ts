@@ -99,6 +99,7 @@ async function buildProviders(): Promise<EvalProviders> {
   const env = await getEffectiveLlmEnv()
   const generate = getGenerateProvider(env, {
     fetch: globalThis.fetch,
+    allowValidMock: true,
   })
   if (!generate) {
     throw new EvalError(

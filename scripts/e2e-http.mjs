@@ -6,7 +6,7 @@
  *
  * 约定：
  * - 不依赖 ARK_API_KEY，也不装 Playwright。服务用 3260 端口启动，
- *   `MOCK_LLM_FAULT=valid` 只影响试运行路由，生成走离线模板。
+ *   `MOCK_LLM_FAULT=valid` 让试运行与评估都走 Mock；生成仍走离线模板。
  * - 依次验证：生成 SSE → 八字段流 → 导出 Markdown / OpenAI messages
  *   → 试运行 SSE → 保存基线 v0 → 库列表能查到。
  * - 无论成功失败都会杀掉服务，并清理本次创建的提示词与运行记录，避免污染本地库。
@@ -426,7 +426,43 @@ async function readLibrary(promptId, title) {
   return found
 }
 
-async function cleanupArtifacts(promptId, sessionKey) {
+async function runEval(promptId) {
+  const payload = await requestJson('/api/eval', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      promptId,
+      samples: ['帮我写个周报', '帮我写一份产品评审议程'],
+    }),
+  })
+  const result = payload?.result
+  assert.equal(typeof result?.taskId, 'string', '评估应返回 taskId')
+  assert.equal(result.samples.length, 2, '两条样本都应跑出输出')
+  assert.ok(
+    result.samples.every((sample) => sample.targetOutput.length > 0),
+    '每条样本都应有模型输出',
+  )
+  // 没有评委模型时必须是 needs_review，不能假装判定成功
+  assert.equal(
+    result.status,
+    'needs_review',
+    '无评委模型时应标为待人工判定',
+  )
+  const list = await requestJson('/api/eval')
+  assert.ok(
+    list?.tasks?.some((task) => task.id === result.taskId),
+    '评估列表应包含刚创建的任务',
+  )
+  const detail = await requestJson(`/api/eval/${encodeURIComponent(result.taskId)}`)
+  assert.equal(
+    detail?.task?.id,
+    result.taskId,
+    '评估详情应能按 id 读取',
+  )
+  return result
+}
+
+async function cleanupArtifacts(promptId, sessionKey, evalTaskIds = []) {
   const { PrismaClient } = require('@prisma/client')
   const databaseUrl =
     process.env.DATABASE_URL ?? (await readEnvDatabaseUrl()) ?? 'file:../data/app.db'
@@ -457,6 +493,9 @@ async function cleanupArtifacts(promptId, sessionKey) {
         where: { traceId: { in: traceIds } },
       })
     }
+    if (evalTaskIds.length > 0) {
+      await prisma.evalTask.deleteMany({ where: { id: { in: evalTaskIds } } })
+    }
     if (promptId !== null) {
       await prisma.prompt.delete({ where: { id: promptId } })
     }
@@ -481,6 +520,7 @@ async function readEnvDatabaseUrl() {
 
 let server = null
 let createdPromptId = null
+const createdEvalTaskIds = []
 
 try {
   log('启动', `next dev :${PORT}，MOCK_LLM_FAULT=valid`)
@@ -550,9 +590,16 @@ try {
     `命中「${libraryItem.title}」，${libraryItem.versionCount} 个版本，最新 v${libraryItem.latestVersionNo}`,
   )
 
+  const evalResult = await runEval(saved.id)
+  createdEvalTaskIds.push(evalResult.taskId)
+  log(
+    '评估',
+    `${evalResult.samples.length} 条样本，状态 ${evalResult.status}，通过率 ${evalResult.passRate ?? '未判定'}`,
+  )
+
   console.log('')
   console.log(
-    '[e2e] 通过：生成 8 字段 → 导出 2 种格式 → 试运行 → 保存 v0 → 库列表',
+    '[e2e] 通过：生成 8 字段 → 导出 2 种格式 → 试运行 → 保存 v0 → 库列表 → 评估',
   )
 } catch (error) {
   console.error('')
@@ -568,7 +615,7 @@ try {
   await stopServer(server)
   if (server !== null) {
     try {
-      await cleanupArtifacts(createdPromptId, SESSION_KEY)
+      await cleanupArtifacts(createdPromptId, SESSION_KEY, createdEvalTaskIds)
     } catch (error) {
       console.warn(
         `[e2e] 清理失败，请手动删除本次测试数据（sessionKey=${SESSION_KEY}）：${
