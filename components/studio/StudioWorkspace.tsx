@@ -1,13 +1,28 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
+import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
 import type { CommandType } from '@/lib/engine/doc'
 import { renderMarkdownDocument } from '@/lib/engine/render'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
 import { AssumptionChips } from './AssumptionChips'
+import { DiagnosticsPanel } from './DiagnosticsPanel'
+import {
+  LINT_LEVEL_TEXT_CLASS,
+  buildIssueExcerpt,
+  formatIssueLocation,
+  issueField,
+  issueIgnoreKey,
+  planAllFixes,
+  planSingleFix,
+  resolveIssueSelection,
+  useDiagnostics,
+  type FieldWrite,
+  type IssueExcerpt,
+} from './useDiagnostics'
 import { ExportMenu } from './ExportMenu'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
@@ -20,6 +35,16 @@ import { formatUsageCost, formatUsageTokens } from './types'
 type CopyState = 'idle' | 'copied' | 'failed'
 
 type StudioView = 'structured' | 'rendered' | 'json'
+
+/** 点击诊断项后的字段定位目标，只保存定位所需的快照。 */
+interface DiagnosticsFocus {
+  key: string
+  field: FieldKey
+  level: LintLevel
+  location: string
+  selection: { start: number; end: number } | null
+  excerpt: IssueExcerpt | null
+}
 
 const STUDIO_VIEWS: ReadonlyArray<{
   id: StudioView
@@ -95,10 +120,212 @@ export function StudioWorkspace() {
   const [view, setView] = useState<StudioView>('structured')
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const {
+    issues: diagnosticsIssues,
+    groups: diagnosticsGroups,
+    summary: diagnosticsSummary,
+    ignoredCount,
+    ignoreIssue,
+    restoreIgnored,
+  } = useDiagnostics(schema)
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(true)
+  const [diagnosticsFocus, setDiagnosticsFocus] =
+    useState<DiagnosticsFocus | null>(null)
+  const [fixNotice, setFixNotice] = useState<string | null>(null)
+  const fieldWrapperRefs = useRef<
+    Partial<Record<FieldKey, HTMLDivElement | null>>
+  >({})
+  const fixNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const dirtyFields = useMemo(() => {
+    const dirty = new Set<FieldKey>()
+    for (const field of FIELD_KEYS) {
+      if (fields[field].dirty) {
+        dirty.add(field)
+      }
+    }
+    return dirty
+  }, [fields])
+
+  const fixableCount = useMemo(
+    () =>
+      diagnosticsIssues.filter((issue) => {
+        const field = issueField(issue)
+        return issue.fixable && field !== null && !dirtyFields.has(field)
+      }).length,
+    [diagnosticsIssues, dirtyFields],
+  )
+
+  const skippedIssueCount = useMemo(
+    () =>
+      diagnosticsIssues.filter((issue) => {
+        const field = issueField(issue)
+        return issue.fixable && field !== null && dirtyFields.has(field)
+      }).length,
+    [diagnosticsIssues, dirtyFields],
+  )
+
+  const flashFixNotice = useCallback((message: string) => {
+    setFixNotice(message)
+    if (fixNoticeTimerRef.current) {
+      clearTimeout(fixNoticeTimerRef.current)
+    }
+    fixNoticeTimerRef.current = setTimeout(() => {
+      setFixNotice(null)
+      fixNoticeTimerRef.current = null
+    }, 2600)
+  }, [])
+
+  const applyWrites = useCallback(
+    (writes: readonly FieldWrite[]) => {
+      for (const write of writes) {
+        updateField(write.field, write.text)
+      }
+    },
+    [updateField],
+  )
+
+  const handleSelectIssue = useCallback(
+    (issue: LintIssue) => {
+      const field = issueField(issue)
+      if (field === null) {
+        setDiagnosticsFocus(null)
+        flashFixNotice('这条问题不在八个可编辑字段内，无法定位')
+        return
+      }
+      const fieldText = fields[field].text
+      setView('structured')
+      setDiagnosticsFocus({
+        key: issueIgnoreKey(issue),
+        field,
+        level: issue.level,
+        location: formatIssueLocation(issue, fieldText),
+        selection: resolveIssueSelection(issue, fieldText),
+        excerpt: buildIssueExcerpt(issue, fieldText),
+      })
+    },
+    [fields, flashFixNotice],
+  )
+
+  const handleFixIssue = useCallback(
+    (issue: LintIssue, options?: { confirmed?: boolean }) => {
+      if (isBusy || opBusy) {
+        return
+      }
+      const plan = planSingleFix(schema, issue, dirtyFields)
+      if (plan.kind === 'nothing') {
+        flashFixNotice('这条问题没有可自动写入的内容，需要手动处理')
+        return
+      }
+      if (plan.kind === 'needs-confirmation' && options?.confirmed !== true) {
+        flashFixNotice('目标字段被手改过，先确认再修复')
+        return
+      }
+      applyWrites(plan.writes)
+      flashFixNotice(`已修复 ${issue.ruleId}`)
+    },
+    [
+      isBusy,
+      opBusy,
+      schema,
+      dirtyFields,
+      applyWrites,
+      flashFixNotice,
+    ],
+  )
+
+  const handleFixAll = useCallback(() => {
+    if (isBusy || opBusy) {
+      return
+    }
+    const plan = planAllFixes(schema, diagnosticsIssues, dirtyFields)
+    if (plan.writes.length === 0) {
+      flashFixNotice(
+        plan.skippedFields.length > 0
+          ? '可自动修复的问题都在手改字段里，已跳过'
+          : '没有可自动修复的问题',
+      )
+      return
+    }
+    applyWrites(plan.writes)
+    const skippedText =
+      plan.skippedFields.length > 0
+        ? `，跳过 ${plan.skippedFields.length} 个手改字段`
+        : ''
+    flashFixNotice(
+      `已修复 ${plan.fixedIssueKeys.length} 条问题${skippedText}`,
+    )
+  }, [
+    isBusy,
+    opBusy,
+    schema,
+    diagnosticsIssues,
+    dirtyFields,
+    applyWrites,
+    flashFixNotice,
+  ])
+
+  const handleIgnoreIssue = useCallback(
+    (issue: LintIssue) => {
+      ignoreIssue(issue)
+      setDiagnosticsFocus((previous) =>
+        previous?.key === issueIgnoreKey(issue) ? null : previous,
+      )
+      flashFixNotice('已忽略这条问题，可在面板底部恢复')
+    },
+    [ignoreIssue, flashFixNotice],
+  )
+
+  // 问题消失（修好、被忽略或被改写）后收起字段定位条。
+  useEffect(() => {
+    if (diagnosticsFocus === null) {
+      return
+    }
+    const stillVisible = diagnosticsIssues.some(
+      (issue) => issueIgnoreKey(issue) === diagnosticsFocus.key,
+    )
+    if (!stillVisible) {
+      setDiagnosticsFocus(null)
+    }
+  }, [diagnosticsIssues, diagnosticsFocus])
+
+  // 视图切到结构化后再滚动与选中，保证目标 textarea 已经挂载。
+  useEffect(() => {
+    if (diagnosticsFocus === null || view !== 'structured') {
+      return
+    }
+    const wrapper = fieldWrapperRefs.current[diagnosticsFocus.field]
+    if (!wrapper || !wrapper.isConnected) {
+      return
+    }
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    wrapper.scrollIntoView({
+      block: 'center',
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    })
+    if (diagnosticsFocus.selection === null) {
+      return
+    }
+    const textarea = wrapper.querySelector('textarea')
+    if (!textarea) {
+      return
+    }
+    textarea.focus({ preventScroll: true })
+    textarea.setSelectionRange(
+      diagnosticsFocus.selection.start,
+      diagnosticsFocus.selection.end,
+    )
+  }, [diagnosticsFocus, view])
+
   useEffect(() => {
     return () => {
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current)
+      }
+      if (fixNoticeTimerRef.current) {
+        clearTimeout(fixNoticeTimerRef.current)
       }
     }
   }, [])
@@ -171,6 +398,8 @@ export function StudioWorkspace() {
     setSubmitted('')
     setSessionKey(createTrialSessionKey())
     setCopyState('idle')
+    setDiagnosticsFocus(null)
+    setFixNotice(null)
   }, [reset])
 
   const flashCopy = useCallback((next: CopyState) => {
@@ -280,10 +509,23 @@ export function StudioWorkspace() {
         ? '复制失败，重试'
         : '复制 Markdown'
 
+  // 诊断基于已提交的文档文本；流式 pending 不属于可保存状态，不参与定位。
+  const diagnosticsFieldTexts: Partial<Record<FieldKey, string>> = {}
+  for (const field of FIELD_KEYS) {
+    diagnosticsFieldTexts[field] = fields[field].text
+  }
+
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-4 py-6 lg:px-6">
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="hidden lg:block">
+    <div className="mx-auto w-full max-w-[1280px] px-4 py-6 lg:px-6">
+      <div
+        className={cn(
+          'grid gap-6',
+          diagnosticsOpen
+            ? 'lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[240px_minmax(0,1fr)_320px]'
+            : 'xl:grid-cols-[240px_minmax(0,1fr)]',
+        )}
+      >
+        <aside className="hidden xl:block">
           <div className="sticky top-6 rounded-panel border border-line bg-surface p-4">
             <p className="text-label font-medium text-ink">原始需求</p>
             <p className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-body text-ink-muted">
@@ -327,6 +569,21 @@ export function StudioWorkspace() {
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {!diagnosticsOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setDiagnosticsOpen(true)}
+                    title="展开诊断面板"
+                    className={cn(
+                      'rounded-control border px-2.5 py-1.5 text-label transition-colors',
+                      diagnosticsSummary.hasError
+                        ? 'border-danger text-danger hover:bg-bg-sunken'
+                        : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
+                    )}
+                  >
+                    诊断 {diagnosticsSummary.total}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={undo}
@@ -467,29 +724,97 @@ export function StudioWorkspace() {
 
           {view === 'structured' ? (
             <div className="flex flex-col gap-3">
-              {FIELD_KEYS.map((field, index) => (
-                <FieldBlock
-                  key={field}
-                  field={field}
-                  index={index + 1}
-                  state={fields[field]}
-                  phase={phase}
-                  busy={isBusy}
-                  opBusy={opBusy}
-                  active={fields[field].status === 'streaming'}
-                  scheduled={scheduled.includes(field)}
-                  opState={fieldOps[field]}
-                  onRetry={() => {
-                    void retryFields([field])
-                  }}
-                  onChange={(text) => updateField(field, text)}
-                  onOp={(op) => {
-                    void runFieldOp(field, op)
-                  }}
-                  onAcceptSuggestion={() => acceptSuggestion(field)}
-                  onDiscardSuggestion={() => discardSuggestion(field)}
-                />
-              ))}
+              {FIELD_KEYS.map((field, index) => {
+                const focus =
+                  diagnosticsFocus !== null &&
+                  diagnosticsFocus.field === field
+                    ? diagnosticsFocus
+                    : null
+                return (
+                  <div
+                    key={field}
+                    ref={(node) => {
+                      fieldWrapperRefs.current[field] = node
+                    }}
+                    className={cn(
+                      'scroll-mt-6 rounded-panel',
+                      focus !== null
+                        ? focus.level === 'error'
+                          ? 'ring-1 ring-danger'
+                          : focus.level === 'warn'
+                            ? 'ring-1 ring-warning'
+                            : 'ring-1 ring-line-strong'
+                        : '',
+                    )}
+                  >
+                    {focus !== null ? (
+                      <div className="mb-2 rounded-panel border border-line bg-bg-sunken px-3 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 text-caption">
+                            <span
+                              className={cn(
+                                'font-medium',
+                                LINT_LEVEL_TEXT_CLASS[focus.level],
+                              )}
+                            >
+                              诊断定位
+                            </span>
+                            <span className="text-ink-muted">
+                              {' '}
+                              · {focus.location}
+                            </span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setDiagnosticsFocus(null)}
+                            className="shrink-0 rounded-control border border-line px-1.5 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                          >
+                            关闭
+                          </button>
+                        </div>
+                        {focus.excerpt ? (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-body text-ink">
+                            {focus.excerpt.before}
+                            <mark
+                              className={cn(
+                                'bg-transparent px-0.5 font-medium underline decoration-1 underline-offset-2',
+                                LINT_LEVEL_TEXT_CLASS[focus.level],
+                              )}
+                            >
+                              {focus.excerpt.match}
+                            </mark>
+                            {focus.excerpt.after}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-caption text-ink-muted">
+                            这条问题没有具体文本区间，已滚动到对应字段。
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                    <FieldBlock
+                      field={field}
+                      index={index + 1}
+                      state={fields[field]}
+                      phase={phase}
+                      busy={isBusy}
+                      opBusy={opBusy}
+                      active={fields[field].status === 'streaming'}
+                      scheduled={scheduled.includes(field)}
+                      opState={fieldOps[field]}
+                      onRetry={() => {
+                        void retryFields([field])
+                      }}
+                      onChange={(text) => updateField(field, text)}
+                      onOp={(op) => {
+                        void runFieldOp(field, op)
+                      }}
+                      onAcceptSuggestion={() => acceptSuggestion(field)}
+                      onDiscardSuggestion={() => discardSuggestion(field)}
+                    />
+                  </div>
+                )
+              })}
             </div>
           ) : view === 'rendered' ? (
             <div className="overflow-hidden rounded-panel border border-line bg-surface">
@@ -561,6 +886,31 @@ export function StudioWorkspace() {
             </div>
           </div>
         </section>
+
+        {diagnosticsOpen ? (
+          <aside className="min-w-0" aria-label="诊断">
+            <div className="sticky top-6">
+              <DiagnosticsPanel
+                groups={diagnosticsGroups}
+                summary={diagnosticsSummary}
+                fieldTexts={diagnosticsFieldTexts}
+                dirtyFields={dirtyFields}
+                ignoredCount={ignoredCount}
+                fixableCount={fixableCount}
+                skippedIssueCount={skippedIssueCount}
+                activeIssueKey={diagnosticsFocus?.key ?? null}
+                busy={isBusy || opBusy}
+                notice={fixNotice}
+                onSelect={handleSelectIssue}
+                onFix={handleFixIssue}
+                onFixAll={handleFixAll}
+                onIgnore={handleIgnoreIssue}
+                onRestoreIgnored={restoreIgnored}
+                onCollapse={() => setDiagnosticsOpen(false)}
+              />
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   )
