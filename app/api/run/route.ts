@@ -32,6 +32,7 @@ import {
   getGenerateProvider,
   getModelConfig,
 } from '@/lib/llm/registry'
+import { getEffectiveLlmEnv } from '@/lib/settings/store'
 import type {
   ChatChunk,
   ChatRequest,
@@ -270,7 +271,8 @@ function buildChatRequest(
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const sessionKey = url.searchParams.get('sessionKey')?.trim() ?? ''
-  const resolved = resolveRunModel(process.env)
+  const env = await getEffectiveLlmEnv()
+  const resolved = resolveRunModel(env)
   const runs = sessionKey.length > 0 ? await listRecentRuns(sessionKey) : []
 
   return Response.json(
@@ -349,7 +351,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const fetchCounter = createFetchAttemptCounter()
-  const resolved = resolveRunModel(process.env, fetchCounter.fetch)
+  const env = await getEffectiveLlmEnv()
+  const resolved = resolveRunModel(env, fetchCounter.fetch)
   if (!resolved) {
     return jsonError(503, 'NO_MODEL', NO_MODEL_REASON, false)
   }

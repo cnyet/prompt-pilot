@@ -32,6 +32,7 @@ import {
   getGenerateProvider,
   getModelConfig,
 } from '@/lib/llm/registry'
+import { getEffectiveLlmEnv } from '@/lib/settings/store'
 import {
   instrumentProvider,
   resolveTraceId,
@@ -942,7 +943,8 @@ export async function POST(request: Request): Promise<Response> {
   // provider 选择：配置了 ARK_API_KEY 就构建方舟 provider 走真实模型；
   // 没有 Key 时 getGenerateProvider 返回 null，继续走下面的离线 heuristic composer。
   const fetchCounter = createFetchAttemptCounter()
-  const provider = getGenerateProvider(process.env, {
+  const llmEnv = await getEffectiveLlmEnv()
+  const provider = getGenerateProvider(llmEnv, {
     fetch: fetchCounter.fetch,
   })
   if (provider) {

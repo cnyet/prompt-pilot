@@ -1,4 +1,6 @@
+import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { PageHeader, Section } from '@/components/ui/Section'
+import { getLlmSettingsView } from '@/lib/settings/store'
 import {
   getCostSummary,
   type CostBucket,
@@ -132,25 +134,7 @@ function BucketTable({
 }
 
 export default async function SettingsPage() {
-  const hasKey = Boolean(process.env.ARK_API_KEY)
-  const baseUrl =
-    process.env.ARK_BASE_URL ?? 'https://ark.cn-beijing.volces.com/api/v3'
-  const modelGenerate =
-    process.env.ARK_MODEL_GENERATE ?? 'doubao-seed-2-1-pro-260915'
-  const modelEvaluate =
-    process.env.ARK_MODEL_EVALUATE ?? 'doubao-seed-2-1-lite-260915'
-
-  const rows = [
-    { label: '提供方', value: '火山方舟（OpenAI 兼容端点）' },
-    { label: '端点', value: baseUrl },
-    { label: '生成模型', value: modelGenerate },
-    { label: '评估模型', value: modelEvaluate },
-    {
-      label: '密钥',
-      value: hasKey ? '已配置' : '未配置，当前为 L1 离线模板模式',
-    },
-  ]
-
+  const llmSettings = await getLlmSettingsView()
   const summary = await getCostSummary()
   const total = summary?.total
   const unknownUsage = total?.unknownUsageCalls ?? 0
@@ -165,21 +149,9 @@ export default async function SettingsPage() {
 
       <Section
         title="模型"
-        description="密钥只从服务端环境变量读取，界面不显示明文。"
+        description="设置页写入的值优先于环境变量。密钥只存在本机数据库，界面不显示明文，也不会回传浏览器。"
       >
-        <dl className="divide-y divide-line-subtle border-t border-line-subtle">
-          {rows.map((row) => (
-            <div key={row.label} className="flex gap-6 py-2.5">
-              <dt className="w-20 shrink-0 text-label text-ink-muted">
-                {row.label}
-              </dt>
-              <dd className="flex-1 break-all font-mono text-label">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-3 text-caption text-ink-faint">
-          在 `.env` 里设置 `ARK_API_KEY` 后重启即可切到 L0 完整模式。
-        </p>
+        <LlmSettingsForm initial={llmSettings} />
       </Section>
 
       <Section
