@@ -1,9 +1,23 @@
+import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /**
  * 单个数据点：大字数值 + 标签 + 可选注脚。
  * 数值一律等宽，避免刷新时抖动。
  */
+const valueVariants = cva('truncate text-h2 font-normal tnum', {
+  variants: {
+    tone: {
+      default: 'text-ink',
+      accent: 'text-accent',
+      warning: 'text-warning',
+    },
+  },
+  defaultVariants: {
+    tone: 'default',
+  },
+})
+
 export function StatTile({
   label,
   value,
@@ -25,16 +39,7 @@ export function StatTile({
       )}
     >
       <span className="text-caption text-ink-muted">{label}</span>
-      <span
-        className={cn(
-          'truncate text-h2 font-normal tnum',
-          tone === 'accent' && 'text-accent',
-          tone === 'warning' && 'text-warning',
-          tone === 'default' && 'text-ink',
-        )}
-      >
-        {value}
-      </span>
+      <span className={cn(valueVariants({ tone }))}>{value}</span>
       {hint ? (
         <span className="truncate text-caption text-ink-faint">{hint}</span>
       ) : null}

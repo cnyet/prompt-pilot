@@ -1,3 +1,4 @@
+import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /** 把任意输入压到 0-1，非有限值按 0 处理 */
@@ -7,6 +8,19 @@ export function clampRatio(value: number, max = 1): number {
   }
   return Math.min(1, Math.max(0, value / max))
 }
+
+const barVariants = cva('h-full rounded-full transition-[width] duration-300', {
+  variants: {
+    tone: {
+      accent: 'bg-accent',
+      success: 'bg-success',
+      muted: 'bg-ink-faint',
+    },
+  },
+  defaultVariants: {
+    tone: 'accent',
+  },
+})
 
 /**
  * 单值进度条。用于胜率、完成度、成本占比这类"一个比例"的表达。
@@ -49,12 +63,7 @@ export function MeterBar({
         className="h-1.5 overflow-hidden rounded-full bg-bg-sunken"
       >
         <div
-          className={cn(
-            'h-full rounded-full transition-[width] duration-300',
-            tone === 'accent' && 'bg-accent',
-            tone === 'success' && 'bg-success',
-            tone === 'muted' && 'bg-ink-faint',
-          )}
+          className={cn(barVariants({ tone }))}
           style={{ width: `${Math.round(ratio * 100)}%` }}
         />
       </div>

@@ -1,3 +1,4 @@
+import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /**
@@ -9,11 +10,18 @@ import { cn } from '@/lib/utils'
  */
 export type ShellVariant = 'reading' | 'workbench' | 'grid'
 
-const VARIANT: Record<ShellVariant, string> = {
-  reading: 'mx-auto w-full max-w-[760px] px-6 py-10 lg:px-8',
-  workbench: 'w-full px-5 py-5 lg:px-7 lg:py-6',
-  grid: 'mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-10',
-}
+const shellVariants = cva('', {
+  variants: {
+    variant: {
+      reading: 'mx-auto w-full max-w-[760px] px-6 py-10 lg:px-8',
+      workbench: 'w-full px-5 py-5 lg:px-7 lg:py-6',
+      grid: 'mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-10',
+    },
+  },
+  defaultVariants: {
+    variant: 'grid',
+  },
+})
 
 export function PageShell({
   variant = 'grid',
@@ -24,5 +32,5 @@ export function PageShell({
   children: React.ReactNode
   className?: string
 }) {
-  return <div className={cn(VARIANT[variant], className)}>{children}</div>
+  return <div className={cn(shellVariants({ variant }), className)}>{children}</div>
 }

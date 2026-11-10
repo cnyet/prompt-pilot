@@ -83,19 +83,3 @@ export function PageHeader({
   )
 }
 
-/** 有边界的内容块。用于确实需要"一张卡"的地方，一屏不超过三个。 */
-export function Panel({
-  children,
-  className,
-  as: Tag = 'div',
-}: {
-  children: React.ReactNode
-  className?: string
-  as?: 'div' | 'section' | 'article'
-}) {
-  return (
-    <Tag className={cn('rounded-panel border border-line bg-surface', className)}>
-      {children}
-    </Tag>
-  )
-}
