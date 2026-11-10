@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "persistRounds": 1,
+  "archiveEveryRounds": 30,
+  "lastArchiveRound": 0,
+  "lastArchiveAt": null
+}
