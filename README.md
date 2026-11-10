@@ -2,7 +2,7 @@
 
 把一句话需求，变成结构完整、边界清晰、可直接投产的标准提示词，并且让用户看得见它为什么更好。
 
-**当前状态：M0 已完成，骨架可跑。** 五份设计文档定稿并过了一轮评审（[REVIEW.md](docs/REVIEW.md)），工程骨架与三份契约（`lib/llm/types.ts`、`lib/engine/schema.ts`、`prisma/schema.prisma`）已冻结，下一步进 M1。
+**当前状态：演示版已完成。** 19 张工单全部收口，466 条测试通过，端到端主流程在真实浏览器里跑通。真实 ARK 密钥下的行为尚未验证，其余缺口见 [HANDOVER.md](docs/HANDOVER.md)。
 
 ## 文档索引
 
@@ -14,6 +14,7 @@
 | [ROADMAP.md](docs/ROADMAP.md) | 实施计划：6 人日演示版加 M0 到 M7 共 24.5 人日、每步验收、环境前置条件、13 项风险与对策 | 想确认"先做什么、要多久"时 |
 | [REVIEW.md](docs/REVIEW.md) | 双视角评审：7 个 P0 问题、10 个架构风险、优化策略优先级、排期修正依据 | 想知道"为什么这么改"时 |
 | [EXECUTION.md](docs/EXECUTION.md) | 执行方案：四层技术结构、任务编排机制、多角色并行规则、本地插件与子 agent 的选择标准 | 想知道"怎么把它做出来"时 |
+| [HANDOVER.md](docs/HANDOVER.md) | 交接说明：怎么跑、代码在哪、哪些约定不能碰、哪里还没做完、怎么排障 | **接手时先读这份** |
 
 ## 一句话看懂产品
 
@@ -58,24 +59,27 @@ Node.js 24 与 pnpm 10（本机已具备）。首版运行时零外部依赖，�
 
 ```bash
 pnpm install
-cp .env.example .env.local   # 可选。不填 ARK_API_KEY 即进入 L1 离线模板模式
+cp .env.example .env         # 可选。不填 ARK_API_KEY 即进入 L1 离线模板模式
+pnpm db:generate
+pnpm db:push
 pnpm dev                     # http://localhost:3100
 ```
 
 | 命令 | 作用 |
 |---|---|
 | `pnpm dev` | 开发服务器，端口 3100 |
-| `pnpm build` | 生产构建 |
+| `pnpm build` / `pnpm start` | 生产构建与启动 |
 | `pnpm typecheck` | 类型检查（零错误是合并门槛） |
-| `pnpm test` | 单元测试（当前 6 条 Schema 契约测试） |
+| `pnpm test` | 全量测试（466 条） |
+| `pnpm db:push` | 同步 schema 到本地 SQLite |
+| `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
 
-## 下一步
+## 接下来
 
-M1 模型适配层与结构化生成，默认走 L1 离线模板模式加 Mock，不依赖 API key。
+优先级最高的三件事，细节见 [HANDOVER.md](docs/HANDOVER.md) 第 10 节：
 
-三件事仍需你拍板，但不阻塞 M1 的适配层与 Mock 部分：
+1. 接真实 `ARK_API_KEY` 验一轮，重点看用量落库、`reasoning_content`、错误码映射
+2. `PromptVersion` 的 token 与金额仍是 `@default(0)`，需要与其他模型统一为可空
+3. 来源文案「补丁写入」是内部术语，需要一次文案统一
 
-1. 是否接受评审最激进的一条改动：**"先做后问"替代"澄清追问"**。它改变了核心交互，也放弃了原先主张的差异点。
-2. 先做 **6 人日演示版**验证核心假设，还是直接做完整版。
-3. API Key 现在给，还是先走离线模式。
-
+可以排期的功能：版本回滚与 diff 界面、库的标签与收藏、模型选择器与参数面板、导入已有提示词。
