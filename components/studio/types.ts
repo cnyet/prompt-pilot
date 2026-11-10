@@ -79,6 +79,10 @@ export interface GenerationState {
   scheduled: readonly FieldKey[]
   title: string
   assumptions: Assumption[]
+  /** 用户改过的假设路径，用于 chip 的「已改」标记。 */
+  assumptionEdits: Record<string, true>
+  /** 导出时是否剔除假设注释。工单 12 消费这个开关与对应的导出数据。 */
+  exportWithoutAssumptions: boolean
   durationMs: number | null
   error: GenerationError | null
   /** 单字段重算的进行中状态，按字段隔离。 */
@@ -131,6 +135,8 @@ export function createInitialState(): GenerationState {
     scheduled: [],
     title: '',
     assumptions: [],
+    assumptionEdits: {},
+    exportWithoutAssumptions: false,
     durationMs: null,
     error: null,
     fieldOps: {},

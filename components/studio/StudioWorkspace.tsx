@@ -5,7 +5,9 @@ import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
 import type { CommandType } from '@/lib/engine/doc'
 import { renderMarkdownDocument } from '@/lib/engine/render'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
+import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
+import { AssumptionChips } from './AssumptionChips'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
 import { RequirementInput } from './RequirementInput'
@@ -50,6 +52,10 @@ export function StudioWorkspace() {
     scheduled,
     title,
     assumptions,
+    assumptionChips,
+    setAssumption,
+    exportWithoutAssumptions,
+    setExportWithoutAssumptions,
     durationMs,
     error,
     usage,
@@ -237,7 +243,7 @@ export function StudioWorkspace() {
     title: displayTitle,
     taskType: schema.meta.taskType,
     templateId: schema.meta.templateId,
-    assumptions,
+    assumptions: mergeAssumptions(assumptions, assumptionChips),
   })
   const jsonPreview = JSON.stringify(viewSchema, null, 2)
 
@@ -353,22 +359,14 @@ export function StudioWorkspace() {
               </div>
             </div>
 
-            {assumptions.length > 0 ? (
-              <div className="mt-4">
-                <p className="text-caption text-ink-faint">模板假设</p>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {assumptions.map((assumption) => (
-                    <li
-                      key={`${assumption.path}-${assumption.label}`}
-                      className="rounded-chip border border-line bg-bg-sunken px-2 py-1 text-caption"
-                      title="离线模板的默认假设"
-                    >
-                      <span className="text-ink-faint">{assumption.label}：</span>
-                      <span className="text-ink-muted">{assumption.value}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {hasAnyField && phase !== 'streaming' ? (
+              <AssumptionChips
+                chips={assumptionChips}
+                exportWithoutAssumptions={exportWithoutAssumptions}
+                onSelect={setAssumption}
+                onToggleExport={setExportWithoutAssumptions}
+                disabled={opBusy}
+              />
             ) : null}
           </header>
 

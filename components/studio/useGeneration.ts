@@ -8,6 +8,15 @@ import {
   type PromptSchema,
 } from '@/lib/engine/schema'
 import { classifyTaskType } from '@/lib/engine/compose'
+import {
+  buildAssumptionChips,
+  buildExportAssumptions,
+  mergeAssumptions,
+  upsertAssumption,
+  writeAssumptionValue,
+  type AssumptionChip,
+  type ExportedAssumption,
+} from '@/lib/engine/assumptions'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
 import {
   apiErrorSchema,
@@ -52,6 +61,8 @@ export type GenerationAction =
   | { type: 'edit'; field: FieldKey; text: string }
   | { type: 'accept-suggestion'; field: FieldKey }
   | { type: 'discard-suggestion'; field: FieldKey }
+  | { type: 'assumption-change'; path: string; value: string }
+  | { type: 'set-export-without-assumptions'; value: boolean }
   | { type: 'op-start'; field: FieldKey; action: FieldOp }
   | { type: 'op-progress'; field: FieldKey; text: string }
   | { type: 'field-rewrite'; field: FieldKey; text: string }
@@ -96,21 +107,45 @@ function withoutFieldOp(ops: FieldOpMap, field: FieldKey): FieldOpMap {
   return next
 }
 
+function fieldTextsOf(doc: PromptDoc): Partial<Record<FieldKey, string>> {
+  const texts: Partial<Record<FieldKey, string>> = {}
+  for (const field of FIELD_KEYS) {
+    texts[field] = doc.fields[field]?.value ?? ''
+  }
+  return texts
+}
+
+/**
+ * 由字段文本生成五条假设 chip。当前值以字段叶子为准，用户手改字段或撤销
+ * chip 修改后都会立即跟着字段文本回退，不依赖生成时那份快照。
+ */
+function currentAssumptionChips(state: GenerationState): AssumptionChip[] {
+  return buildAssumptionChips({
+    fields: fieldTextsOf(state.doc),
+    assumptions: state.assumptions,
+    editedPaths: Object.keys(state.assumptionEdits),
+  })
+}
+
 /**
  * 由当前字段文本重建 schema。doc.schema 在非流式事件后同步写入，
  * 供工单 04 的假设 chip 与补丁按叶子路径读写；流式 delta 期间不重建，
  * 避免每来一个字符就把八个字段全量解析一遍。
  */
 function deriveDocSchema(state: GenerationState): PromptSchema {
-  const texts: Partial<Record<FieldKey, string>> = {}
-  for (const field of FIELD_KEYS) {
-    texts[field] = state.doc.fields[field]?.value ?? ''
-  }
+  const texts = fieldTextsOf(state.doc)
+  // 流式期间 chip 不展示，跳过 chip 派生，避免每个 delta 都解析一遍字段。
+  const chips =
+    state.phase === 'streaming' ? [] : currentAssumptionChips(state)
   return buildSchemaFromFields(texts, {
     title: state.title || '未命名提示词',
     taskType: state.title ? classifyTaskType(state.title) : 'other',
     templateId: 'field-text-v1',
-    assumptions: state.assumptions,
+    // chip 的当前值优先于生成时快照，保证撤销后 schema 与字段文本一致。
+    assumptions:
+      chips.length > 0
+        ? mergeAssumptions(state.assumptions, chips)
+        : state.assumptions,
   })
 }
 
@@ -155,6 +190,7 @@ function reduceGenerationState(
         error: null,
         title: action.full ? '' : state.title,
         assumptions: action.full ? [] : state.assumptions,
+        assumptionEdits: action.full ? {} : state.assumptionEdits,
         durationMs: action.full ? null : state.durationMs,
         fieldOps: action.full ? {} : state.fieldOps,
         // 每次请求都重新计用量与思考：重试是新的调用，不能沿用上一次的账。
@@ -203,6 +239,40 @@ function reduceGenerationState(
         ...state,
         doc: discardSuggestionInDoc(state.doc, action.field),
       }
+
+    case 'assumption-change': {
+      // 只把目标字段的新文本交给文档层，其余七个字段不在这次写入里。
+      const write = writeAssumptionValue(
+        fieldTextsOf(state.doc),
+        action.path,
+        action.value,
+      )
+      if (!write.ok) {
+        return state
+      }
+      const current = state.doc.fields[write.field]
+      if (!current || current.value === write.text) {
+        return state
+      }
+      return {
+        ...state,
+        // chip 只改一个叶子。用 applyUserEdit 写回，保留目标字段里已有的
+        // AI 建议与手改标记，避免一次窄写入把别的待处理内容清掉。
+        doc: applyUserEdit(state.doc, write.field, write.text),
+        assumptions: upsertAssumption(
+          state.assumptions,
+          write.path,
+          action.value,
+        ),
+        assumptionEdits: {
+          ...state.assumptionEdits,
+          [write.path]: true,
+        },
+      }
+    }
+
+    case 'set-export-without-assumptions':
+      return { ...state, exportWithoutAssumptions: action.value }
 
     case 'op-start':
       return {
@@ -349,6 +419,15 @@ export interface GenerationApi {
   scheduled: readonly FieldKey[]
   title: string
   assumptions: Assumption[]
+  /** 五条假设 chip 的展示与可写状态。 */
+  assumptionChips: AssumptionChip[]
+  /** 修改一条假设，只重算该路径对应的字段。 */
+  setAssumption: (path: string, value: string) => void
+  /** 导出时是否剔除假设注释。 */
+  exportWithoutAssumptions: boolean
+  setExportWithoutAssumptions: (value: boolean) => void
+  /** 导出用的假设数据。开关打开时为空数组。 */
+  exportAssumptions: ExportedAssumption[]
   durationMs: number | null
   error: GenerationError | null
   /** 本次请求的用量。null 表示服务端没有发 usage 事件。 */
@@ -837,6 +916,14 @@ export function useGeneration(): GenerationApi {
     dispatch({ type: 'edit', field, text })
   }, [])
 
+  const setAssumption = useCallback((path: string, value: string) => {
+    dispatch({ type: 'assumption-change', path, value })
+  }, [])
+
+  const setExportWithoutAssumptions = useCallback((value: boolean) => {
+    dispatch({ type: 'set-export-without-assumptions', value })
+  }, [])
+
   const acceptSuggestion = useCallback((field: FieldKey) => {
     dispatch({ type: 'accept-suggestion', field })
   }, [])
@@ -878,6 +965,19 @@ export function useGeneration(): GenerationApi {
 
   const fields = useMemo(() => toFieldViewMap(state.doc), [state.doc])
   const schema = useMemo(() => deriveDocSchema(state), [state])
+  const assumptionChips = useMemo<AssumptionChip[]>(
+    () =>
+      state.phase === 'streaming' ? [] : currentAssumptionChips(state),
+    [state],
+  )
+  const exportAssumptions = useMemo(
+    () =>
+      buildExportAssumptions(
+        mergeAssumptions(state.assumptions, assumptionChips),
+        { omitAssumptions: state.exportWithoutAssumptions },
+      ),
+    [state.assumptions, assumptionChips, state.exportWithoutAssumptions],
+  )
   const runningOpField =
     FIELD_KEYS.find(
       (field) => state.fieldOps[field]?.status === 'running',
@@ -893,6 +993,11 @@ export function useGeneration(): GenerationApi {
     scheduled: state.scheduled,
     title: state.title,
     assumptions: state.assumptions,
+    assumptionChips,
+    setAssumption,
+    exportWithoutAssumptions: state.exportWithoutAssumptions,
+    setExportWithoutAssumptions,
+    exportAssumptions,
     durationMs: state.durationMs,
     error: state.error,
     usage: state.usage,

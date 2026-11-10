@@ -13,3 +13,10 @@
 - [ ] 改过的 chip 有可见标记，未改过的保持低调
 - [ ] 假设可在导出时选择剔除
 - [ ] 没有可用模型时，chip 仍可编辑并触发离线重算
+
+## Comments
+
+- 2026-11-10 新增 `lib/engine/assumptions.ts`：五条假设路径定义、chip 派生、复用 `replaceLeafValue` 的字段写回、导出假设数据。`pnpm exec vitest run tests/unit/assumptions.test.ts` 14 passed。
+- 2026-11-10 接线 `generationReducer` 与 `useGeneration`：新增 `assumption-change` 与导出开关动作，chip 值从字段叶子派生。`tests/unit/studio-chips.test.ts` 13 passed，原有 reducer/field-ops 26 passed。
+- 2026-11-10 新增 `components/studio/AssumptionChips.tsx` 并接入 `StudioWorkspace`：中栏顶部五条 chip、已改标记、候选选择、导出剔除开关。当时 `tsc --noEmit --incremental false` 在本工单文件无报错，仅剩作用域外 `lib/llm/ledger.ts` 的 5 条空值错误（后续已由对方修复）。
+- 2026-11-10 验证完成：`pnpm exec vitest run tests/unit/assumptions.test.ts tests/unit/studio-chips.test.ts tests/unit/doc.test.ts` 43 passed；`pnpm exec tsc --noEmit --incremental false` exit 0；全量 `pnpm exec vitest run` 345 passed。未启动 dev server，视觉复核步骤见交付报告。
