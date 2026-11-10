@@ -4,6 +4,7 @@ import {
   assumptionFieldOf,
   buildAssumptionChips,
   buildExportAssumptions,
+  captureAssumptionBaseline,
   isAssumptionPath,
   mergeAssumptions,
   upsertAssumption,
@@ -93,19 +94,50 @@ describe('五条假设路径与重算目标字段', () => {
     )
   })
 
-  it('改过的 chip 有标记，未改过的保持未标记', () => {
-    const chips = buildAssumptionChips({
-      fields: allFieldTexts(),
+  it('「已改」由当前值与生成基线派生，未改与已改各归各位', () => {
+    const fields = allFieldTexts()
+    const baseline = captureAssumptionBaseline(fields, schema.assumptions)
+
+    expect(Object.keys(baseline).sort()).toEqual(
+      ASSUMPTION_DEFINITIONS.map((definition) => definition.path).sort(),
+    )
+    const unchanged = buildAssumptionChips({
+      fields,
       assumptions: schema.assumptions,
-      editedPaths: ['output.language', 'context.audience'],
+      baselineValues: baseline,
+    })
+    expect(unchanged.every((chip) => !chip.modified)).toBe(true)
+    expect(unchanged.every((chip) => chip.source !== 'user')).toBe(true)
+
+    const write = writeAssumptionValue(fields, 'output.language', '英文')
+    if (!write.ok) {
+      throw new Error(`写入被拒绝：${write.reason}`)
+    }
+    const changed = buildAssumptionChips({
+      fields: { ...fields, [write.field]: write.text },
+      assumptions: schema.assumptions,
+      baselineValues: baseline,
     })
 
     expect(
-      chips.filter((chip) => chip.modified).map((chip) => chip.path),
-    ).toEqual(['output.language', 'context.audience'])
+      changed.filter((chip) => chip.modified).map((chip) => chip.path),
+    ).toEqual(['output.language'])
     expect(
-      chips.filter((chip) => !chip.modified).map((chip) => chip.path),
-    ).toEqual(['output.length', 'output.format', 'output.tone'])
+      changed.find((chip) => chip.path === 'output.language')?.source,
+    ).toBe('user')
+    expect(
+      changed.find((chip) => chip.path === 'output.length')?.source,
+    ).not.toBe('user')
+  })
+
+  it('单字段重试的基线只刷新指定字段，其余路径保留旧值', () => {
+    const baseline = captureAssumptionBaseline(
+      allFieldTexts(),
+      schema.assumptions,
+      ['context'],
+    )
+
+    expect(Object.keys(baseline)).toEqual(['context.audience'])
   })
 })
 

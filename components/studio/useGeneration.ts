@@ -11,8 +11,8 @@ import { classifyTaskType } from '@/lib/engine/compose'
 import {
   buildAssumptionChips,
   buildExportAssumptions,
+  captureAssumptionBaseline,
   mergeAssumptions,
-  upsertAssumption,
   writeAssumptionValue,
   type AssumptionChip,
   type ExportedAssumption,
@@ -117,14 +117,36 @@ function fieldTextsOf(doc: PromptDoc): Partial<Record<FieldKey, string>> {
 
 /**
  * 由字段文本生成五条假设 chip。当前值以字段叶子为准，用户手改字段或撤销
- * chip 修改后都会立即跟着字段文本回退，不依赖生成时那份快照。
+ * chip 修改后都会立即跟着字段文本回退；「已改」由当前值与生成基线比较得出，
+ * 因此不依赖 undo/redo 去回写任何标记。
  */
 function currentAssumptionChips(state: GenerationState): AssumptionChip[] {
   return buildAssumptionChips({
     fields: fieldTextsOf(state.doc),
     assumptions: state.assumptions,
-    editedPaths: Object.keys(state.assumptionEdits),
+    baselineValues: state.baselineAssumptionValues,
   })
+}
+
+/**
+ * 结束一次生成（完成、停止或失败）时刷新假设基线。
+ *
+ * 只刷新本次实际排队的字段：单字段重试不应重设其他字段的基线，否则那些
+ * chip 上既有的「已改」会在一次无关重试后消失。
+ */
+function baselineAfterRun(
+  state: GenerationState,
+  doc: PromptDoc,
+  assumptions: readonly Assumption[],
+): GenerationState['baselineAssumptionValues'] {
+  return {
+    ...state.baselineAssumptionValues,
+    ...captureAssumptionBaseline(
+      fieldTextsOf(doc),
+      assumptions,
+      state.scheduled,
+    ),
+  }
 }
 
 /**
@@ -190,7 +212,9 @@ function reduceGenerationState(
         error: null,
         title: action.full ? '' : state.title,
         assumptions: action.full ? [] : state.assumptions,
-        assumptionEdits: action.full ? {} : state.assumptionEdits,
+        baselineAssumptionValues: action.full
+          ? {}
+          : state.baselineAssumptionValues,
         durationMs: action.full ? null : state.durationMs,
         fieldOps: action.full ? {} : state.fieldOps,
         // 每次请求都重新计用量与思考：重试是新的调用，不能沿用上一次的账。
@@ -254,20 +278,28 @@ function reduceGenerationState(
       if (!current || current.value === write.text) {
         return state
       }
+      // 生成结束的各个分支都会写入基线；这里兜底测试或异常路径下没有基线
+      // 的状态：用修改前的值补一条，保证第一次修改就能标成「已改」。
+      let baselineAssumptionValues = state.baselineAssumptionValues
+      if (baselineAssumptionValues[write.path] === undefined) {
+        const before = currentAssumptionChips(state).find(
+          (chip) => chip.path === write.path,
+        )?.value
+        if (before !== undefined) {
+          baselineAssumptionValues = {
+            ...baselineAssumptionValues,
+            [write.path]: before,
+          }
+        }
+      }
       return {
         ...state,
         // chip 只改一个叶子。用 applyUserEdit 写回，保留目标字段里已有的
         // AI 建议与手改标记，避免一次窄写入把别的待处理内容清掉。
         doc: applyUserEdit(state.doc, write.field, write.text),
-        assumptions: upsertAssumption(
-          state.assumptions,
-          write.path,
-          action.value,
-        ),
-        assumptionEdits: {
-          ...state.assumptionEdits,
-          [write.path]: true,
-        },
+        // 不改 state.assumptions：chip 的当前值与来源都从字段文本 + 基线
+        // 派生，撤销后不会残留「你改过」的旧来源，也不需要在这里同步标记。
+        baselineAssumptionValues,
       }
     }
 
@@ -357,6 +389,12 @@ function reduceGenerationState(
         ...state,
         phase: state.phase === 'streaming' ? 'stopped' : state.phase,
         doc,
+        // 停止也是本次生成的终点：把已有内容记为基线，之后手改 chip 仍能
+        // 正确显示「已改」；已停止的状态再次收到 stop 时不重设基线。
+        baselineAssumptionValues:
+          state.phase === 'streaming'
+            ? baselineAfterRun(state, doc, state.assumptions)
+            : state.baselineAssumptionValues,
       }
     }
 
@@ -376,18 +414,36 @@ function reduceGenerationState(
         doc = commitField(doc, field, 'partial')
         doc = failField(doc, field, action.error.message)
       }
-      return { ...state, phase: 'error', doc, error: action.error }
+      return {
+        ...state,
+        phase: 'error',
+        doc,
+        error: action.error,
+        // 失败同样结束本次生成：保留已落盘内容作为基线，重试未生成字段时
+        // 不会把其他 chip 已经产生的「已改」一起清掉。
+        baselineAssumptionValues:
+          state.phase === 'streaming'
+            ? baselineAfterRun(state, doc, state.assumptions)
+            : state.baselineAssumptionValues,
+      }
     }
 
     case 'done': {
       const doc = settleStreamingFields(state.doc, 'done')
+      const assumptions =
+        action.assumptions.length > 0 ? action.assumptions : state.assumptions
       return {
         ...state,
         phase: action.finishReason === 'error' ? 'error' : 'done',
         doc,
         title: action.title || state.title,
-        assumptions:
-          action.assumptions.length > 0 ? action.assumptions : state.assumptions,
+        assumptions,
+        // 生成完成时落一份基线。之后的「已改」只比较当前叶子与这份基线，
+        // undo/redo 只回写 doc，标记自然跟着字段文本一起回退。
+        baselineAssumptionValues:
+          state.phase === 'streaming'
+            ? baselineAfterRun(state, doc, assumptions)
+            : state.baselineAssumptionValues,
         durationMs: action.durationMs,
         error: action.finishReason === 'error' ? state.error : null,
       }
@@ -970,13 +1026,18 @@ export function useGeneration(): GenerationApi {
       state.phase === 'streaming' ? [] : currentAssumptionChips(state),
     [state],
   )
+  // 对外暴露的假设列表始终并入 chip 的当前值。导出菜单与 JSON 预览都消费
+  // 这份数据，撤销后也不会拿到上一次 chip 修改留下的旧值。
+  const assumptions = useMemo(
+    () => mergeAssumptions(state.assumptions, assumptionChips),
+    [state.assumptions, assumptionChips],
+  )
   const exportAssumptions = useMemo(
     () =>
-      buildExportAssumptions(
-        mergeAssumptions(state.assumptions, assumptionChips),
-        { omitAssumptions: state.exportWithoutAssumptions },
-      ),
-    [state.assumptions, assumptionChips, state.exportWithoutAssumptions],
+      buildExportAssumptions(assumptions, {
+        omitAssumptions: state.exportWithoutAssumptions,
+      }),
+    [assumptions, state.exportWithoutAssumptions],
   )
   const runningOpField =
     FIELD_KEYS.find(
@@ -992,7 +1053,7 @@ export function useGeneration(): GenerationApi {
     fields,
     scheduled: state.scheduled,
     title: state.title,
-    assumptions: state.assumptions,
+    assumptions,
     assumptionChips,
     setAssumption,
     exportWithoutAssumptions: state.exportWithoutAssumptions,

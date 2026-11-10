@@ -144,9 +144,15 @@ export interface AssumptionChipInput {
   readonly fields: Partial<Record<FieldKey, string>>
   /** 生成期假设。缺少某条路径时由字段文本与默认候选补齐。 */
   readonly assumptions?: readonly Assumption[]
-  /** 用户改过的假设路径，用于「已改」标记。 */
-  readonly editedPaths?: readonly string[]
+  /**
+   * 生成结束时的假设基线值。「已改」= 当前值 ≠ 基线值，因此撤销、重做与
+   * 手改字段都会自动得到一致的标记，不需要在 undo/redo 分支里同步状态。
+   */
+  readonly baselineValues?: Readonly<Partial<Record<AssumptionPath, string>>>
 }
+
+/** 生成结束时保存的假设基线：五条路径各自当时的展示值。 */
+export type AssumptionBaselineValues = Partial<Record<AssumptionPath, string>>
 
 export interface AssumptionChip {
   readonly path: AssumptionPath
@@ -155,7 +161,7 @@ export interface AssumptionChip {
   readonly candidates: readonly string[]
   readonly source: Assumption['source']
   readonly targetField: FieldKey
-  /** 用户改过这一条。未改过的 chip 在界面上保持低调。 */
+  /** 当前值与生成基线不同。未改过的 chip 在界面上保持低调。 */
   readonly modified: boolean
   /** 字段文本里已经有这一行，可以直接按叶子写回。 */
   readonly present: boolean
@@ -173,8 +179,8 @@ export interface AssumptionChip {
 export function buildAssumptionChips(
   input: AssumptionChipInput,
 ): AssumptionChip[] {
-  const edited = new Set(input.editedPaths ?? [])
   const assumptions = input.assumptions ?? []
+  const baseline = input.baselineValues
 
   return ASSUMPTION_DEFINITIONS.map((definition) => {
     const text = input.fields[definition.targetField] ?? ''
@@ -213,20 +219,51 @@ export function buildAssumptionChips(
       (presentLeaf !== null ||
         auditFieldContent(definition.targetField, text).canonical)
 
+    // 基线缺失时保守地视为「未改」；生成结束的各个分支都会写入基线，
+    // chip 可见时不会落到这个分支。一旦当前值与基线不同，来源也随之
+    // 显示为「你改过」，撤销把值还原后来源自动回到生成期的来源。
+    const baselineValue = baseline?.[definition.path]
+    const modified =
+      baselineValue !== undefined && baselineValue !== value
+
     return {
       path: definition.path,
       label: definition.label,
       value,
       candidates,
-      source:
-        assumption?.source ??
-        (presentLeaf === null ? 'default' : 'inferred'),
+      source: modified
+        ? 'user'
+        : assumption?.source ??
+          (presentLeaf === null ? 'default' : 'inferred'),
       targetField: definition.targetField,
-      modified: edited.has(definition.path),
+      modified,
       present: presentLeaf !== null,
       applicable,
     }
   })
+}
+
+/**
+ * 记录生成结束时的基线值：五条 chip 当时展示的值（叶子值优先）。
+ *
+ * `fieldsToCapture` 用于单字段重试：只刷新本次真正重算的字段，未参与本次
+ * 生成的字段保留旧基线，避免一次局部重试把其他 chip 的「已改」抹掉。
+ */
+export function captureAssumptionBaseline(
+  fields: Partial<Record<FieldKey, string>>,
+  assumptions: readonly Assumption[] = [],
+  fieldsToCapture?: readonly FieldKey[],
+): AssumptionBaselineValues {
+  const targets =
+    fieldsToCapture === undefined ? null : new Set<FieldKey>(fieldsToCapture)
+  const baseline: AssumptionBaselineValues = {}
+  for (const chip of buildAssumptionChips({ fields, assumptions })) {
+    if (targets !== null && !targets.has(chip.targetField)) {
+      continue
+    }
+    baseline[chip.path] = chip.value
+  }
+  return baseline
 }
 
 export function assumptionFromChip(chip: AssumptionChip): Assumption {

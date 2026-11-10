@@ -66,8 +66,22 @@ function chipsOf(state: GenerationState) {
   return buildAssumptionChips({
     fields: fieldTexts(state),
     assumptions: state.assumptions,
-    editedPaths: Object.keys(state.assumptionEdits),
+    baselineValues: state.baselineAssumptionValues,
   })
+}
+
+function chipOf(state: GenerationState, path: string) {
+  const chip = chipsOf(state).find((candidate) => candidate.path === path)
+  if (!chip) {
+    throw new Error(`缺少 chip：${path}`)
+  }
+  return chip
+}
+
+function modifiedPaths(state: GenerationState): string[] {
+  return chipsOf(state)
+    .filter((chip) => chip.modified)
+    .map((chip) => chip.path)
 }
 
 function differentCandidate(path: string): string {
@@ -250,7 +264,10 @@ describe('只重算受该假设影响的那一个字段', () => {
         ...action,
       })
       expect(nextState, action.path).toBe(state)
-      expect(nextState.assumptionEdits, action.path).toEqual({})
+      expect(nextState.baselineAssumptionValues, action.path).toBe(
+        state.baselineAssumptionValues,
+      )
+      expect(modifiedPaths(nextState), action.path).toEqual([])
     }
   })
 })
@@ -282,30 +299,151 @@ describe('无模型 Key 时的本地重算路径', () => {
   })
 })
 
-describe('撤销与 chip 状态', () => {
-  it('撤销 chip 修改后字段文本与 chip 值一起回退，schema 不吃旧假设', () => {
+describe('撤销与重做后的「已改」标记', () => {
+  it('撤销一次 chip 修改：字段文本与「已改」标记同时回退', () => {
     const state = generatedState()
     const before = fieldTexts(state)
+    expect(modifiedPaths(state)).toEqual([])
 
     let nextState = generationReducer(state, {
       type: 'assumption-change',
       path: 'output.language',
       value: '英文',
     })
+    expect(fieldTexts(nextState).output).toContain('语言：英文')
+    expect(chipOf(nextState, 'output.language').modified).toBe(true)
+    expect(modifiedPaths(nextState)).toEqual(['output.language'])
     expect(nextState.doc.schema?.output.language).toBe('英文')
 
     nextState = generationReducer(nextState, { type: 'undo' })
 
-    expect(nextState.doc.fields.output?.value).toBe(before.output)
-    expect(
-      chipsOf(nextState).find((chip) => chip.path === 'output.language')?.value,
-    ).toBe('中文')
+    expect(fieldTexts(nextState).output).toBe(before.output)
+    expect(chipOf(nextState, 'output.language').value).toBe('中文')
+    expect(chipOf(nextState, 'output.language').modified).toBe(false)
+    expect(chipOf(nextState, 'output.language').source).not.toBe('user')
+    expect(modifiedPaths(nextState)).toEqual([])
     expect(nextState.doc.schema?.output.language).toBe('中文')
     expect(
       nextState.doc.schema?.assumptions.find(
         (assumption) => assumption.path === 'output.language',
       )?.value,
     ).toBe('中文')
+  })
+
+  it('手改字段里的假设叶子也会立即标成「已改」，撤销后复原', () => {
+    const state = generatedState()
+    const before = fieldTexts(state)
+    const editedOutput = before.output.replace('语言：中文', '语言：英文')
+    expect(editedOutput).not.toBe(before.output)
+
+    let nextState = generationReducer(state, {
+      type: 'edit',
+      field: 'output',
+      text: editedOutput,
+    })
+    expect(chipOf(nextState, 'output.language').modified).toBe(true)
+
+    nextState = generationReducer(nextState, { type: 'undo' })
+    expect(fieldTexts(nextState).output).toBe(before.output)
+    expect(chipOf(nextState, 'output.language').modified).toBe(false)
+  })
+
+  it('撤销一次与 chip 无关的编辑：其他 chip 的「已改」标记保持不变', () => {
+    const state = generatedState()
+    const roleBefore = state.doc.fields.role?.value ?? ''
+    const originalAudience = chipOf(state, 'context.audience').value
+    const nextAudience = differentCandidate('context.audience')
+
+    let nextState = generationReducer(state, {
+      type: 'assumption-change',
+      path: 'context.audience',
+      value: nextAudience,
+    })
+    expect(chipOf(nextState, 'context.audience').modified).toBe(true)
+
+    nextState = generationReducer(nextState, {
+      type: 'edit',
+      field: 'role',
+      text: '你是谁：负责另一条线的角色。',
+    })
+    expect(chipOf(nextState, 'context.audience').modified).toBe(true)
+
+    nextState = generationReducer(nextState, { type: 'undo' })
+
+    expect(fieldTexts(nextState).role).toBe(roleBefore)
+    expect(chipOf(nextState, 'context.audience').value).not.toBe(
+      originalAudience,
+    )
+    expect(chipOf(nextState, 'context.audience').modified).toBe(true)
+    expect(modifiedPaths(nextState)).toEqual(['context.audience'])
+  })
+
+  it('撤销一次无关编辑不会误标任何 chip', () => {
+    const state = generatedState()
+    const before = fieldTexts(state)
+    expect(modifiedPaths(state)).toEqual([])
+
+    let nextState = generationReducer(state, {
+      type: 'edit',
+      field: 'role',
+      text: '你是谁：一个临时角色。',
+    })
+    nextState = generationReducer(nextState, { type: 'undo' })
+
+    expect(fieldTexts(nextState).role).toBe(before.role)
+    expect(modifiedPaths(nextState)).toEqual([])
+  })
+
+  it('同一字段连续改两条 chip，撤销一步只回退最后一条的标记', () => {
+    const baselineState = generatedState()
+    const before = fieldTexts(baselineState)
+    const baselineLength = chipOf(baselineState, 'output.length').value
+    const nextLength = differentCandidate('output.length')
+
+    let nextState = generationReducer(baselineState, {
+      type: 'assumption-change',
+      path: 'output.language',
+      value: '英文',
+    })
+    nextState = generationReducer(nextState, {
+      type: 'assumption-change',
+      path: 'output.length',
+      value: nextLength,
+    })
+    expect(modifiedPaths(nextState)).toEqual([
+      'output.language',
+      'output.length',
+    ])
+
+    nextState = generationReducer(nextState, { type: 'undo' })
+    expect(chipOf(nextState, 'output.length').value).toBe(baselineLength)
+    expect(chipOf(nextState, 'output.length').modified).toBe(false)
+    expect(modifiedPaths(nextState)).toEqual(['output.language'])
+
+    nextState = generationReducer(nextState, { type: 'undo' })
+    expect(fieldTexts(nextState).output).toBe(before.output)
+    expect(modifiedPaths(nextState)).toEqual([])
+  })
+
+  it('重做一次 chip 修改：字段文本与「已改」标记一起恢复', () => {
+    const state = generatedState()
+
+    let nextState = generationReducer(state, {
+      type: 'assumption-change',
+      path: 'output.language',
+      value: '英文',
+    })
+    const changedOutput = fieldTexts(nextState).output
+    nextState = generationReducer(nextState, { type: 'undo' })
+    expect(modifiedPaths(nextState)).toEqual([])
+
+    nextState = generationReducer(nextState, { type: 'redo' })
+
+    expect(fieldTexts(nextState).output).toBe(changedOutput)
+    expect(chipOf(nextState, 'output.language').value).toBe('英文')
+    expect(chipOf(nextState, 'output.language').modified).toBe(true)
+    expect(chipOf(nextState, 'output.language').source).toBe('user')
+    expect(modifiedPaths(nextState)).toEqual(['output.language'])
   })
 })
 
