@@ -9,7 +9,13 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
-import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
+import { FIELD_KEYS, FIELD_LABELS, type FieldKey } from '@/lib/engine/schema'
+import { PageShell } from '@/components/ui/PageShell'
+import {
+  OutlineRail,
+  useActiveSection,
+  type OutlineItem,
+} from '@/components/ui/OutlineRail'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
 import type { CommandType } from '@/lib/engine/doc'
 import { renderMarkdownDocument } from '@/lib/engine/render'
@@ -745,9 +751,20 @@ export function StudioWorkspace() {
     void createBaselineV0()
   }, [phase, libraryPromptId, submitted, fields, createBaselineV0])
 
+  // 必须在提前 return 之前调用，否则空闲态与生成态之间 hook 数量会变
+  const activeSection = useActiveSection(
+    FIELD_KEYS.map((field) => `field-${field}`),
+  )
+
   if (phase === 'idle') {
     return <RequirementInput onSubmit={handleSubmit} busy={isBusy} />
   }
+
+  const outlineItems: OutlineItem[] = FIELD_KEYS.map((field) => ({
+    id: `field-${field}`,
+    label: FIELD_LABELS[field],
+  }))
+  const outlineIds = outlineItems.map((item) => item.id)
 
   const filledCount = FIELD_KEYS.filter(
     (field) =>
@@ -867,7 +884,7 @@ export function StudioWorkspace() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-4 py-6 lg:px-6">
+    <PageShell variant="workbench">
       <div
         role="tablist"
         aria-label="工作台分区"
@@ -924,43 +941,45 @@ export function StudioWorkspace() {
             'hidden min-[1440px]:block',
           )}
         >
-          <div className="sticky top-6 rounded-panel bg-surface-inset p-4">
-            <p className="text-caption font-medium text-ink-faint">原始需求</p>
-            <p className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-body text-ink">
-              {submitted}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              <span
-                className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted"
-                title={
-                  modelStatus.status === 'available'
-                    ? modelStatus.modelLabel ?? '模型可用'
-                    : modelStatus.reason
-                }
-              >
-                {modelStatusLabel(modelStatus)}
-              </span>
-              <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted tnum">
-                {filledCount} / {FIELD_KEYS.length} 字段
-              </span>
-              {suggestionCount > 0 ? (
-                <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-warning tnum">
-                  {suggestionCount} 条建议待处理
+          <div className="sticky top-6 flex flex-col gap-5">
+            <OutlineRail items={outlineItems} activeId={activeSection} />
+
+            <div className="rounded-panel bg-surface-inset p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-caption font-medium text-ink-faint">原始需求</p>
+                <span className="text-caption text-ink-faint tnum">
+                  {filledCount} / {FIELD_KEYS.length}
                 </span>
-              ) : null}
+              </div>
+              <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-body text-ink">
+                {submitted}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span
+                  className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted"
+                  title={
+                    modelStatus.status === 'available'
+                      ? modelStatus.modelLabel ?? '模型可用'
+                      : modelStatus.reason
+                  }
+                >
+                  {modelStatusLabel(modelStatus)}
+                </span>
+                {suggestionCount > 0 ? (
+                  <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-warning tnum">
+                    {suggestionCount} 条建议待处理
+                  </span>
+                ) : null}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                className="mt-3 w-full"
+              >
+                重新开始
+              </Button>
             </div>
-            <p className="mt-4 border-t border-line-subtle pt-3 text-caption text-ink-faint">
-              流式生成过程中也可以直接改字。改动会立即写入文档，后到的 AI
-              内容只会作为建议保留。
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
-              className="mt-3 w-full"
-            >
-              重新开始
-            </Button>
           </div>
         </aside>
 
@@ -1268,6 +1287,7 @@ export function StudioWorkspace() {
                     <FieldBlock
                       field={field}
                       index={index + 1}
+                      anchorId={`field-${field}`}
                       state={fields[field]}
                       phase={phase}
                       busy={isBusy}
@@ -1401,6 +1421,6 @@ export function StudioWorkspace() {
           </aside>
         ) : null}
       </div>
-    </div>
+    </PageShell>
   )
 }

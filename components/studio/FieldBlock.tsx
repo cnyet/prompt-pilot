@@ -88,6 +88,7 @@ const TONE_DOT: Record<'accent' | 'danger' | 'warning' | 'muted' | 'faint', stri
 export function FieldBlock({
   field,
   index,
+  anchorId,
   state,
   phase,
   busy,
@@ -103,6 +104,8 @@ export function FieldBlock({
 }: {
   field: FieldKey
   index: number
+  /** 稳定锚点，供大纲跳转 */
+  anchorId?: string
   state: FieldView
   phase: GenerationPhase
   busy: boolean
@@ -164,8 +167,9 @@ export function FieldBlock({
 
   return (
     <section
+      id={anchorId}
       className={cn(
-        'rise py-7',
+        'group rise scroll-mt-24 py-7',
         index > 1 && 'border-t border-line-subtle',
       )}
       aria-labelledby={`${editorId}-title`}
@@ -237,7 +241,7 @@ export function FieldBlock({
         </div>
 
         {expanded ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 transition-opacity duration-150 sm:opacity-0 sm:focus-within:opacity-100 sm:group-hover:opacity-100">
             <span className="text-caption text-ink-faint">重算</span>
             {FIELD_OPS.map((op) => (
               <button

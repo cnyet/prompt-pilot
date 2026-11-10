@@ -190,3 +190,33 @@ grid        max-w 1280  卡片网格（库、模板）
 - `DESIGN.md` 的 12 条禁令与浅色优先继续有效
 - 新增组件与令牌同步更新到 `DESIGN.md`（该文档目前停在 M0，需要一并更新）
 - 决策记录进 `docs/adr/`：`0003-document-first-workbench.md`（工作台从表单转文档）
+
+---
+
+## 九、执行进展
+
+### P1 已完成
+
+新增五个基座：`PageShell`（reading / workbench / grid）、`DocSection`（文档节，操作条 hover 才出现）、`StatTile`、`MeterBar`（含 `clampRatio` 单测）、`OutlineRail`（IntersectionObserver 高亮，不监听 scroll）。
+
+### P2 已完成
+
+工作台从「三栏表单」改为「大纲 / 文档 / 诊断」：
+
+![](assets/refactor/p2-studio-1440.png)
+
+- 左栏从需求卡改为**文档大纲**：01-08 锚点，滚动时高亮当前节，点击跳转
+- 需求降级为大纲下方的紧凑块（标题 + 8/8 进度 + 折叠需求 + 重新开始）
+- 字段操作条（重算 / 加长 / 缩短 / 更具体 / 重新生成）改为**悬停或键盘聚焦才出现**，正文不再被按钮行打断
+- 1180 宽度下回到标签页形态（需求 / 编辑 / 诊断），文档仍是主体
+
+![](assets/refactor/p2-studio-1180.png)
+
+### 一个真实的坑
+
+`useActiveSection` 最初放在「空闲态提前 return」之后，导致空闲到生成态之间 hook 数量变化，页面直接崩（`This page couldn't load`）。已移到所有提前 return 之前。
+
+### 待办
+
+P3：库（卡片网格）、设置（双栏锚点导航）、模板（两列卡片）、评估（结果版式示意）。
+P4：深色校准、动效细节、三档截图与对比度复核。
