@@ -4,7 +4,7 @@
 
 **Blocked by:** 10 — 诊断面板与一键修复
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] 修复写入后，该字段的来源显示为「修复」而不是「已手改」
 - [ ] 连续点两次「一键修复」，第二次仍能修复第一次修过的字段里新出现的问题
@@ -36,3 +36,26 @@
 - doc 层：新增 `applyRepair`（origin `'patch'`、dirty false、status done，撤销命令 type `'patch'`）与 `isUserEdited` 判定；复用既有枚举，避免改 FieldBlock / StudioWorkspace 的穷尽映射。`useGeneration` 新增 `repair-field` action 与 `repairField` 方法；`useDiagnostics` 的 `FieldWrite` 增加 `kind: 'repair' | 'edit'`，并提供 `applyFieldWrites` 把计划按 kind 落回文档。目标测试 68 条通过，`tsc` 0。
 - 测试覆盖：`doc.test.ts` 修复与用户编辑 dirty 判定不同 + 撤销/重做一致；`studio-diagnostics.test.ts` 连续两次一键修复、手改字段仍被跳过、计划 kind 与 kind 分派；`studio-chips.test.ts` reducer 连续两次修复与撤销恢复。全量 451 条通过（34 个文件）。
 - 待接线：`StudioWorkspace.tsx` 的 `applyWrites` 仍调用 `updateField`（禁改文件，另一位 agent 正在改）；接线时把写回改成 `repairField(write.field, write.text)` 即可，API 与本单测语义已就绪。来源 chip 沿用 `'patch'`，FieldBlock 现有文案是「补丁写入」、状态是「已生成」，不再是「已手改」。
+
+### 2026-11-10 交付与验收（Lead 复核）
+
+提交 `16cb5a8`（doc 层）与 `df66641`（UI 接线）。
+
+| 检查 | 结果 |
+|---|---|
+| 目标测试 | 35 passed（doc + studio-diagnostics） |
+| 全量 | 452 passed |
+| 类型 | `tsc` 0 |
+| 枚举成本 | 新增 `FieldOrigin 'repair'` 会触发 `FieldBlock` 穷尽 switch 报错，改为复用 `'patch'` |
+| 写入区分 | `applyRepair` → `origin 'patch'` / `dirty false`；`applyUserEdit` → `origin 'user'` / `dirty true` |
+| 统一判定 | `isUserEdited(field) = origin === 'user'` |
+
+UI 接线由 Lead 完成（`applyWrites` 按 `write.kind` 分派到 `repairField` / `updateField`），因为该文件当时与工单 13 共用。
+
+### 保留的例外
+
+`applyPatch('overwrite')` 仍刻意保留 dirty。这是工单 02 定的 R4 保护——覆盖式补丁必须让用户知道字段被改过，与修复写入不是一回事，不应为了「dirty 完全等于 origin==='user'」的整齐而抹掉。
+
+### 遗留
+
+来源文案仍是「补丁写入」（`FieldBlock` 硬编码，`status` 为 `done` 时显示「已生成 · 补丁写入」）。改成「修复」需要扩枚举，代价大于收益，留待文案统一时处理。
