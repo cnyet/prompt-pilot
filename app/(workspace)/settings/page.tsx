@@ -1,4 +1,5 @@
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
+import { SettingsNav } from '@/components/settings/SettingsNav'
 import { PageHeader, Section } from '@/components/ui/Section'
 import { getLlmSettingsView } from '@/lib/settings/store'
 import { cn } from '@/lib/utils'
@@ -142,12 +143,15 @@ export default async function SettingsPage() {
   const unknownCost = total?.unknownCostCalls ?? 0
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-12 px-6 py-8 lg:px-10">
+    <div className="mx-auto flex w-full max-w-[1080px] gap-10 px-6 py-8 lg:px-10">
+      <SettingsNav />
+      <div className="flex min-w-0 flex-1 flex-col gap-12">
       <PageHeader
         title="设置"
         description="模型接入、成本汇总与本机数据都在这一个页面里。"
       />
 
+      <div id="settings-model" className="scroll-mt-8">
       <Section
         title="模型"
         description="设置页写入的值优先于环境变量。密钥只存在本机数据库，界面不显示明文，也不会回传浏览器。"
@@ -174,7 +178,9 @@ export default async function SettingsPage() {
         </div>
         <LlmSettingsForm initial={llmSettings} />
       </Section>
+      </div>
 
+      <div id="settings-cost" className="scroll-mt-8">
       <Section
         title="成本"
         description="数据来自本机调用账本，按阶段与模型汇总 token、缓存命中与人民币金额。"
@@ -252,12 +258,18 @@ export default async function SettingsPage() {
         )}
       </Section>
 
+      </div>
+
+      <div id="settings-data" className="scroll-mt-8">
       <Section title="数据" description="全部数据只存在本机 SQLite，不上传任何第三方。">
         <p className="text-caption text-ink-faint">
           导入、导出与从备份恢复在 M5 接入。
         </p>
       </Section>
 
+      </div>
+
+      <div id="settings-shortcuts" className="scroll-mt-8">
       <Section title="快捷键">
         <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-1.5 text-label">
           {[
@@ -277,6 +289,8 @@ export default async function SettingsPage() {
           快捷键在 M2 起逐步生效，当前仅有主题切换与左栏折叠可用。
         </p>
       </Section>
+      </div>
+      </div>
     </div>
   )
 }

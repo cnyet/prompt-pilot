@@ -483,92 +483,55 @@ export function LibraryWorkspace() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-panel border border-line-subtle bg-surface">
-              <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
-                <thead>
-                  <tr>
-                    <th className="border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
-                      标题
-                    </th>
-                    <th className="w-32 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
-                      版本
-                    </th>
-                    <th className="w-44 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
-                      更新时间
-                    </th>
-                    <th className="w-20 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
-                      操作
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {prompts.map((prompt) => {
-                    const active = prompt.id === selectedId
-                    const tags = splitTags(prompt.tags)
-                    return (
-                      <tr
-                        key={prompt.id}
-                        className={cn(
-                          'rise border-t border-line-subtle transition-colors',
-                          active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
-                        )}
-                      >
-                        <td className="px-4 py-3.5 align-top">
-                          <button
-                            type="button"
-                            onClick={() => openPrompt(prompt.id)}
-                            className="block w-full min-w-0 text-left"
-                            aria-current={active ? 'true' : undefined}
-                          >
-                            <span className="block truncate text-body font-medium text-ink">
-                              {prompt.title}
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {prompts.map((prompt) => {
+                const active = prompt.id === selectedId
+                const tags = splitTags(prompt.tags)
+                return (
+                  <li key={prompt.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPrompt(prompt.id)}
+                      aria-current={active ? 'true' : undefined}
+                      className={cn(
+                        'rise flex h-full w-full flex-col gap-2 rounded-panel border p-4 text-left transition-colors duration-150',
+                        active
+                          ? 'border-accent bg-surface'
+                          : 'border-line-subtle bg-surface hover:border-line-strong',
+                      )}
+                    >
+                      <span className="line-clamp-2 text-body-lg font-medium text-ink">
+                        {prompt.title}
+                      </span>
+                      <span className="line-clamp-2 text-caption text-ink-muted">
+                        {prompt.description?.trim() || '暂无描述'}
+                      </span>
+                      {tags.length > 0 ? (
+                        <span className="flex flex-wrap gap-1">
+                          {tags.slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-chip bg-bg-sunken px-1.5 py-0.5 text-caption text-ink-muted"
+                            >
+                              {tag}
                             </span>
-                            <span className="mt-0.5 block truncate text-caption text-ink-faint">
-                              {prompt.description ??
-                                (tags.length > 0
-                                  ? tags.join(' · ')
-                                  : '暂无描述')}
-                            </span>
-                          </button>
-                        </td>
-                        <td className="px-4 py-3.5 align-top">
-                          <span className="block text-body text-ink tnum">
-                            {prompt.versionCount} 个
-                          </span>
-                          <span className="mt-0.5 block text-caption text-ink-faint tnum">
-                            {prompt.latestVersionNo === null
-                              ? '暂无版本'
-                              : `最新 v${prompt.latestVersionNo}`}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 align-top">
-                          <time
-                            dateTime={prompt.updatedAt}
-                            className="block text-caption text-ink-muted tnum"
-                          >
-                            {formatDateTime(prompt.updatedAt)}
-                          </time>
-                          {prompt.latestOrigin ? (
-                            <span className="mt-0.5 block text-caption text-ink-faint">
-                              {ORIGIN_LABELS[prompt.latestOrigin]}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3.5 align-top">
-                          <button
-                            type="button"
-                            onClick={() => openPrompt(prompt.id)}
-                            className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-                          >
-                            打开
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          ))}
+                        </span>
+                      ) : null}
+                      <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-caption text-ink-faint tnum">
+                        <span>
+                          {prompt.versionCount} 个版本 · 最新 v
+                          {prompt.latestVersionNo ?? 0}
+                        </span>
+                        <span className="ml-auto">
+                          {formatDateTime(prompt.updatedAt)}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </section>
 
