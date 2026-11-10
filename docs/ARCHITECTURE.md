@@ -623,7 +623,9 @@ model VariableSet {
 
 model Run {
   id          String   @id @default(cuid())
-  versionId   String
+  // 可空：允许在保存版本之前试运行；sessionKey 标记同一草稿
+  versionId   String?
+  sessionKey  String?
   variableSetId String?
   variablesJson String
   modelId     String
@@ -647,7 +649,7 @@ model Run {
   requestId   String?  @unique   // 幂等键，客户端生成，5 分钟内重复命中复用
   traceId     String?            // 跨阶段串联，从 requestId 派生
   createdAt   DateTime @default(now())
-  version     PromptVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  version     PromptVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
   checks      CriterionCheck[]
   @@index([versionId, createdAt])
   @@index([cacheKey])

@@ -76,7 +76,10 @@ model VariableSet {
 
 model Run {
   id              String   @id @default(cuid())
-  versionId       String
+  // 可空：允许在保存版本之前试运行（版本化在工单 13）
+  // sessionKey 标记同一工作台草稿，便于按草稿归档运行历史
+  versionId       String?
+  sessionKey      String?
   variableSetId   String?
   variablesJson   String
   modelId         String
@@ -102,7 +105,7 @@ model Run {
   requestId       String?  @unique
   traceId         String?
   createdAt       DateTime @default(now())
-  version         PromptVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  version         PromptVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
   checks          CriterionCheck[]
 
   @@index([versionId, createdAt])
