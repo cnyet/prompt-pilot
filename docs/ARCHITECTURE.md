@@ -4,10 +4,10 @@
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 框架 | Next.js 15 App Router + TypeScript | 前后端一体，Route Handler 天然适合承载流式模型调用，密钥留服务端 |
+| 框架 | Next.js 16 App Router + TypeScript | 前后端一体，Route Handler 天然适合承载流式模型调用，密钥留服务端 |
 | 样式 | Tailwind CSS + CSS 变量令牌 | 令牌与 `DESIGN.md` 一一对应，深浅色切换零运行时成本 |
-| 组件 | shadcn/ui（Radix 底座） | 组件状态好补全，可访问性由 Radix 保证，样式完全可控，避免成品 UI 库的"云控制台味" |
-| 状态 | Zustand（编辑器与会话） + TanStack Query（服务端数据） | 编辑器状态高频局部更新，Zustand 的细粒度订阅正好；服务端数据交给 Query 管缓存与失效 |
+| 组件 | shadcn/ui（cva + Radix 底座，项目 token） | 已落地（ADR-0005）：变体组合用 class-variance-authority，`asChild` 用 @radix-ui/react-slot；保留项目语义令牌与内联 SVG 图标 |
+| 状态 | ~~Zustand + TanStack Query~~ → React hooks（未采用） | 规划时拟用 Zustand/Query，实现期改用内置 hooks；如将来需要另立 ADR |
 | 校验 | Zod | Schema 前后端共用，同时用于结构化输出的解析与修复 |
 | 数据库 | Prisma + SQLite | 单机零依赖，一条命令起来；需要时可平滑换 Postgres |
 | 流式 | Route Handler 返回 SSE（`ReadableStream`） | 模型侧就是 SSE，直接透传最省事 |
@@ -68,7 +68,7 @@ prompt-pilot/
 │  ├─ db/prisma.ts
 │  └─ utils/
 ├─ components/
-│  ├─ ui/                 shadcn 基础组件
+│  ├─ ui/                 shadcn 模式基础组件（Button/IconButton 走 cva + Slot）
 │  ├─ studio/             FieldBlock, AssumptionChip, LintPanel, CriterionPanel,
 │  │                      RunDrawer, DiffView, VersionTimeline
 │  └─ charts/             CriterionBar, WinRateBar

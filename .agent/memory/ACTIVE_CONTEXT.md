@@ -9,7 +9,7 @@
 - Blockers: 无。
 
 ## Current Constraints
-- 零依赖基调：不引动效库、图标库、CSS-in-JS；Cormorant 未引 webfont，用 Georgia 系回退。
+- 零依赖基调（ADR-0005 修订）：UI 基座允许 cva + @radix-ui/react-slot；动效库、图标库、CSS-in-JS、图表库、状态库仍禁。Cormorant 未引 webfont，用 Georgia 系回退。
 - 界面中文；禁止感叹号与 em dash。
 - 跑测试前必须停掉 3100 上的服务（共用 SQLite）；测试偶发单失败重跑即过。
 - Chrome 隔离只加 `--user-data-dir` 与 `--password-store=basic`，**绝不覆盖 HOME**。
@@ -27,6 +27,7 @@
 - 用 `HOME=/tmp/...` 跑 Chrome | 原因: 钥匙串弹窗。
 
 ## Current Decisions
+- 组件层回归 shadcn 路线（ADR-0005）：cva 变体 + Radix Slot `asChild`，保留项目 token 与内联 SVG | Reason: ARCHITECTURE.md 原选型即 shadcn，手写实现造成规划分叉；不映射 shadcn 默认 token 名，避免 bg-accent 二义。
 - 编辑部 bento（ADR-0004）：改构图不改色，Orbit 色板 ≈ 现有色板 | Reason: 参考即用户指定的 open-design Orbit。
 - 八字段异构预览 + 编辑态统一回退 FieldBlock | Reason: 文本是唯一事实源，预览只读解析。
 - 预览跨度：objective/constraints/examples/selfCheck 各占 2 列 + grid-flow-dense | Reason: 单列下巨型衬线与做/不做双栏过挤。

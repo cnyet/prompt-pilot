@@ -17,7 +17,7 @@ import { renderMarkdownDocument } from '@/lib/engine/render'
 import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
-import { Button, buttonStyles } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { AssumptionChips } from './AssumptionChips'
 import { DiagnosticsPanel } from './DiagnosticsPanel'
@@ -43,7 +43,7 @@ import { RequirementInput } from './RequirementInput'
 import { RunDrawer } from './RunDrawer'
 import { ThinkingPanel } from './ThinkingPanel'
 import { useGeneration } from './useGeneration'
-import { modelStatusLabel, useModelStatus } from './modelStatus'
+import { useModelStatus } from './modelStatus'
 import { formatUsageCost, formatUsageTokens } from './types'
 
 type CopyState = 'idle' | 'copied' | 'failed'
@@ -985,23 +985,13 @@ export function StudioWorkspace() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-caption font-medium text-ink-faint">原始需求</p>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted"
-                  title={
-                    modelStatus.status === 'available'
-                      ? modelStatus.modelLabel ?? '模型可用'
-                      : modelStatus.reason
-                  }
-                >
-                  {modelStatusLabel(modelStatus)}
-                </span>
                 {suggestionCount > 0 ? (
                   <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-warning tnum">
                     {suggestionCount} 条建议待处理
                   </span>
                 ) : null}
-                <span className="text-caption text-ink-faint tnum">
-                  {filledCount} / {FIELD_KEYS.length}
+                <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-faint tnum">
+                  {filledCount} / {FIELD_KEYS.length} 字段
                 </span>
               </div>
             </div>
@@ -1031,22 +1021,9 @@ export function StudioWorkspace() {
             <h1 className="mt-1.5 text-[2rem] leading-[1.18] text-balance font-semibold text-ink">
               {displayTitle}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-caption">
-              <span
-                className="max-w-[42ch] truncate rounded-chip bg-surface-inset px-2 py-0.5 text-ink-muted"
-                title={submitted}
-              >
-                需求：{submitted}
-              </span>
-              <span className="rounded-chip bg-surface-inset px-2 py-0.5 text-ink-muted tnum">
-                {filledCount} / {FIELD_KEYS.length} 字段
-              </span>
-              {suggestionCount > 0 ? (
-                <span className="rounded-chip bg-surface-inset px-2 py-0.5 text-warning tnum">
-                  {suggestionCount} 条建议待处理
-                </span>
-              ) : null}
-              {librarySave.message.length > 0 ? (
+            {/* 需求原文、字段计数、建议数都在上方 hero 条；这里只留瞬态保存结果。 */}
+            {librarySave.message.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center text-caption">
                 <span
                   aria-live="polite"
                   className={cn(
@@ -1076,8 +1053,8 @@ export function StudioWorkspace() {
                     </Link>
                   ) : null}
                 </span>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
 
             <div className="relative mt-4 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
@@ -1112,26 +1089,20 @@ export function StudioWorkspace() {
               </div>
               <span aria-hidden className="h-5 w-px bg-line-subtle" />
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <IconButton
                   icon="undo"
+                  label="撤销（⌘Z）"
                   onClick={undo}
                   disabled={!canUndo}
-                  title="撤销（⌘Z）"
-                >
-                  撤销
-                </Button>
-                <Button
-                  variant="ghost"
                   size="sm"
+                />
+                <IconButton
                   icon="redo"
+                  label="重做（⇧⌘Z）"
                   onClick={redo}
                   disabled={!canRedo}
-                  title="重做（⇧⌘Z）"
-                >
-                  重做
-                </Button>
+                  size="sm"
+                />
                 {!diagnosticsOpen ? (
                   <Button
                     variant="ghost"
@@ -1170,13 +1141,6 @@ export function StudioWorkspace() {
                     onOmitAssumptionsChange={setExportWithoutAssumptions}
                   />
                 ) : null}
-                <Link
-                  href="/library"
-                  className={buttonStyles({ variant: 'ghost', size: 'sm' })}
-                >
-                  <Icon name="library" size={14} />
-                  提示词库
-                </Link>
               </div>
             </div>
           </header>

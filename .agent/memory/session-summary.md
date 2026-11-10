@@ -42,3 +42,11 @@
 - 坑: 截图轮询用「编辑目标字段」title 判 ready 会匹配到流式中的回退卡，需等生成真正完成再截。
 - 验证: pnpm typecheck ✓、pnpm test 493 全绿（一次偶发单失败重跑未复现）、pnpm build ✓、生产服 3100 截图（1440，深/浅）确认时间轴、hero 条、bento 卡渲染正常。
 - 待办: R1 等用户确认；R2-R5 按 docs/BENTO-REFACTOR-PLAN.md 推进。
+
+## 2026-11-10（回归 shadcn/ui，ADR-0005）
+- 决策: 组件层回归 ARCHITECTURE.md 原选型（shadcn/ui），采纳 cva + Radix Slot 工程模式 | Reason: 用户确认「回归规划」；手写实现与选型表分叉。
+- 决策: 不映射 shadcn 默认 token 名（background/primary/accent），组件继续用项目 token | Reason: 项目 accent=赤陶，shadcn accent=悬停灰，映射会二义。
+- 事实: 新增依赖 class-variance-authority、@radix-ui/react-slot；Button/IconButton 重写为 cva 变体；buttonStyles 保留（ExportMenu 需要 ref 触发按钮）。
+- 坑: Radix Slot 要求单一子元素，asChild 时不能再注入 icon 节点；图标须由子元素自带，否则 build 报 "Slot failed to slot onto its children"。
+- 文档: docs/adr/0005-adopt-shadcn-ui.md 新增；ARCHITECTURE.md 选型表/目录树同步（Next 16、状态层改 React hooks、组件行标注 ADR-0005）。
+- 验证: typecheck ✓、493 测试 ✓、build ✓、词库页「新建」与工作台截图正常。

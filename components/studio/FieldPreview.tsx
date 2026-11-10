@@ -6,6 +6,7 @@ import {
   type FieldLeaf,
   type ParsedField,
 } from '@/lib/engine/paths'
+import { cn } from '@/lib/utils'
 
 /**
  * 字段的异构预览形态（编辑部 bento，ADR 0004）。
@@ -140,8 +141,14 @@ function InputPreview({ text }: { text: string }) {
   const parsed = parseField('input', text) as ParsedField<'input'>
   const variables = parsed.value.variables ?? []
   if (variables.length === 0) {
+    // 空数组或序列化端的「变量：无」固定文案都算「确实无变量」；
+    // 只有连 input 节都识别不出来才回退 FieldBlock。
     const noVar = leafFirstValue(parsed.leaves, 'input.variables')
-    if (noVar !== null) {
+    if (
+      noVar !== null ||
+      Array.isArray(parsed.value.variables) ||
+      text.trimStart().startsWith('变量：无')
+    ) {
       return (
         <p className="text-body-sm text-ink-faint">
           无外部变量，可直接使用。
@@ -195,37 +202,49 @@ function ConstraintsPreview({ text }: { text: string }) {
   }
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      <ul className="flex min-w-0 flex-col gap-1 rounded-control bg-tint-do px-3 py-2.5">
-        <li className="mb-0.5 text-caption font-medium text-ink">做</li>
-        {doItems.length === 0 ? (
-          <li className="text-body-sm text-ink-faint">未声明</li>
-        ) : (
-          doItems.map((item, i) => (
-            <li
-              key={i}
-              className="line-clamp-2 text-body-sm text-ink-muted"
-            >
-              {item}
-            </li>
-          ))
-        )}
-      </ul>
-      <ul className="flex min-w-0 flex-col gap-1 rounded-control bg-tint-dont px-3 py-2.5">
-        <li className="mb-0.5 text-caption font-medium text-ink">不做</li>
-        {dontItems.length === 0 ? (
-          <li className="text-body-sm text-ink-faint">未声明</li>
-        ) : (
-          dontItems.map((item, i) => (
-            <li
-              key={i}
-              className="line-clamp-2 text-body-sm text-ink-muted"
-            >
-              {item}
-            </li>
-          ))
-        )}
-      </ul>
+      <TintList label="做" items={doItems} tone="do" />
+      <TintList label="不做" items={dontItems} tone="dont" />
     </div>
+  )
+}
+
+/** 做/不做单栏列表：预览只展示前 4 条全文，余量收进计数行。 */
+function TintList({
+  label,
+  items,
+  tone,
+}: {
+  label: string
+  items: readonly string[]
+  tone: 'do' | 'dont'
+}) {
+  const shown = items.slice(0, 4)
+  const rest = items.length - shown.length
+  return (
+    <ul
+      className={cn(
+        'flex min-w-0 flex-col gap-1 rounded-control px-3 py-2.5',
+        tone === 'do' ? 'bg-tint-do' : 'bg-tint-dont',
+      )}
+    >
+      <li className="mb-0.5 text-caption font-medium text-ink">{label}</li>
+      {items.length === 0 ? (
+        <li className="text-body-sm text-ink-faint">未声明</li>
+      ) : (
+        <>
+          {shown.map((item, i) => (
+            <li key={i} className="text-body-sm text-ink-muted">
+              {item}
+            </li>
+          ))}
+          {rest > 0 ? (
+            <li className="text-caption text-ink-faint tnum">
+              还有 {rest} 条
+            </li>
+          ) : null}
+        </>
+      )}
+    </ul>
   )
 }
 
@@ -295,9 +314,24 @@ function ExamplesPreview({ text }: { text: string }) {
         </ol>
       )}
       {negative.length > 0 && (
-        <p className="text-caption text-ink-faint tnum">
-          另有 {negative.length} 条反例
-        </p>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className="text-caption font-medium text-ink">反例</p>
+          {negative.slice(0, 2).map((item, i) => (
+            <div key={i} className="min-w-0">
+              <p className="truncate text-body-sm text-ink-muted">
+                {item.input || '（无输入）'}
+              </p>
+              <p className="truncate text-caption text-ink-faint">
+                ✕ {item.badOutput || '（无输出）'}
+              </p>
+            </div>
+          ))}
+          {negative.length > 2 ? (
+            <p className="text-caption text-ink-faint tnum">
+              还有 {negative.length - 2} 条反例
+            </p>
+          ) : null}
+        </div>
       )}
     </div>
   )

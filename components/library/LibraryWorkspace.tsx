@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Button, IconButton, buttonStyles } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/ui/Section'
 import {
@@ -403,10 +403,12 @@ export function LibraryWorkspace() {
                 />
               ) : null}
             </div>
-            <Link href="/studio" className={buttonStyles({ variant: 'primary', size: 'md' })}>
-              <Icon name="plus" size={15} />
-              新建
-            </Link>
+            <Button variant="primary" size="md" asChild>
+              <Link href="/studio">
+                <Icon name="plus" size={15} />
+                新建
+              </Link>
+            </Button>
           </div>
         }
       />
@@ -463,9 +465,9 @@ export function LibraryWorkspace() {
                 title="还没有保存的提示词"
                 hint="去工作台输入一句话并生成，首个版本会作为基线 v0 自动保存。之后可以在这里打开、继续编辑并另存为新版本。"
                 action={
-                  <Link href="/studio" className={buttonStyles({ variant: 'primary', size: 'md' })}>
-                    去工作台生成第一份
-                  </Link>
+                  <Button variant="primary" size="md" asChild>
+                    <Link href="/studio">去工作台生成第一份</Link>
+                  </Button>
                 }
               />
             </div>

@@ -179,22 +179,20 @@ export function ModelStatusBanner() {
  */
 export function ModelStatusBadge() {
   const value = useModelStatus()
-  const { status, reason, providerId } = value
-  const mockOnly = status === 'available' && providerId === 'mock'
+  const { status, providerId } = value
   const online = status === 'available' && providerId !== 'mock'
+  // 离线/异常时全局横幅（ModelStatusBanner）已经常驻说明，徽标只留在线与加载中，
+  // 避免顶栏和横幅同屏说同一件事。
+  if (!(online || status === 'loading')) {
+    return null
+  }
   const label = online ? '在线模型' : modelStatusLabel(value)
   const title =
     status === 'loading'
       ? '正在确认模型服务是否可用'
-      : status === 'error'
-        ? '无法确认模型状态，试运行可能不可用'
-        : online
-          ? '已配置模型服务，生成与试运行都走真实模型'
-          : mockOnly
-            ? '未配置 ARK_API_KEY，当前使用本地 Mock 模型'
-            : reason.length > 0
-              ? reason
-              : '未配置 ARK_API_KEY，当前使用离线模板'
+      : online
+        ? '已配置模型服务，生成与试运行都走真实模型'
+        : '未配置 ARK_API_KEY，当前使用本地 Mock 模型'
   return (
     <span
       data-testid="model-status-badge"
