@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "budgets": {
+    "projectClaudeMdMaxBytes": 8192,
+    "projectClaudeMdAdvisoryBytes": 8192,
+    "activeContextMaxBytes": 4096
+  },
+  "memoryBudgets": {
+    "todoTrackerMaxBytes": 16384,
+    "sessionSummaryMaxBytes": 131072,
+    "debtMaxBytes": 131072
+  },
+  "maxProjectSkills": 10,
+  "requiredProjectMcpServers": [],
+  "requiredProjectSkillFiles": [],
+  "requiredFiles": [
+    "CLAUDE.md",
+    ".claude/settings.json",
+    ".claude/harness.json",
+    ".claude/docs/runtime.md",
+    ".claude/docs/delivery.md",
+    ".claude/commands/verify-project.md"
+  ],
+  "memoryRequired": false,
+  "enforceGlobalMcpDefault": true,
+  "decisionAdvisor": {
+    "enabled": false,
+    "model": "decision-model-preview",
+    "timeoutMs": 2500,
+    "confidenceThreshold": 0.8,
+    "modes": [
+      "route",
+      "failure",
+      "risk"
+    ],
+    "failurePolicy": {
+      "delivery": "shadow",
+      "cooldownSeconds": 900,
+      "retryMinProbability": 0.85
+    }
+  },
+  "campaignGovernance": {
+    "enabled": true,
+    "dir": ".agent/harness/campaign",
+    "requireGitignore": true,
+    "defaultTier": "S",
+    "requiredScopes": [
+      "campaign"
+    ],
+    "tierBudgets": {
+      "maxFixRoundsPerTask": 2,
+      "maxReviewRoundsPerTask": 2,
+      "maxArtifactFiles": 10,
+      "maxCommandRuns": 20
+    },
+    "artifactPolicy": {
+      "ledgerMode": "structured-state",
+      "saveDiffs": false,
+      "savePerTaskReports": false
+    }
+  }
+}

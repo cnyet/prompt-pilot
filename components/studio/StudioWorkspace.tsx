@@ -11,11 +11,6 @@ import {
 } from 'react'
 import { FIELD_KEYS, FIELD_LABELS, type FieldKey } from '@/lib/engine/schema'
 import { PageShell } from '@/components/ui/PageShell'
-import {
-  OutlineRail,
-  useActiveSection,
-  type OutlineItem,
-} from '@/components/ui/OutlineRail'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
 import type { CommandType } from '@/lib/engine/doc'
 import { renderMarkdownDocument } from '@/lib/engine/render'
@@ -42,6 +37,8 @@ import {
 import { ExportMenu } from './ExportMenu'
 import { copyText } from './clipboard'
 import { FieldBlock } from './FieldBlock'
+import { FieldPreview } from './FieldPreview'
+import { FlowTimeline, type FlowStage } from './FlowTimeline'
 import { RequirementInput } from './RequirementInput'
 import { RunDrawer } from './RunDrawer'
 import { ThinkingPanel } from './ThinkingPanel'
@@ -54,6 +51,9 @@ type CopyState = 'idle' | 'copied' | 'failed'
 type StudioView = 'structured' | 'rendered' | 'json'
 
 type StudioPane = 'requirement' | 'editor' | 'diagnostics'
+
+/** 结构化视图里的字段呈现形态：bento 预览 / 编辑。 */
+type FieldMode = 'preview' | 'edit'
 
 const STUDIO_PANES: ReadonlyArray<{ id: StudioPane; label: string }> = [
   { id: 'requirement', label: '需求' },
@@ -88,6 +88,15 @@ const COMMAND_LABELS: Record<CommandType, string> = {
   'accept-suggestion': '采纳 AI 建议',
   patch: '补丁写入',
   'field-rewrite': '单字段重算',
+}
+
+// bento 预览卡的列跨度：陈述类（目标）与双栏对照类（约束/示例/清单）
+// 独占两列，其余字段单列；配合 grid-flow-dense 紧凑排布。
+const PREVIEW_SPANS: Partial<Record<FieldKey, string>> = {
+  objective: 'xl:col-span-2',
+  constraints: 'xl:col-span-2',
+  examples: 'xl:col-span-2',
+  selfCheck: 'xl:col-span-2',
 }
 
 function formatDuration(ms: number): string {
@@ -192,6 +201,10 @@ export function StudioWorkspace() {
   const [autoRunStopped, setAutoRunStopped] = useState(false)
   const [copyState, setCopyState] = useState<CopyState>('idle')
   const [view, setView] = useState<StudioView>('structured')
+  // 字段呈现形态（bento 预览 / 编辑）。诊断定位或点击卡片进入编辑。
+  const [editFields, setEditFields] = useState<ReadonlySet<FieldKey>>(new Set())
+  // 试运行阶段信号：时间轴据此推进。trialSignal 由 RunDrawer 回传。
+  const [trialActive, setTrialActive] = useState(false)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [libraryPromptId, setLibraryPromptId] = useState<string | null>(null)
   const [librarySave, setLibrarySave] = useState<LibrarySaveState>({
@@ -291,8 +304,8 @@ export function StudioWorkspace() {
       }
       const fieldText = fields[field].text
       setView('structured')
-      // 窄屏下诊断与编辑是互斥面板，点问题后必须把编辑面板切回来，
-      // 否则定位逻辑会滚动到一个被 CSS 隐藏的 textarea。
+      // 诊断定位需要落到具体字段：bento 预览态切到编辑态。
+      setEditFields((previous) => new Set(previous).add(field))
       setMobilePane('editor')
       setDiagnosticsFocus({
         key: issueIgnoreKey(issue),
@@ -483,6 +496,34 @@ export function StudioWorkspace() {
     window.addEventListener('keydown', handleViewKey)
     return () => window.removeEventListener('keydown', handleViewKey)
   }, [])
+
+  // ⌘J / Ctrl+J 开关诊断 dock（ADR 0004：诊断从右栏改为底部 dock）。
+  useEffect(() => {
+    if (phase === 'idle') {
+      return
+    }
+    const handleDiagnosticsKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'j') {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName.toLowerCase()
+      // 输入框里的 ⌘J 不拦截，避免打断写作。
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return
+      }
+      event.preventDefault()
+      setDiagnosticsOpen((previous) => {
+        const next = !previous
+        if (next) {
+          setMobilePane('diagnostics')
+        }
+        return next
+      })
+    }
+    window.addEventListener('keydown', handleDiagnosticsKey)
+    return () => window.removeEventListener('keydown', handleDiagnosticsKey)
+  }, [phase])
 
   useEffect(() => {
     if (phase === 'idle') {
@@ -751,20 +792,9 @@ export function StudioWorkspace() {
     void createBaselineV0()
   }, [phase, libraryPromptId, submitted, fields, createBaselineV0])
 
-  // 必须在提前 return 之前调用，否则空闲态与生成态之间 hook 数量会变
-  const activeSection = useActiveSection(
-    FIELD_KEYS.map((field) => `field-${field}`),
-  )
-
   if (phase === 'idle') {
     return <RequirementInput onSubmit={handleSubmit} busy={isBusy} />
   }
-
-  const outlineItems: OutlineItem[] = FIELD_KEYS.map((field) => ({
-    id: `field-${field}`,
-    label: FIELD_LABELS[field],
-  }))
-  const outlineIds = outlineItems.map((item) => item.id)
 
   const filledCount = FIELD_KEYS.filter(
     (field) =>
@@ -799,6 +829,16 @@ export function StudioWorkspace() {
 
   const displayTitle =
     title || (phase === 'streaming' ? '正在生成结构' : '生成结果')
+
+  // 时间轴阶段判定（FlowTimeline）：生成 → 试运行（运行中）→ 编辑（done）。
+  let flowStage: FlowStage = 'generate'
+  if (phase === 'streaming') {
+    flowStage = 'generate'
+  } else if (trialActive) {
+    flowStage = 'trial'
+  } else if (phase === 'done') {
+    flowStage = 'optimize'
+  }
 
   // 三个视图读同一份展示文本：流式中未手改的字段用 pending，其余用已提交值。
   const fieldTexts: Partial<Record<FieldKey, string>> = {}
@@ -921,15 +961,16 @@ export function StudioWorkspace() {
         })}
       </div>
 
-      <div
-        className={cn(
-          'grid gap-6',
-          diagnosticsOpen
-            ? 'min-[1440px]:grid-cols-[240px_minmax(0,1fr)_320px]'
-            : 'min-[1440px]:grid-cols-[240px_minmax(0,1fr)]',
-        )}
-      >
-        <aside
+      {/* 编辑部 bento（ADR 0004）：hero → 流程时间轴 → 全宽字段区 → 诊断 dock */}
+      <div className="flex flex-col gap-5">
+        <FlowTimeline
+          stage={flowStage}
+          errorCount={diagnosticsSummary.error}
+          filledFields={filledCount}
+          totalFields={FIELD_KEYS.length}
+        />
+
+        <div
           id="studio-pane-requirement"
           role="tabpanel"
           aria-labelledby="studio-tab-requirement"
@@ -938,23 +979,12 @@ export function StudioWorkspace() {
             mobilePane === 'requirement'
               ? 'max-[1439px]:block'
               : 'max-[1439px]:hidden',
-            'hidden min-[1440px]:block',
           )}
         >
-          <div className="sticky top-6 flex flex-col gap-5">
-            <OutlineRail items={outlineItems} activeId={activeSection} />
-
-            <div className="rounded-panel bg-surface-inset p-4">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="text-caption font-medium text-ink-faint">原始需求</p>
-                <span className="text-caption text-ink-faint tnum">
-                  {filledCount} / {FIELD_KEYS.length}
-                </span>
-              </div>
-              <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-body text-ink">
-                {submitted}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="rounded-panel bg-surface-inset px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-caption font-medium text-ink-faint">原始需求</p>
+              <div className="flex flex-wrap items-center gap-1.5">
                 <span
                   className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-muted"
                   title={
@@ -970,27 +1000,30 @@ export function StudioWorkspace() {
                     {suggestionCount} 条建议待处理
                   </span>
                 ) : null}
+                <span className="text-caption text-ink-faint tnum">
+                  {filledCount} / {FIELD_KEYS.length}
+                </span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReset}
-                className="mt-3 w-full"
-              >
-                重新开始
-              </Button>
             </div>
+            <p className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words text-body-sm text-ink-muted">
+              {submitted}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="mt-2"
+            >
+              重新开始
+            </Button>
           </div>
-        </aside>
+        </div>
 
         <section
           id="studio-pane-editor"
           role="tabpanel"
           aria-labelledby="studio-tab-editor"
-          className={cn(
-            'min-w-0',
-            mobilePane === 'editor' ? '' : 'max-[1439px]:hidden',
-          )}
+          className={cn('min-w-0', mobilePane !== 'editor' && 'max-[1439px]:hidden')}
           aria-busy={isBusy}
         >
           <header className="mb-6">
@@ -1214,13 +1247,24 @@ export function StudioWorkspace() {
           </div>
 
           {view === 'structured' ? (
-            <div className="flex flex-col">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-flow-dense xl:grid-cols-6">
               {FIELD_KEYS.map((field, index) => {
                 const focus =
                   diagnosticsFocus !== null &&
                   diagnosticsFocus.field === field
                     ? diagnosticsFocus
                     : null
+                const editing = editFields.has(field)
+                const state = fields[field]
+                // 编辑态或流式中的字段保持完整编辑器；其余字段走 bento 预览。
+                const streaming =
+                  state.status === 'streaming' || state.pendingText.length > 0
+                const showEditor = editing || streaming || state.suggestion !== null
+                const previewText = state.dirty
+                  ? state.text
+                  : state.pendingText.length > 0
+                    ? state.pendingText
+                    : state.text
                 return (
                   <div
                     key={field}
@@ -1229,6 +1273,9 @@ export function StudioWorkspace() {
                     }}
                     className={cn(
                       'scroll-mt-6',
+                      showEditor
+                        ? 'sm:col-span-2 xl:col-span-4'
+                        : PREVIEW_SPANS[field],
                       focus !== null
                         ? focus.level === 'error'
                           ? 'ring-1 ring-danger'
@@ -1284,27 +1331,67 @@ export function StudioWorkspace() {
                         )}
                       </div>
                     ) : null}
-                    <FieldBlock
-                      field={field}
-                      index={index + 1}
-                      anchorId={`field-${field}`}
-                      state={fields[field]}
-                      phase={phase}
-                      busy={isBusy}
-                      opBusy={opBusy}
-                      active={fields[field].status === 'streaming'}
-                      scheduled={scheduled.includes(field)}
-                      opState={fieldOps[field]}
-                      onRetry={() => {
-                        void retryFields([field])
-                      }}
-                      onChange={(text) => updateField(field, text)}
-                      onOp={(op) => {
-                        void runFieldOp(field, op)
-                      }}
-                      onAcceptSuggestion={() => acceptSuggestion(field)}
-                      onDiscardSuggestion={() => discardSuggestion(field)}
-                    />
+                    {showEditor ? (
+                      <FieldBlock
+                        field={field}
+                        index={index + 1}
+                        anchorId={`field-${field}`}
+                        state={fields[field]}
+                        phase={phase}
+                        busy={isBusy}
+                        opBusy={opBusy}
+                        active={fields[field].status === 'streaming'}
+                        scheduled={scheduled.includes(field)}
+                        opState={fieldOps[field]}
+                        onRetry={() => {
+                          void retryFields([field])
+                        }}
+                        onChange={(text) => updateField(field, text)}
+                        onOp={(op) => {
+                          void runFieldOp(field, op)
+                        }}
+                        onAcceptSuggestion={() => acceptSuggestion(field)}
+                        onDiscardSuggestion={() => discardSuggestion(field)}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditFields((previous) =>
+                            new Set(previous).add(field),
+                          )
+                        }
+                        title={`编辑${FIELD_LABELS[field]}字段`}
+                        className={cn(
+                          'group flex h-full w-full flex-col rounded-panel border border-line bg-surface px-4 py-3.5 text-left',
+                          'transition-colors duration-150 hover:border-line-strong',
+                        )}
+                      >
+                        {FieldPreview({ field, index: index + 1, text: previewText }) ?? (
+                          <FieldBlock
+                            field={field}
+                            index={index + 1}
+                            anchorId={`field-${field}`}
+                            state={fields[field]}
+                            phase={phase}
+                            busy={isBusy}
+                            opBusy={opBusy}
+                            active={false}
+                            scheduled={scheduled.includes(field)}
+                            opState={fieldOps[field]}
+                            onRetry={() => {
+                              void retryFields([field])
+                            }}
+                            onChange={(text) => updateField(field, text)}
+                            onOp={(op) => {
+                              void runFieldOp(field, op)
+                            }}
+                            onAcceptSuggestion={() => acceptSuggestion(field)}
+                            onDiscardSuggestion={() => discardSuggestion(field)}
+                          />
+                        )}
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1357,6 +1444,7 @@ export function StudioWorkspace() {
               generationPhase={phase}
               generationRound={generationRound}
               autoRunStopped={autoRunStopped}
+              onRunningChange={setTrialActive}
             />
           ) : null}
 
@@ -1387,38 +1475,37 @@ export function StudioWorkspace() {
           </div>
         </section>
 
+        {/* 诊断 dock（ADR 0004）：底部可折叠，⌘J 开关。宽屏与窄屏同一位置。 */}
         {diagnosticsOpen ? (
-          <aside
+          <section
             id="studio-pane-diagnostics"
             role="tabpanel"
             aria-labelledby="studio-tab-diagnostics"
             className={cn(
               'min-w-0',
-              mobilePane === 'diagnostics' ? '' : 'max-[1439px]:hidden',
+              mobilePane !== 'diagnostics' && 'max-[1439px]:hidden',
             )}
             aria-label="诊断"
           >
-            <div className="sticky top-6">
-              <DiagnosticsPanel
-                groups={diagnosticsGroups}
-                summary={diagnosticsSummary}
-                fieldTexts={diagnosticsFieldTexts}
-                dirtyFields={dirtyFields}
-                ignoredCount={ignoredCount}
-                fixableCount={fixableCount}
-                skippedIssueCount={skippedIssueCount}
-                activeIssueKey={diagnosticsFocus?.key ?? null}
-                busy={isBusy || opBusy}
-                notice={fixNotice}
-                onSelect={handleSelectIssue}
-                onFix={handleFixIssue}
-                onFixAll={handleFixAll}
-                onIgnore={handleIgnoreIssue}
-                onRestoreIgnored={restoreIgnored}
-                onCollapse={collapseDiagnostics}
-              />
-            </div>
-          </aside>
+            <DiagnosticsPanel
+              groups={diagnosticsGroups}
+              summary={diagnosticsSummary}
+              fieldTexts={diagnosticsFieldTexts}
+              dirtyFields={dirtyFields}
+              ignoredCount={ignoredCount}
+              fixableCount={fixableCount}
+              skippedIssueCount={skippedIssueCount}
+              activeIssueKey={diagnosticsFocus?.key ?? null}
+              busy={isBusy || opBusy}
+              notice={fixNotice}
+              onSelect={handleSelectIssue}
+              onFix={handleFixIssue}
+              onFixAll={handleFixAll}
+              onIgnore={handleIgnoreIssue}
+              onRestoreIgnored={restoreIgnored}
+              onCollapse={collapseDiagnostics}
+            />
+          </section>
         ) : null}
       </div>
     </PageShell>

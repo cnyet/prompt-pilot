@@ -26,3 +26,4 @@ data/
 # 测试与系统文件
 coverage/
 .DS_Store
+.agent/harness/

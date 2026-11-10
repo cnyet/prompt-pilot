@@ -31,6 +31,8 @@ export interface RunDrawerProps {
   generationRound: number
   /** 本轮用户点过「停止生成」后，不再自动触发。 */
   autoRunStopped?: boolean
+  /** 试运行状态回调（时间轴信号）：运行中为 true，结束回 false。 */
+  onRunningChange?: (running: boolean) => void
 }
 
 const RUN_STATUS_LABELS: Readonly<Record<string, string>> = {
@@ -111,6 +113,7 @@ export function RunDrawer({
   generationPhase,
   generationRound,
   autoRunStopped = false,
+  onRunningChange,
 }: RunDrawerProps) {
   const trial = useTrialRun({ prompt, variables, sessionKey, disabled })
   const [expanded, setExpanded] = useState(true)
@@ -191,6 +194,11 @@ export function RunDrawer({
       setSelectedRunId(null)
     }
   }, [trial.state.phase])
+
+  // 时间轴信号：运行状态变化时通知父级（FlowTimeline 用）。
+  useEffect(() => {
+    onRunningChange?.(trial.isRunning)
+  }, [onRunningChange, trial.isRunning])
 
   // 流式输出时把滚动条跟到末尾；回看历史时不打断用户自己的滚动位置。
   useEffect(() => {

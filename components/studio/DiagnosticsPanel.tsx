@@ -96,7 +96,7 @@ export function DiagnosticsPanel({
   return (
     <section
       aria-label="诊断面板"
-      className="flex max-h-[calc(100vh-3rem)] min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-surface"
+      className="flex min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-surface"
       aria-busy={busy}
     >
       <header className="border-b border-line-subtle px-3 py-2.5">
@@ -119,7 +119,7 @@ export function DiagnosticsPanel({
               </span>
             </div>
             <p className="mt-0.5 text-caption text-ink-faint">
-              本地规则检查，输入停顿后刷新
+              本地规则检查，输入停顿后刷新 · ⌘J 开关
             </p>
           </div>
           <IconButton
@@ -180,7 +180,7 @@ export function DiagnosticsPanel({
         </p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="max-h-[min(40vh,480px)] min-h-0 flex-1 overflow-auto">
         {summary.total === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
             <span className="flex size-10 items-center justify-center rounded-full bg-tint-sage text-ink-muted">
