@@ -123,11 +123,12 @@ model LlmCall {
   modelId         String
   thinking        String?
   status          String   @default("succeeded")
-  tokensIn        Int      @default(0)
-  tokensOut       Int      @default(0)
-  cachedTokens    Int      @default(0)
-  reasoningTokens Int      @default(0)
-  costCny         Float    @default(0)
+  // 可空：用量缺失时是真「未知」，不能写成 0，也不能用 -1 之类的哨兵值
+  tokensIn        Int?
+  tokensOut       Int?
+  cachedTokens    Int?
+  reasoningTokens Int?
+  costCny         Float?
   latencyMs       Int?
   ttftMs          Int?
   finishReason    String?
