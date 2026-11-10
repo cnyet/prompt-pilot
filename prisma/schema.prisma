@@ -41,9 +41,10 @@ model PromptVersion {
   parentVersionId String?
   modelId         String?
   baselineWinRate Float?
-  tokensIn        Int      @default(0)
-  tokensOut       Int      @default(0)
-  costCny         Float    @default(0)
+  // 可空：与 Run / LlmCall 一致，未知写 null，不写 0
+  tokensIn        Int?
+  tokensOut       Int?
+  costCny         Float?
   createdAt       DateTime @default(now())
   prompt          Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
   runs            Run[]
