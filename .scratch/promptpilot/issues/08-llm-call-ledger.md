@@ -40,3 +40,27 @@
   - 价格覆盖：`verify-override-model` 用 AppSetting 覆盖价算出 2.9，证明价格表可配置。
 
 
+
+
+### 2026-11-10 交付与验收（Lead 复核）
+
+提交 `b079e8f`。禁改文件 `prisma/schema.prisma`、`components/studio/**`、`lib/engine/**`、其余 `lib/llm/*`、`package.json` 经 `git diff` 确认未动。
+
+| 检查 | 结果 |
+|---|---|
+| 全量测试 | 345 passed / 26 files |
+| 类型 | `tsc` exit 0 |
+| 构建 | 通过，`/api/stats` 为动态路由 |
+| 未知口径 | 聚合单独计 `unknownUsageCalls` / `unknownCostCalls`；界面全未知显示「未知」，部分未知显示合计加 `*` 脚注；0 与 null 严格区分 |
+| 价格可配 | `AppSetting` 键 `llm.pricing.cny` 按模型覆盖，30 秒缓存 |
+| 写入安全 | fire-and-forget，失败只 `console.warn`，不 await、不改 SSE 顺序 |
+
+### 一条被否掉的实现方案（记录决策）
+
+agent 初期提出用 `-1` 作为「未知」的哨兵值，因为当时 `LlmCall` 的用量字段是非空且默认 0。Lead 否掉了，并直接把 schema 改为可空（`Int?` / `Float?`）。
+
+理由：哨兵值会污染所有下游聚合、图表与导出，只要一处忘记判断就会出现负数成本；数据库里存脏值也会坑到未来任何直接读库的人。
+
+### 未接埋点的调用点
+
+只有 generate 路由接了 `instrumentProvider`。未来的 interview / evaluate / refine 调用点需要复用它，否则账本会漏记。
