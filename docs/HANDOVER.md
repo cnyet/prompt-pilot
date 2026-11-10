@@ -229,6 +229,8 @@ UI 禁用只是建议。`assertVersionWritable(0)` 在服务端返回 409。
 - 单屏 `border` 容器不超过 3 个，实测工作台 2 个
 - 每屏只有一个 primary 按钮
 - 改动样式时先看 `components/ui/`，不要再手写一套按钮与空态
+- 动效只有 `rise` / `reveal` 两个类，规则见 `docs/adr/0002-css-only-motion.md`
+- 跑测试前先停掉 3100 上的应用服务：两边共用同一个 SQLite 文件，会互相干扰
 
 ### 验收原则
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
+import { FIELD_KEYS, FIELD_LABELS } from '@/lib/engine/schema'
 import { useModelStatus } from './modelStatus'
 
 const TEMPLATES: readonly {
@@ -170,21 +171,43 @@ export function RequirementInput({
         ))}
       </div>
 
-      <div className="mt-10 w-full border-t border-line-subtle pt-4">
-        <p className="text-caption text-ink-faint">试试这些</p>
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {EXAMPLES.map((example) => (
-            <li key={example}>
-              <button
-                type="button"
-                onClick={() => applySample(example)}
-                className="text-left text-body text-ink-muted transition-colors duration-150 hover:text-ink"
+      <div className="mt-12 grid w-full gap-8 border-t border-line-subtle pt-6 sm:grid-cols-[1.1fr_1fr]">
+        <div>
+          <p className="text-caption text-ink-faint">试试这些</p>
+          <ul className="mt-2 flex flex-col">
+            {EXAMPLES.map((example) => (
+              <li key={example}>
+                <button
+                  type="button"
+                  onClick={() => applySample(example)}
+                  className="group flex w-full items-center justify-between gap-3 rounded-control px-2 py-2 text-left text-body text-ink-muted transition-colors duration-150 hover:bg-bg-sunken hover:text-ink"
+                >
+                  {example}
+                  <span className="text-ink-faint transition-transform duration-150 group-hover:translate-x-0.5">
+                    <Icon name="chevron-right" size={13} />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="text-caption text-ink-faint">你会得到</p>
+          <p className="mt-2 text-body text-ink-muted">
+            八个字段一次成型，边界拆成六个必须显式回答的问题。
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-1.5">
+            {FIELD_KEYS.map((field) => (
+              <li
+                key={field}
+                className="rounded-chip bg-bg-sunken px-2 py-1 text-caption text-ink-muted"
               >
-                {example}
-              </button>
-            </li>
-          ))}
-        </ul>
+                {FIELD_LABELS[field]}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <p className="mt-8 text-caption text-ink-faint">

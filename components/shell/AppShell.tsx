@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import { ModelStatusBadge } from '@/components/studio/modelStatus'
+import { CommandPalette } from './CommandPalette'
 import { IconButton } from '@/components/ui/Button'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { usePathname } from 'next/navigation'
@@ -151,6 +152,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
+                )
+              }}
+              className="hidden items-center gap-2 rounded-control border border-line bg-surface px-2 py-1 text-caption text-ink-faint transition-colors duration-150 hover:border-line-strong hover:text-ink-muted sm:inline-flex"
+              aria-label="打开命令面板"
+            >
+              <Icon name="search" size={13} />
+              搜索
+              <kbd className="rounded-chip bg-bg-sunken px-1 text-[11px]">⌘K</kbd>
+            </button>
             <ModelStatusBadge />
             <span aria-hidden className="h-4 w-px bg-line-subtle" />
             <IconButton
@@ -169,6 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <CommandPalette onToggleTheme={toggleTheme} />
       </div>
     </div>
   )

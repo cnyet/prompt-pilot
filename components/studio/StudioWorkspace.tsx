@@ -976,7 +976,7 @@ export function StudioWorkspace() {
         >
           <header className="mb-6">
             <p className="text-caption text-ink-faint">结构化提示词</p>
-            <h1 className="mt-1.5 text-display font-semibold text-ink">
+            <h1 className="mt-1.5 text-[2rem] leading-[1.18] text-balance font-semibold text-ink">
               {displayTitle}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-1.5 text-caption">

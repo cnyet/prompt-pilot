@@ -1,6 +1,7 @@
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { PageHeader, Section } from '@/components/ui/Section'
 import { getLlmSettingsView } from '@/lib/settings/store'
+import { cn } from '@/lib/utils'
 import {
   getCostSummary,
   type CostBucket,
@@ -151,6 +152,26 @@ export default async function SettingsPage() {
         title="模型"
         description="设置页写入的值优先于环境变量。密钥只存在本机数据库，界面不显示明文，也不会回传浏览器。"
       >
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel bg-bg-sunken px-4 py-3">
+          <span className="inline-flex items-center gap-2 text-label font-medium text-ink">
+            <span
+              aria-hidden
+              className={cn(
+                'size-2 rounded-full',
+                llmSettings.apiKey.configured ? 'bg-success' : 'bg-warning',
+              )}
+            />
+            {llmSettings.apiKey.configured ? '已接入真实模型' : '离线模板模式'}
+          </span>
+          <span aria-hidden className="text-ink-faint">·</span>
+          <span className="text-caption text-ink-muted tnum">
+            {llmSettings.modelGenerate.value}
+          </span>
+          <span aria-hidden className="text-ink-faint">·</span>
+          <span className="text-caption text-ink-faint">
+            {llmSettings.baseUrl.value}
+          </span>
+        </div>
         <LlmSettingsForm initial={llmSettings} />
       </Section>
 

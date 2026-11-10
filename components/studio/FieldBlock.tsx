@@ -164,12 +164,15 @@ export function FieldBlock({
 
   return (
     <section
-      className={cn('py-4', index > 1 && 'border-t border-line-subtle')}
+      className={cn(
+        'rise py-7',
+        index > 1 && 'border-t border-line-subtle',
+      )}
       aria-labelledby={`${editorId}-title`}
       aria-busy={running}
     >
       <div className="pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pr-1">
           <button
             type="button"
             onClick={() => setCollapsed((previous) => !previous)}
@@ -191,7 +194,7 @@ export function FieldBlock({
             </span>
             <span
               id={`${editorId}-title`}
-              className="truncate text-label font-medium text-ink"
+              className="truncate text-body-lg font-medium text-ink"
             >
               {FIELD_LABELS[field]}
             </span>
@@ -273,7 +276,7 @@ export function FieldBlock({
         <div id={`${editorId}-body`}>
           {state.suggestion ? (
             <div className="my-2 rounded-panel bg-accent-subtle px-3 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 pr-1">
                 <p className="text-caption text-ink-muted">
                   AI 有新版本。你手改的内容已保留。
                 </p>
@@ -336,7 +339,7 @@ export function FieldBlock({
               onChange={(event) => onChange(event.target.value)}
               aria-label={`${FIELD_LABELS[field]}内容`}
               className={cn(
-                'w-full resize-y rounded-control bg-transparent px-0 py-2 text-body-lg focus-visible:-outline-offset-2',
+                'w-full resize-y rounded-control bg-transparent px-0 py-3 text-body-lg leading-[1.75] focus-visible:-outline-offset-2',
                 running ? 'text-ink-muted' : 'text-ink',
               )}
             />

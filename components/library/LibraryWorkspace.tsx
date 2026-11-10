@@ -356,6 +356,15 @@ export function LibraryWorkspace() {
   const showEmptySearch =
     listState === 'ready' && prompts.length === 0 && activeQuery.length > 0
 
+  const versionTotal = prompts.reduce(
+    (sum, prompt) => sum + prompt.versionCount,
+    0,
+  )
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const recentCount = prompts.filter(
+    (prompt) => new Date(prompt.updatedAt).getTime() >= sevenDaysAgo,
+  ).length
+
   return (
     <div className="mx-auto w-full max-w-[1180px] px-6 py-8 lg:px-10">
       <PageHeader
@@ -402,14 +411,23 @@ export function LibraryWorkspace() {
         }
       />
 
-      <div className="mt-4 min-h-5 text-caption text-ink-faint tnum" aria-live="polite">
-        {listState === 'ready'
-          ? activeQuery.length > 0
-            ? `找到 ${total} 条匹配「${activeQuery}」的提示词`
-            : `共 ${total} 条提示词`
-          : listState === 'loading'
-            ? '正在读取提示词库'
-            : ''}
+      <div
+        className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1 text-caption text-ink-muted tnum"
+        aria-live="polite"
+      >
+        {listState === 'ready' ? (
+          activeQuery.length > 0 ? (
+            <span>找到 {total} 条匹配「{activeQuery}」的提示词</span>
+          ) : (
+            <>
+              <span>{total} 条提示词</span>
+              <span>{versionTotal} 个版本</span>
+              <span>{recentCount} 条在最近七天更新</span>
+            </>
+          )
+        ) : listState === 'loading' ? (
+          <span>正在读取提示词库</span>
+        ) : null}
       </div>
 
       <div
@@ -491,7 +509,7 @@ export function LibraryWorkspace() {
                       <tr
                         key={prompt.id}
                         className={cn(
-                          'border-t border-line-subtle transition-colors',
+                          'rise border-t border-line-subtle transition-colors',
                           active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
                         )}
                       >

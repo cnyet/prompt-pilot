@@ -31,7 +31,7 @@ export function Section({
               <h2 className="text-h3 font-semibold text-ink">{title}</h2>
             ) : null}
             {description ? (
-              <p className="max-w-[68ch] text-body text-ink-muted">{description}</p>
+              <p className="max-w-[68ch] text-balance text-body text-ink-muted">{description}</p>
             ) : null}
           </div>
           {actions ? (
@@ -71,9 +71,9 @@ export function PageHeader({
       )}
     >
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-display font-normal text-ink lg:text-[2.375rem] lg:leading-[1.15]">{title}</h1>
+        <h1 className="text-display font-normal text-ink text-balance lg:text-[2.75rem] lg:leading-[1.1]">{title}</h1>
         {description ? (
-          <p className="max-w-[72ch] text-body text-ink-muted">{description}</p>
+          <p className="max-w-[72ch] text-balance text-body text-ink-muted">{description}</p>
         ) : null}
       </div>
       {actions ? (
