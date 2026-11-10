@@ -94,6 +94,44 @@ describe('离线启发式 composer', () => {
     expect(schema.meta.title.length).toBeGreaterThanOrEqual(2)
   })
 
+  it('用户写明的篇幅优先于场景模板默认值', () => {
+    const schema = composePrompt('帮我写一篇面向普通读者的产品周报，1000 字左右')
+    expect(schema.output.length).toBe('1000 字左右')
+    expect(schema.constraints.boundaries.formatBoundary).toContain('1000 字左右')
+    expect(
+      schema.objective.successCriteria.some((item) => item.includes('1000 字左右')),
+    ).toBe(true)
+    // 模板默认值不能被同时写进文档，否则两条约束互相打架
+    expect(JSON.stringify(schema)).not.toContain('400 到 800 字')
+  })
+
+  it('识别区间篇幅与「以内」句式', () => {
+    expect(composePrompt('写一篇 600 到 900 字的说明').output.length).toBe(
+      '600 到 900 字',
+    )
+    expect(composePrompt('写一份不超过 300 字的产品简介').output.length).toBe(
+      '不超过 300 字',
+    )
+    expect(
+      composePrompt('写一份不少于 2000 字的方案').output.length,
+    ).toBe('至少 2000 字')
+  })
+
+  it('没写篇幅时仍用场景默认值', () => {
+    const schema = composePrompt('帮我写篇周报')
+    const length = schema.output.length ?? ''
+    expect(length.length).toBeGreaterThan(0)
+    expect(length).not.toContain('字左右')
+  })
+
+  it('受众抽取在「的」处收尾，不切成半个词', () => {
+    const schema = composePrompt('帮我写一篇面向普通读者的产品周报')
+    expect(schema.context.audience).toBe('普通读者')
+    expect(
+      schema.assumptions.find((item) => item.path === 'context.audience')?.value,
+    ).toBe('普通读者')
+  })
+
   it('空输入与超长输入明确报错', () => {
     expect(() => composePrompt('   ')).toThrow(ComposeInputError)
     expect(() => composePrompt('写')).toThrow(ComposeInputError)

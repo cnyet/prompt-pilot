@@ -199,23 +199,27 @@ describe('四种操作在非规范输入上的内容保全', () => {
 })
 
 describe('规范格式下的行为不回退', () => {
-  it('output 仍然只删一项，65 个字符缩到 58 个字符', () => {
+  it('output 仍然只删一项，长度按删掉那一行计算', () => {
     const canonical = renderFieldText(schema, 'output')
+    const lengthLine = `长度：${schema.output.length ?? ''}`
     const outcome = applyFieldOpSafely('output', canonical, 'shorten', context)
 
-    expect(canonical.length).toBe(65)
+    expect(canonical.length).toBeGreaterThan(lengthLine.length)
     expect(outcome.ok).toBe(true)
     if (!outcome.ok) {
       throw new Error('规范格式的缩短不应被拒绝')
     }
-    expect(outcome.text.length).toBe(58)
+    // 缩短只删掉章节里的最后一项，长度按被删那一行（含换行）计算，
+    // 不写死字符数：篇幅文案会随用户需求变化，测试不该跟着碎。
+    const removedLine = '- 要点摘要'
+    expect(outcome.text.length).toBe(canonical.length - removedLine.length - 1)
     expect(outcome.text).toBe(
       [
         '格式：Markdown',
         '章节：',
         '- 标题',
         '- 正文',
-        '长度：400 到 800 字',
+        lengthLine,
         '语言：中文',
         '语气：专业、克制、直接',
       ].join('\n'),

@@ -311,12 +311,64 @@ function detectOutputFormat(requirement: string, taskType: TaskType): OutputForm
 }
 
 function inferAudience(requirement: string, profile: TaskProfile): string {
-  const match = requirement.match(/(?:给|面向|供)([^，。；\n]{1,16}?)(?:看|读|用|使用|参考)/u)
-  const inferred = match?.[1]?.trim()
+  // 「的」是最可靠的边界，优先按它切；没有「的」才退回动作词。
+  // 只按动作词切会把「面向普通读者」截成「普通」，因为「读」也是终止符。
+  const withParticle = requirement.match(
+    /(?:给|面向|供)([^，。；\n]{1,16}?)的/u,
+  )
+  const withVerb = requirement.match(
+    /(?:给|面向|供)([^，。；\n的]{1,16}?)(?:看|读|用|使用|参考)/u,
+  )
+  const inferred = (withParticle?.[1] ?? withVerb?.[1])?.trim()
   if (inferred && inferred.length >= 2) {
     return inferred
   }
   return profile.audience
+}
+
+/**
+ * 从需求里读显式篇幅要求。用户写了「1000 字左右」就按 1000 字，
+ * 不能拿场景模板的默认值覆盖掉用户已经说清楚的事。
+ */
+function inferLength(requirement: string, profile: TaskProfile): string {
+  const range = requirement.match(
+    /(\d{1,4})\s*(?:到|至|-|~|～|—)\s*(\d{1,4})\s*字/u,
+  )
+  if (range?.[1] && range[2]) {
+    return `${range[1]} 到 ${range[2]} 字`
+  }
+
+  // 前置限定词：「不超过 300 字」「至少 2000 字」
+  const prefixed = requirement.match(
+    /(不超过|不少于|至少|最多)\s*(\d{1,4})\s*字/u,
+  )
+  if (prefixed?.[1] && prefixed[2]) {
+    const upper = prefixed[1] === '不超过' || prefixed[1] === '最多'
+    return upper ? `不超过 ${prefixed[2]} 字` : `至少 ${prefixed[2]} 字`
+  }
+
+  const single = requirement.match(/(\d{1,4})\s*字\s*(左右|以内|以上|以下)?/u)
+  if (single?.[1]) {
+    const count = single[1]
+    switch (single[2]) {
+      case '左右':
+        return `${count} 字左右`
+      case '以内':
+      case '以下':
+        return `不超过 ${count} 字`
+      case '以上':
+        return `至少 ${count} 字`
+      default:
+        return `约 ${count} 字`
+    }
+  }
+
+  const words = requirement.match(/(\d{1,5})\s*(?:words?|词)/iu)
+  if (words?.[1]) {
+    return `约 ${words[1]} 词`
+  }
+
+  return profile.length
 }
 
 function summarize(requirement: string, maxLength: number): string {
@@ -426,6 +478,7 @@ export function composePrompt(rawRequirement: string): PromptSchema {
   const outputLanguage = language === 'zh' ? '中文' : '英文'
   const outputFormat = detectOutputFormat(requirement, taskType)
   const audience = inferAudience(requirement, profile)
+  const outputLength = inferLength(requirement, profile)
   const title = deriveTitle(requirement, taskType)
   const subject = summarize(requirement, 80) || title
   const tone = '专业、克制、直接'
@@ -433,7 +486,7 @@ export function composePrompt(rawRequirement: string): PromptSchema {
   const successCriteria = unique([
     `结果直接回应「${subject}」，不偏离需求范围。`,
     ...profile.criteria,
-    `输出符合 ${FORMAT_LABELS[outputFormat]} 格式与「${profile.length}」的长度要求。`,
+    `输出符合 ${FORMAT_LABELS[outputFormat]} 格式与「${outputLength}」的长度要求。`,
   ])
 
   const must = unique([
@@ -457,7 +510,7 @@ export function composePrompt(rawRequirement: string): PromptSchema {
 
   const assumptions = buildAssumptions({
     outputLanguage,
-    length: profile.length,
+    length: outputLength,
     audience,
     format: outputFormat,
   })
@@ -504,7 +557,7 @@ export function composePrompt(rawRequirement: string): PromptSchema {
           '先列出缺失项并向用户确认，不猜测事实；无法确认时明确说明不确定。',
         ambiguityPolicy:
           '先列出候选解释与推荐选项，请用户确认后再继续。',
-        formatBoundary: `${FORMAT_LABELS[outputFormat]}，${profile.length}。`,
+        formatBoundary: `${FORMAT_LABELS[outputFormat]}，${outputLength}。`,
         safetyBoundary:
           '不输出违法、侵权、歧视或泄露隐私的内容；涉及个人信息时先提示脱敏。',
       },
@@ -523,7 +576,7 @@ export function composePrompt(rawRequirement: string): PromptSchema {
             ? '使用 Markdown 表格，首行为表头，每行列数一致。'
             : undefined,
       sections: [...profile.sections],
-      length: profile.length,
+      length: outputLength,
       language: outputLanguage,
       tone,
     },
