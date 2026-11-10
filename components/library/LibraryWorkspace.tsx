@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Button, IconButton, buttonStyles } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
+import { PageHeader } from '@/components/ui/Section'
 import {
   FIELD_KEYS,
   FIELD_LABELS,
@@ -354,33 +357,34 @@ export function LibraryWorkspace() {
     listState === 'ready' && prompts.length === 0 && activeQuery.length > 0
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
-        <div>
-          <h1 className="text-h2 font-medium text-ink">提示词库</h1>
-          <p className="mt-1 text-caption text-ink-faint">
-            首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。
-          </p>
-        </div>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="搜索提示词"
-            placeholder="搜索标题、描述、标签、正文"
-            className="h-8 min-w-0 flex-1 rounded-control border border-line bg-surface px-2 text-label text-ink placeholder:text-ink-faint sm:w-64 sm:flex-none"
-          />
-          <Link
-            href="/studio"
-            className="flex h-8 items-center rounded-control bg-accent px-3 text-label text-bg transition-colors hover:bg-accent-hover"
-          >
-            新建
-          </Link>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-10">
+      <PageHeader
+        title="提示词库"
+        description="首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。"
+        actions={
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint">
+                <Icon name="search" size={14} />
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="搜索提示词"
+                placeholder="搜索标题、描述、标签、正文"
+                className="h-8 w-full rounded-control border border-line bg-surface-inset pl-8 pr-2 text-label text-ink transition-colors placeholder:text-ink-faint focus:border-line-strong focus:bg-surface focus:outline-none"
+              />
+            </div>
+            <Link href="/studio" className={buttonStyles({ variant: 'primary', size: 'md' })}>
+              <Icon name="plus" size={15} />
+              新建
+            </Link>
+          </div>
+        }
+      />
 
-      <div className="mt-3 min-h-5 text-caption text-ink-faint tnum" aria-live="polite">
+      <div className="mt-4 min-h-5 text-caption text-ink-faint tnum" aria-live="polite">
         {listState === 'ready'
           ? activeQuery.length > 0
             ? `找到 ${total} 条匹配「${activeQuery}」的提示词`
@@ -392,7 +396,7 @@ export function LibraryWorkspace() {
 
       <div
         className={cn(
-          'mt-4 grid items-start gap-6',
+          'mt-5 grid items-start gap-6',
           selectedId !== null
             ? 'xl:grid-cols-[minmax(0,1fr)_440px]'
             : 'grid-cols-1',
@@ -400,67 +404,63 @@ export function LibraryWorkspace() {
       >
         <section aria-label="提示词列表" className="min-w-0">
           {listState === 'loading' ? (
-            <div className="rounded-panel border border-line bg-surface p-6">
+            <div className="rounded-panel border border-line-subtle bg-surface p-6">
               <p className="text-body text-ink-muted">正在读取提示词库。</p>
             </div>
           ) : listState === 'error' ? (
-            <div className="rounded-panel border border-line bg-surface p-6">
+            <div className="rounded-panel border border-line-subtle bg-surface p-6">
               <p className="text-h3 text-ink">暂时读不到提示词库</p>
               <p className="mt-2 text-body text-ink-muted">{listError}</p>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-4"
                 onClick={() => setReloadToken((token) => token + 1)}
-                className="mt-4 rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
               >
                 重新读取
-              </button>
+              </Button>
             </div>
           ) : showEmptyLibrary ? (
-            <div className="rounded-panel border border-line bg-surface">
+            <div className="rounded-panel border border-line-subtle bg-surface">
               <EmptyState
+                icon="library"
                 title="还没有保存的提示词"
                 hint="去工作台输入一句话并生成，首个版本会作为基线 v0 自动保存。之后可以在这里打开、继续编辑并另存为新版本。"
                 action={
-                  <Link
-                    href="/studio"
-                    className="inline-flex items-center rounded-control bg-accent px-3 py-1.5 text-label text-bg transition-colors hover:bg-accent-hover"
-                  >
+                  <Link href="/studio" className={buttonStyles({ variant: 'primary', size: 'md' })}>
                     去工作台生成第一份
                   </Link>
                 }
               />
             </div>
           ) : showEmptySearch ? (
-            <div className="rounded-panel border border-line bg-surface">
+            <div className="rounded-panel border border-line-subtle bg-surface">
               <EmptyState
+                icon="search"
                 title="没有匹配的提示词"
                 hint={`标题、描述、标签与正文里都没有「${activeQuery}」。换个关键词，或者清空搜索查看全部。`}
                 action={
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    className="rounded-control border border-line px-3 py-1.5 text-label text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setQuery('')}>
                     清空搜索
-                  </button>
+                  </Button>
                 }
               />
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-panel border border-line bg-surface">
+            <div className="overflow-x-auto rounded-panel border border-line-subtle bg-surface">
               <table className="w-full min-w-[560px] table-fixed border-collapse text-left">
-                <thead className="bg-bg-sunken">
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 text-caption font-medium text-ink-muted">
+                    <th className="border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
                       标题
                     </th>
-                    <th className="w-32 px-4 py-2 text-caption font-medium text-ink-muted">
+                    <th className="w-32 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
                       版本
                     </th>
-                    <th className="w-44 px-4 py-2 text-caption font-medium text-ink-muted">
+                    <th className="w-44 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
                       更新时间
                     </th>
-                    <th className="w-20 px-4 py-2 text-caption font-medium text-ink-muted">
+                    <th className="w-20 border-b border-line-subtle px-4 py-2.5 text-caption font-medium text-ink-faint">
                       操作
                     </th>
                   </tr>
@@ -473,7 +473,7 @@ export function LibraryWorkspace() {
                       <tr
                         key={prompt.id}
                         className={cn(
-                          'border-t border-line transition-colors',
+                          'border-t border-line-subtle transition-colors',
                           active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
                         )}
                       >
@@ -572,23 +572,23 @@ export function LibraryWorkspace() {
               </div>
             ) : (
               <>
-                <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+                <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-caption text-ink-faint">提示词详情</p>
                     <h2 className="mt-0.5 break-words text-h3 font-medium text-ink">
                       {detail.title}
                     </h2>
                   </div>
-                  <button
-                    type="button"
+                  <IconButton
+                    icon="close"
+                    label="关闭详情"
+                    size="sm"
+                    className="shrink-0"
                     onClick={closeDetail}
-                    className="shrink-0 rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-                  >
-                    关闭
-                  </button>
+                  />
                 </div>
 
-                <div className="border-b border-line px-4 py-3">
+                <div className="border-b border-line-subtle px-4 py-3">
                   <p className="text-caption text-ink-faint tnum">
                     {detail.versionCount} 个版本 · 更新于{' '}
                     {formatDateTime(detail.updatedAt)}
@@ -611,8 +611,10 @@ export function LibraryWorkspace() {
                     </div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon="studio"
                       onClick={() =>
                         startEditing(selectedVersion, detail.title)
                       }
@@ -620,12 +622,11 @@ export function LibraryWorkspace() {
                         selectedVersion === null ||
                         selectedVersion.schema === null
                       }
-                      className="rounded-control bg-accent px-2.5 py-1.5 text-label text-bg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
                     >
                       {selectedVersion
                         ? `基于 v${selectedVersion.versionNo} 继续编辑`
                         : '继续编辑'}
-                    </button>
+                    </Button>
                     {notice.length > 0 ? (
                       <span className="text-caption text-success" aria-live="polite">
                         {notice}
@@ -634,7 +635,7 @@ export function LibraryWorkspace() {
                   </div>
                 </div>
 
-                <div className="border-b border-line px-4 py-3">
+                <div className="border-b border-line-subtle px-4 py-3">
                   <p className="text-label font-medium text-ink">版本时间线</p>
                   <ol className="mt-2 space-y-1">
                     {[...detail.versions].reverse().map((version) => {
@@ -688,7 +689,7 @@ export function LibraryWorkspace() {
                 </div>
 
                 {selectedVersion ? (
-                  <div className="border-b border-line px-4 py-3">
+                  <div className="border-b border-line-subtle px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-label font-medium text-ink">
                         v{selectedVersion.versionNo} 内容

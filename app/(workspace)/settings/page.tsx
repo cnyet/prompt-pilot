@@ -1,3 +1,4 @@
+import { PageHeader, Section } from '@/components/ui/Section'
 import {
   getCostSummary,
   type CostBucket,
@@ -79,10 +80,10 @@ function BucketTable({
   firstHeader: string
 }) {
   return (
-    <div className="mt-3 overflow-x-auto border-y border-line">
-      <table className="w-full min-w-[680px] text-label">
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[680px] border-collapse text-label">
         <thead>
-          <tr className="text-left text-caption text-ink-muted">
+          <tr className="border-b border-line-subtle text-left text-caption text-ink-faint">
             <th scope="col" className="py-2 pr-4 font-normal">
               {firstHeader}
             </th>
@@ -106,7 +107,7 @@ function BucketTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className="divide-y divide-line-subtle">
           {buckets.map((bucket) => (
             <tr key={bucket.key} className="tnum">
               <td className="py-2 pr-4">{bucket.label}</td>
@@ -156,15 +157,17 @@ export default async function SettingsPage() {
   const unknownCost = total?.unknownCostCalls ?? 0
 
   return (
-    <div className="max-w-[760px] px-6 py-8">
-      <h1 className="text-h2 font-medium">设置</h1>
+    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-12 px-6 py-8 lg:px-10">
+      <PageHeader
+        title="设置"
+        description="模型接入、成本汇总与本机数据都在这一个页面里。"
+      />
 
-      <section className="mt-6">
-        <h2 className="text-h3 font-medium">模型</h2>
-        <p className="mt-1 text-body text-ink-muted">
-          密钥只从服务端环境变量读取，界面不显示明文。
-        </p>
-        <dl className="mt-4 divide-y divide-line border-y border-line">
+      <Section
+        title="模型"
+        description="密钥只从服务端环境变量读取，界面不显示明文。"
+      >
+        <dl className="divide-y divide-line-subtle border-t border-line-subtle">
           {rows.map((row) => (
             <div key={row.label} className="flex gap-6 py-2.5">
               <dt className="w-20 shrink-0 text-label text-ink-muted">
@@ -175,15 +178,14 @@ export default async function SettingsPage() {
           ))}
         </dl>
         <p className="mt-3 text-caption text-ink-faint">
-          在 `.env.local` 里设置 `ARK_API_KEY` 后重启即可切到 L0 完整模式。
+          在 `.env` 里设置 `ARK_API_KEY` 后重启即可切到 L0 完整模式。
         </p>
-      </section>
+      </Section>
 
-      <section className="mt-10">
-        <h2 className="text-h3 font-medium">成本</h2>
-        <p className="mt-1 text-body text-ink-muted">
-          数据来自本机调用账本，按阶段与模型汇总 token、缓存命中与人民币金额。
-        </p>
+      <Section
+        title="成本"
+        description="数据来自本机调用账本，按阶段与模型汇总 token、缓存命中与人民币金额。"
+      >
 
         {summary === null ? (
           <p className="mt-4 border-y border-line py-3 text-label text-ink-muted">
@@ -195,14 +197,14 @@ export default async function SettingsPage() {
           </p>
         ) : (
           <>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-panel border border-line bg-surface p-4">
+            <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">调用次数</dt>
                 <dd className="mt-1 font-mono text-h3 tnum">
                   {formatNumber(total.calls)}
                 </dd>
               </div>
-              <div className="rounded-panel border border-line bg-surface p-4">
+              <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">总金额</dt>
                 <dd className="mt-1 font-mono text-h3 tnum">
                   {hasKnownCost(total)
@@ -210,7 +212,7 @@ export default async function SettingsPage() {
                     : '未知'}
                 </dd>
               </div>
-              <div className="rounded-panel border border-line bg-surface p-4">
+              <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">输入与输出 token</dt>
                 <dd className="mt-1 font-mono text-label tnum">
                   {hasKnownUsage(total)
@@ -220,7 +222,7 @@ export default async function SettingsPage() {
                     : '未知'}
                 </dd>
               </div>
-              <div className="rounded-panel border border-line bg-surface p-4">
+              <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">缓存命中率</dt>
                 <dd className="mt-1 font-mono text-h3 tnum">
                   {total.cacheHitRate === null
@@ -234,10 +236,10 @@ export default async function SettingsPage() {
               {statusLine(summary)}
             </p>
 
-            <h3 className="mt-6 text-label font-medium">按阶段</h3>
+            <h3 className="mt-8 text-label font-medium text-ink">按阶段</h3>
             <BucketTable buckets={summary.byStage} firstHeader="阶段" />
 
-            <h3 className="mt-6 text-label font-medium">按模型</h3>
+            <h3 className="mt-8 text-label font-medium text-ink">按模型</h3>
             <BucketTable buckets={summary.byModel} firstHeader="模型" />
 
             {unknownUsage > 0 || unknownCost > 0 ? (
@@ -255,21 +257,16 @@ export default async function SettingsPage() {
             </p>
           </>
         )}
-      </section>
+      </Section>
 
-      <section className="mt-10">
-        <h2 className="text-h3 font-medium">数据</h2>
-        <p className="mt-1 text-body text-ink-muted">
-          全部数据只存在本机 SQLite，不上传任何第三方。
-        </p>
-        <p className="mt-3 text-caption text-ink-faint">
+      <Section title="数据" description="全部数据只存在本机 SQLite，不上传任何第三方。">
+        <p className="text-caption text-ink-faint">
           导入、导出与从备份恢复在 M5 接入。
         </p>
-      </section>
+      </Section>
 
-      <section className="mt-10">
-        <h2 className="text-h3 font-medium">快捷键</h2>
-        <dl className="mt-3 grid grid-cols-[120px_1fr] gap-x-4 gap-y-1.5 text-label">
+      <Section title="快捷键">
+        <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-1.5 text-label">
           {[
             ['⌘Enter', '生成 / 运行'],
             ['⌘S', '保存版本'],
@@ -286,7 +283,7 @@ export default async function SettingsPage() {
         <p className="mt-3 text-caption text-ink-faint">
           快捷键在 M2 起逐步生效，当前仅有主题切换与左栏折叠可用。
         </p>
-      </section>
+      </Section>
     </div>
   )
 }

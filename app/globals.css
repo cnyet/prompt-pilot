@@ -22,15 +22,17 @@
   --border-subtle: oklch(0.945 0.005 215);
 
   --text: oklch(0.25 0.012 220);
-  --text-muted: oklch(0.5 0.012 220);
-  --text-faint: oklch(0.63 0.01 220);
+  --text-muted: oklch(0.47 0.012 220);
+  --text-faint: oklch(0.545 0.01 220);
 
   --accent: oklch(0.52 0.09 205);
   --accent-hover: oklch(0.455 0.1 205);
   --accent-subtle: oklch(0.95 0.022 205);
+  /* 压在 accent 上的文字色。浅色用白，深色 accent 更亮所以要深字 */
+  --on-accent: oklch(0.995 0 0);
 
   --success: oklch(0.55 0.13 150);
-  --warning: oklch(0.68 0.14 75);
+  --warning: oklch(0.56 0.15 70);
   --danger: oklch(0.55 0.17 27);
   --info: oklch(0.58 0.1 250);
 
@@ -57,11 +59,12 @@
 
   --text: oklch(0.93 0.005 215);
   --text-muted: oklch(0.7 0.008 215);
-  --text-faint: oklch(0.56 0.008 215);
+  --text-faint: oklch(0.62 0.008 215);
 
   --accent: oklch(0.72 0.1 205);
   --accent-hover: oklch(0.78 0.095 205);
   --accent-subtle: oklch(0.28 0.03 205);
+  --on-accent: oklch(0.18 0.01 210);
 
   --success: oklch(0.7 0.13 150);
   --warning: oklch(0.79 0.13 80);
@@ -101,6 +104,7 @@
 
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
   --color-accent-subtle: var(--accent-subtle);
 
   --color-success: var(--success);

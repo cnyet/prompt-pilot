@@ -1,9 +1,22 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'PromptPilot',
   description: '把一句话变成结构完整、边界清晰的标准提示词',
+}
+
+/**
+ * 没有 viewport 声明时，移动端会按 980px 布局再缩放，
+ * 窄屏适配等于没生效。这里显式声明，并给两套主题各自的地址栏色。
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f7f8f9' },
+    { media: '(prefers-color-scheme: dark)', color: '#1d2226' },
+  ],
 }
 
 /**
