@@ -4,7 +4,7 @@
 
 **Blocked by:** 11 — 试运行：变量与真实输出
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] 生成完成且变量有默认值时，自动触发一次试运行，无需用户点击
 - [ ] 自动运行失败或不可用时不打断主流程，只在试运行区显示原因
@@ -29,3 +29,16 @@
 - RunDrawer 用 `useRef` 记已消费轮次，自动路径复用与手动按钮同一个 `trial.run()`，不可用只在试运行区给原因。
 - 新增 `tests/unit/auto-trial-run.test.ts`（11 条），`tests/unit/trial-run.test.ts` 追加默认值条件（3 条）。
 - 验证：目标测试 28 条通过，全量 466 条通过，`tsc --noEmit` 无输出。
+
+### 2026-11-10 交付与验收（Lead 复核）
+
+提交 `f13e7f8`。
+
+| 检查 | 结果 |
+|---|---|
+| 全量测试 | 466 passed |
+| 类型 | `tsc` 0 |
+| 去重 | ref 存已消费的 `generationRound`，且在 `trial.run()` 之前写入 |
+| 顺序 | 九条有序判定，`availability === 'loading'` 与 `disabled` 选择「等待」而不是「消费」 |
+
+`waiting` 与 `skipped` 的区分是关键：消费意味着本轮再没机会，而模型探测未回、生成进行中都是暂时状态，等一等即可。
