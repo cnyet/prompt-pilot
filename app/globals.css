@@ -10,10 +10,16 @@
   --bg: oklch(0.985 0.004 210);
   --bg-sunken: oklch(0.963 0.006 212);
   --surface: oklch(0.997 0.002 210);
+  /* 比卡片更高一层：浮层、选中项、聚焦中的输入区 */
+  --surface-raised: oklch(1 0 0);
+  /* 比页面更低一层：代码块、输出区、只读区域 */
+  --surface-inset: oklch(0.974 0.004 212);
   --sidebar: oklch(0.952 0.008 215);
 
   --border: oklch(0.9 0.006 215);
   --border-strong: oklch(0.845 0.008 215);
+  /* 只用于分隔，不用于包裹容器 */
+  --border-subtle: oklch(0.945 0.005 215);
 
   --text: oklch(0.25 0.012 220);
   --text-muted: oklch(0.5 0.012 220);
@@ -41,10 +47,13 @@
   --bg: oklch(0.185 0.008 215);
   --bg-sunken: oklch(0.165 0.008 215);
   --surface: oklch(0.215 0.008 215);
+  --surface-raised: oklch(0.245 0.008 215);
+  --surface-inset: oklch(0.155 0.008 215);
   --sidebar: oklch(0.163 0.008 215);
 
   --border: oklch(0.3 0.008 215);
   --border-strong: oklch(0.36 0.008 215);
+  --border-subtle: oklch(0.26 0.008 215);
 
   --text: oklch(0.93 0.005 215);
   --text-muted: oklch(0.7 0.008 215);
@@ -63,6 +72,8 @@
   --diff-add-mark: oklch(0.32 0.07 150);
   --diff-del-bg: oklch(0.26 0.045 27);
   --diff-del-mark: oklch(0.32 0.07 27);
+
+  --shadow-overlay: 0 8px 24px -12px oklch(0 0 0 / 0.55);
 }
 
 /* ---------- 令牌映射到 Tailwind 工具类 ---------- */
@@ -70,10 +81,19 @@
   --color-bg: var(--bg);
   --color-bg-sunken: var(--bg-sunken);
   --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inset: var(--surface-inset);
   --color-sidebar: var(--sidebar);
 
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-line-subtle: var(--border-subtle);
+
+  /*
+   * 全站唯一允许的阴影，只给浮层用（导出菜单、下拉、确认弹层）。
+   * 卡片不要加阴影：层级靠 surface 与 border 区分，不靠投影堆叠。
+   */
+  --shadow-overlay: 0 8px 24px -12px oklch(0.25 0.01 220 / 0.18);
 
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
@@ -107,12 +127,12 @@
   --text-body--line-height: 1.6;
   --text-body-lg: 1rem;
   --text-body-lg--line-height: 1.65;
-  --text-h3: 1.1875rem;
+  --text-h3: 1.0625rem;
   --text-h3--line-height: 1.4;
-  --text-h2: 1.4375rem;
-  --text-h2--line-height: 1.35;
-  --text-display: 1.75rem;
-  --text-display--line-height: 1.25;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 1.3;
+  --text-display: 1.875rem;
+  --text-display--line-height: 1.15;
 
   --radius-chip: 4px;
   --radius-control: 6px;
@@ -132,6 +152,13 @@
     background-color: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
+  }
+
+  /* 中文标题略微收紧字距，视觉上更整 */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.011em;
   }
 
   ::selection {
