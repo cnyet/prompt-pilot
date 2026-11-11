@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "persistRounds": 8,
+  "persistRounds": 9,
   "archiveEveryRounds": 30,
   "lastArchiveRound": 0,
   "lastArchiveAt": null

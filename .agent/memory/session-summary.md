@@ -83,3 +83,39 @@
 - 验证: harness check 全 pass；typecheck ✓；493/493 ✓；build ✓；桌面 1440 与移动 390 截图目检通过。
 - 事实: 用户于 2026-11-11 确认 Q0 方向，下一步 Q1。因会话预算收口，Q1 未启动；Q0 未改任何应用代码，R3 `EvalWorkspace.tsx` 仍未提交。
 - 待办: 新会话从 Q1 开始（令牌层 + Button / Input / Chip / Card / Panel / Tabs），随后 Q2 工作台迁移。
+
+## 2026-11-11（Q1 令牌层 + GitHub 标准仓库）
+
+### Completed
+- [x] Q1：`app/globals.css` 令牌层按 DESIGN.md 第二节重写（浅色羊皮纸日光 / 深色烛光地下室），保留旧令牌别名（`tint-coral/sage/lavender/butter`、`shadow-overlay`、`numeral`）使 Q2-Q5 前页面继续编译。
+- [x] 基座组件：Button（primary/secondary/ghost/destructive × sm/md/lg）、Input/Textarea/Select、Chip（语义色调 + selected + removable）、Card（default/elevated/accent/interactive/selected）、Panel、Tabs（受控 + 键盘 roving tabIndex）。
+- [x] `scripts/contrast-check.mjs` 解析 `globals.css` 两套主题并校验 31 组对比度；`pnpm check:contrast` 接入。
+- [x] GitHub 标准仓库：remote `git@github.com:cnyet/prompt-pilot.git`、MIT LICENSE、CI workflow（contrast → typegen → typecheck → test → build）、Dependabot、issue/PR 模板、CODEOWNERS、CONTRIBUTING/SECURITY/CODE_OF_CONDUCT、`.editorconfig`/`.gitattributes`/`.nvmrc`、package 元数据。
+- [x] commit：`bd2ff96`（仓库配置）、`f022b65`（合并远端 Initial commit）、`8fde4ca`（CI 先生成 Next 类型）、`0df71f3`（Q1，13 文件 +873/-160）。
+
+### Key Decisions
+- Q1 只换令牌与基座组件，不改页面结构；旧 tint 别名指向新语义色，避免一次改全站 | Reason: 分阶段迁移，Q2-Q5 每步独立 diff。
+- 对比度脚本解析 CSS 变量而非硬编码色值 | Reason: 令牌改动后自动复核，避免文档与代码漂移。
+- CI 在 typecheck 前跑 `pnpm exec next typegen` | Reason: `next-env.d.ts` 未入库且引用 `.next/types`，否则 CI 类型检查必失败。
+- 远端 main 与本地历史无关，用 `--allow-unrelated-histories` 合并并保留远端 LICENSE 版权行 | Reason: 不 force push、不重写远端历史。
+
+### Important Findings
+- DESIGN.md 2.6 漏写 `--radius-pill`；本轮补为 9999px 并回写文档。
+- Tailwind v4 无 `readonly:` 变体，只读态必须用 `read-only:`。
+- 旧 Button 的 `variant="quiet"` 在 4 个文件中使用，Q1 机械替换为 `ghost`（EvalWorkspace 只暂存这一行）。
+- 对比度实测：浅色最低 4.51:1（`text-faint`/`bg`），深色最低 4.70:1（`accent`/`accent-subtle`），均达标。
+
+### Pitfalls
+- 直接 `git add components/eval/EvalWorkspace.tsx` 会带入未完成的 R3 改动 | Fix: 用 `git show HEAD:` 生成临时文件，改一行后用 `git hash-object -w` + `git update-index --cacheinfo` 只暂存该 blob。
+- 本地 3100 生产服务未停就跑了测试/build | 风险: 测试与应用共用 SQLite；本次 493 全绿但属残余风险，后续必须先停服务。
+
+### Verification
+- `pnpm check:contrast` ✓（浅/深全部 ≥4.5:1）
+- `pnpm run typecheck` ✓、`pnpm test` ✓ 493/493、`pnpm build` ✓
+- 独立 verifier 只完成对比度复核（与 DESIGN.md 2.3 一致），未取得完整独立签收；部分验证为主 Agent 自证。
+
+### Carry-over
+- [ ] 推送到 `origin main`（本地领先 71，可 fast-forward，无需 force）。
+- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）。
+- [ ] R3 `components/eval/EvalWorkspace.tsx` 仍未提交（工作区保留原改动）。
+- [ ] `.claude/harness.json`、`.claude/settings.json` 的本地修改不入库。

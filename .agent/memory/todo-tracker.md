@@ -1,10 +1,10 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] Q1 令牌层 + 基座组件（Button / Input / Chip / Card / Panel / Tabs）| 下一会话启动 | Priority: P0 | Created: 2026-11-11
+- [ ] 推送 Q1 与仓库配置到 `origin main`（本地领先 71，fast-forward）| Priority: P0 | Created: 2026-11-11
 
 ## Pending
-- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）| Priority: P0 | Created: 2026-11-11
+- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）| 下一步 | Priority: P0 | Created: 2026-11-11
 - [ ] Q3 库 + 评估迁移（AC-6，无评委不显示 0）| Priority: P0 | Created: 2026-11-11
 - [ ] Q4 模板 + 设置 + 全局 chrome（AC-11）| Priority: P0 | Created: 2026-11-11
 - [ ] Q5 响应式 + 双主题 + a11y（NFR-7 / 8，三档截图）| Priority: P0 | Created: 2026-11-11
@@ -17,6 +17,8 @@
 - [ ] 真实 ARK 密钥验证 | Blocker: 环境无 ARK_API_KEY
 
 ## Done
+- [x] Q1 令牌层 + 基座组件（Button / Input / Chip / Card / Panel / Tabs）+ 对比度脚本 | Completed: 2026-11-11
+- [x] GitHub 标准仓库配置（MIT、CI、Dependabot、模板、CODEOWNERS、社区文件）| Completed: 2026-11-11
 - [x] Q0 烛光羊皮纸设计系统（DESIGN.md、ADR-0006、工作台样张、三张截图、WCAG 实测；用户已确认）| Completed: 2026-11-11
 - [x] R3 评估页 bento（创建区双栏、KPI 衬线数字、样本对照双栏、无判定不写 0；未提交）| Completed: 2026-11-11
 - [x] R2 提示词库行式 bento（行式列表、排序过滤、winRate 接口、截图归档）| Completed: 2026-11-11
