@@ -13,10 +13,14 @@ import { getEffectiveLlmEnv } from '@/lib/settings/store'
 import type { ChatRequest, LLMProvider } from '@/lib/llm/types'
 import {
   buildJudgeMessages,
+  comparisonFromTarget,
   parseJudgeResult,
+  reconcileComparison,
   summarizeEval,
   type Comparison,
   type CriterionInput,
+  type JudgeOrder,
+  type JudgeResult,
   type Verdict,
 } from './judge'
 
@@ -149,6 +153,32 @@ async function runSample(
   }
 }
 
+/**
+ * 跑一次判定。判定失败不让整次评估失败：返回 null，页面显示「未判定」。
+ */
+async function judgeOnce(
+  judge: LLMProvider,
+  params: {
+    criteria: readonly CriterionInput[]
+    targetOutput: string
+    baselineOutput: string | null
+    order: JudgeOrder
+  },
+): Promise<JudgeResult | null> {
+  try {
+    const judged = await judge.chat({
+      modelConfigId: DEFAULT_EVALUATE_MODEL_CONFIG_ID,
+      messages: buildJudgeMessages(params),
+      temperature: 0,
+      maxTokens: 800,
+      thinking: 'off',
+    })
+    return parseJudgeResult(judged.text)
+  } catch {
+    return null
+  }
+}
+
 export async function runEvaluation(
   input: EvalInput,
   deps: { providers?: EvalProviders } = {},
@@ -220,42 +250,45 @@ export async function runEvaluation(
 
     let comparison: Comparison | null = null
     if (judge && criteria.length > 0) {
-      // 判定失败不让整次评估失败：记为空判定，页面显示「未判定」
-      try {
-        const judged = await judge.chat({
-          modelConfigId: DEFAULT_EVALUATE_MODEL_CONFIG_ID,
-          messages: buildJudgeMessages({
+      // 正向：目标版本占 A 位，标准判定取自这一次。
+      const forward = await judgeOnce(judge, {
+        criteria,
+        targetOutput: targetRun.output,
+        baselineOutput: baselineRun?.output ?? null,
+        order: 'target-first',
+      })
+      for (const verdict of forward?.verdicts ?? []) {
+        const criterion = criteria.find(
+          (item) => item.index === verdict.criterionIndex,
+        )
+        if (!criterion) {
+          continue
+        }
+        verdicts.push(verdict.verdict)
+        checkRows.push({
+          sampleIndex,
+          criterionIndex: verdict.criterionIndex,
+          criterionText: criterion.text,
+          status: verdict.verdict,
+          note: verdict.note,
+        })
+      }
+
+      // 反向：基线占 A 位，只取对比结果并翻回目标视角，抵消位置偏见。
+      const reverse = baselineRun
+        ? await judgeOnce(judge, {
             criteria,
             targetOutput: targetRun.output,
-            baselineOutput: baselineRun?.output ?? null,
-          }),
-          temperature: 0,
-          maxTokens: 800,
-          thinking: 'off',
-        })
-        const parsed = parseJudgeResult(judged.text)
-        comparison = parsed.comparison
-        if (comparison) {
-          comparisons.push(comparison)
-        }
-        for (const verdict of parsed.verdicts) {
-          const criterion = criteria.find(
-            (item) => item.index === verdict.criterionIndex,
-          )
-          if (!criterion) {
-            continue
-          }
-          verdicts.push(verdict.verdict)
-          checkRows.push({
-            sampleIndex,
-            criterionIndex: verdict.criterionIndex,
-            criterionText: criterion.text,
-            status: verdict.verdict,
-            note: verdict.note,
+            baselineOutput: baselineRun.output,
+            order: 'baseline-first',
           })
-        }
-      } catch {
-        comparison = null
+        : null
+      comparison = reconcileComparison(
+        comparisonFromTarget('target-first', forward?.comparison ?? null),
+        comparisonFromTarget('baseline-first', reverse?.comparison ?? null),
+      )
+      if (comparison) {
+        comparisons.push(comparison)
       }
     }
 

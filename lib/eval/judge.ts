@@ -22,18 +22,39 @@ export interface CriterionInput {
   text: string
 }
 
-/** 组装判定用的提示词：只给标准与输出，不给版本标签，避免位置偏置 */
+/**
+ * 盲评里哪一个版本被放在 A 位。两个方向各跑一次，
+ * 用来抵消评委对位置的偏好（PRODUCT.md FR-6.4）。
+ */
+export type JudgeOrder = 'target-first' | 'baseline-first'
+
+/**
+ * 组装判定用的提示词：只给标准与输出，不给版本标签。
+ * `order` 决定目标版本在 A 位还是 B 位；标准判定始终针对 A 位输出。
+ */
 export function buildJudgeMessages(params: {
   criteria: readonly CriterionInput[]
   targetOutput: string
   baselineOutput: string | null
+  order?: JudgeOrder
 }): Array<{ role: 'system' | 'user'; content: string }> {
   const criteriaBlock = params.criteria
     .map((criterion) => `${criterion.index}. ${criterion.text}`)
     .join('\n')
 
+  const order = params.order ?? 'target-first'
+  const hasBaseline = params.baselineOutput !== null
+  const firstOutput =
+    hasBaseline && order === 'baseline-first'
+      ? params.baselineOutput
+      : params.targetOutput
+  const secondOutput =
+    hasBaseline && order === 'baseline-first'
+      ? params.targetOutput
+      : params.baselineOutput
+
   const compareBlock =
-    params.baselineOutput === null
+    secondOutput === null
       ? ''
       : `
 
@@ -45,7 +66,7 @@ export function buildJudgeMessages(params: {
 
 B 的输出：
 """
-${params.baselineOutput}
+${secondOutput}
 """`
 
   return [
@@ -61,7 +82,7 @@ ${criteriaBlock}
 
 A 的输出：
 """
-${params.targetOutput}
+${firstOutput}
 """${compareBlock}
 
 只输出如下 JSON，不要解释：
@@ -70,6 +91,40 @@ ${params.targetOutput}
 没有 B 时 comparison 输出 null。每条标准都要给出判定。`,
     },
   ]
+}
+
+/** 把某一次判定的 comparison 统一到「目标版本视角」。 */
+export function comparisonFromTarget(
+  order: JudgeOrder,
+  comparison: Comparison | null,
+): Comparison | null {
+  if (comparison === null || order === 'target-first') {
+    return comparison
+  }
+  if (comparison === 'better') {
+    return 'worse'
+  }
+  if (comparison === 'worse') {
+    return 'better'
+  }
+  return 'same'
+}
+
+/**
+ * 合并双向判定：两边一致才采用，冲突时记为「相当」。
+ * 只有一侧可用时采用可用的一侧，两侧都没有则返回 null。
+ */
+export function reconcileComparison(
+  forward: Comparison | null,
+  reverse: Comparison | null,
+): Comparison | null {
+  if (forward === null) {
+    return reverse
+  }
+  if (reverse === null) {
+    return forward
+  }
+  return forward === reverse ? forward : 'same'
 }
 
 const VERDICTS: ReadonlySet<string> = new Set(['satisfied', 'partial', 'unsatisfied'])

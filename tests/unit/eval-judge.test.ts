@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildJudgeMessages,
+  comparisonFromTarget,
   parseJudgeResult,
+  reconcileComparison,
   summarizeEval,
 } from '@/lib/eval/judge'
 
@@ -79,5 +81,48 @@ describe('判定提示词', () => {
     expect(user).toContain('结构完整')
     expect(user).not.toContain('B 的输出')
     expect(user).toContain('comparison 输出 null')
+  })
+
+  it('target-first 把目标放在 A 位', () => {
+    const messages = buildJudgeMessages({
+      criteria: [{ index: 1, text: '结构完整' }],
+      targetOutput: '目标输出',
+      baselineOutput: '基线输出',
+      order: 'target-first',
+    })
+    const user = messages.find((message) => message.role === 'user')?.content ?? ''
+    expect(user.indexOf('目标输出')).toBeLessThan(user.indexOf('基线输出'))
+  })
+
+  it('baseline-first 交换 A/B 位置，输出里不带版本标签', () => {
+    const messages = buildJudgeMessages({
+      criteria: [{ index: 1, text: '结构完整' }],
+      targetOutput: '目标输出',
+      baselineOutput: '基线输出',
+      order: 'baseline-first',
+    })
+    const user = messages.find((message) => message.role === 'user')?.content ?? ''
+    expect(user.indexOf('基线输出')).toBeLessThan(user.indexOf('目标输出'))
+    expect(user).not.toContain('v0')
+    expect(user).not.toContain('当前版本')
+  })
+})
+
+describe('双向判定合并', () => {
+  it('反向结果翻回目标视角', () => {
+    expect(comparisonFromTarget('target-first', 'better')).toBe('better')
+    expect(comparisonFromTarget('baseline-first', 'better')).toBe('worse')
+    expect(comparisonFromTarget('baseline-first', 'worse')).toBe('better')
+    expect(comparisonFromTarget('baseline-first', 'same')).toBe('same')
+    expect(comparisonFromTarget('baseline-first', null)).toBeNull()
+  })
+
+  it('两个方向一致才采用，冲突记相当', () => {
+    expect(reconcileComparison('better', 'better')).toBe('better')
+    expect(reconcileComparison('worse', 'worse')).toBe('worse')
+    expect(reconcileComparison('better', 'worse')).toBe('same')
+    expect(reconcileComparison(null, 'better')).toBe('better')
+    expect(reconcileComparison('worse', null)).toBe('worse')
+    expect(reconcileComparison(null, null)).toBeNull()
   })
 })

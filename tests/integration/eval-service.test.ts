@@ -48,24 +48,28 @@ async function seedPrompt(options: {
   })
   createdPromptIds.push(prompt.id)
 
+  const baselineSchema = makeSchema(title, criteria)
+  baselineSchema.role.persona = '你是测试用的基线编辑'
   const v0 = await prisma.promptVersion.create({
     data: {
       promptId: prompt.id,
       versionNo: 0,
       origin: 'user_input',
       renderedText: '帮我写个周报',
-      schemaJson: JSON.stringify(makeSchema(title, criteria)),
+      schemaJson: JSON.stringify(baselineSchema),
       changeSummary: '基线',
     },
   })
   if (options.withBaseline) {
+    const targetSchema = makeSchema(title, criteria)
+    targetSchema.role.persona = '你是测试用的新版编辑'
     const v1 = await prisma.promptVersion.create({
       data: {
         promptId: prompt.id,
         versionNo: 1,
         origin: 'ai_generated',
         renderedText: '结构化之后的提示词',
-        schemaJson: JSON.stringify(makeSchema(title, criteria)),
+        schemaJson: JSON.stringify(targetSchema),
         changeSummary: '新版本',
         parentVersionId: v0.id,
       },
@@ -161,17 +165,31 @@ describe('评估执行', () => {
       withBaseline: true,
     })
 
-    const generate = fakeProvider(() => ({
-      text: '输出',
-      finishReason: 'stop',
-      usage: { tokensIn: 5, tokensOut: 5 },
-    }))
-    const judge = fakeProvider(
-      () => ({
-        text: '{"verdicts":[{"index":1,"verdict":"satisfied"}],"comparison":"better"}',
+    const generate = fakeProvider(
+      (req) => ({
+        // 两个版本的系统提示词不同，用输出内容区分，便于验证双向判定。
+        text: req.messages[0]?.content.includes('新版编辑')
+          ? '新版输出'
+          : '基线输出',
         finishReason: 'stop',
         usage: { tokensIn: 5, tokensOut: 5 },
       }),
+    )
+    const judge = fakeProvider(
+      (req) => {
+        const user = req.messages[1]?.content ?? ''
+        const bSection = user.slice(user.indexOf('B 的输出：'))
+        // 目标版本更好：B 是基线时 A 更好；B 是目标时 A（基线）更差。
+        const comparison = bSection.includes('基线输出') ? 'better' : 'worse'
+        return {
+          text: JSON.stringify({
+            verdicts: [{ index: 1, verdict: 'satisfied' }],
+            comparison,
+          }),
+          finishReason: 'stop',
+          usage: { tokensIn: 5, tokensOut: 5 },
+        }
+      },
       'fake-judge',
     )
 
