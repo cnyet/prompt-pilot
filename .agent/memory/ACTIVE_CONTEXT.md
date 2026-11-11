@@ -5,8 +5,8 @@
 ## Current Task
 - Done: Q0 设计系统（DESIGN.md、ADR-0006、样张、截图）；Q1 令牌层 + Button/Input/Chip/Card/Panel/Tabs + 对比度脚本；GitHub 标准仓库配置。
 - Goal: 按 Q1-Q5 分阶段迁移，每阶段独立 diff。
-- In progress: Q1 已提交（`0df71f3`），待推送 `origin main`。
-- Next step: Q2 工作台迁移，验收 AC-1 / AC-3 / AC-12 / AC-13。
+- In progress: 当前会话预算已到轮转点；Q1 已提交并推送（`4e8ef13`），GitHub Actions 首跑全绿，3100 已停。
+- Next step: 新会话第一步读 `DESIGN.md` 第四节工作台规格与 `components/studio/StudioWorkspace.tsx`，执行 Q2 工作台迁移（AC-1 / AC-3 / AC-12 / AC-13）。
 - Blockers: 无硬阻塞；真实 ARK 密钥验证仍缺凭据。
 
 ## Current Constraints

@@ -1,10 +1,10 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] 推送 Q1 与仓库配置到 `origin main`（本地领先 71，fast-forward）| Priority: P0 | Created: 2026-11-11
+- 无（Q1 已推送，等待新会话启动 Q2）
 
 ## Pending
-- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）| 下一步 | Priority: P0 | Created: 2026-11-11
+- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）| 新会话第一步 | Priority: P0 | Created: 2026-11-11
 - [ ] Q3 库 + 评估迁移（AC-6，无评委不显示 0）| Priority: P0 | Created: 2026-11-11
 - [ ] Q4 模板 + 设置 + 全局 chrome（AC-11）| Priority: P0 | Created: 2026-11-11
 - [ ] Q5 响应式 + 双主题 + a11y（NFR-7 / 8，三档截图）| Priority: P0 | Created: 2026-11-11

@@ -115,7 +115,7 @@
 - 独立 verifier 只完成对比度复核（与 DESIGN.md 2.3 一致），未取得完整独立签收；部分验证为主 Agent 自证。
 
 ### Carry-over
-- [ ] 推送到 `origin main`（本地领先 71，可 fast-forward，无需 force）。
-- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13）。
+- [x] 已推送 `origin main`（`d4a30a7..4e8ef13`，非 force）；GitHub Actions 首跑全绿（49s，含 contrast/typegen/typecheck/test/build）；3100 服务已停。
+- [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13），新会话启动。
 - [ ] R3 `components/eval/EvalWorkspace.tsx` 仍未提交（工作区保留原改动）。
 - [ ] `.claude/harness.json`、`.claude/settings.json` 的本地修改不入库。
