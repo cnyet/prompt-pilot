@@ -305,9 +305,9 @@ export function EvalWorkspace() {
                 <button
                   type="button"
                   onClick={() => void openDetail(task.id)}
-                  className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors duration-150 hover:bg-bg-sunken"
+                  className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left transition-colors duration-150 hover:bg-bg-sunken sm:gap-x-4"
                 >
-                  <span className="min-w-0 flex-1 truncate text-body text-ink">
+                  <span className="min-w-0 w-full truncate text-body text-ink sm:w-auto sm:flex-1">
                     {task.name}
                   </span>
                   <span className="text-caption text-ink-muted tnum">
@@ -323,7 +323,7 @@ export function EvalWorkspace() {
                   >
                     {task.status === 'completed' ? '已判定' : '待人工判定'}
                   </span>
-                  <span className="w-20 text-right text-caption text-ink-muted tnum">
+                  <span className="w-16 text-right text-caption text-ink-muted tnum sm:w-20">
                     {task.winRate === null
                       ? '—'
                       : `胜率 ${(task.winRate * 100).toFixed(0)}%`}

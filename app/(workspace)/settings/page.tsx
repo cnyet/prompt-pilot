@@ -166,11 +166,11 @@ export default async function SettingsPage() {
             />
             {llmSettings.apiKey.configured ? '已接入真实模型' : '离线模板模式'}
           </span>
-          <span aria-hidden className="text-ink-faint">·</span>
+          <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="text-caption text-ink-muted tnum">
             生成 {llmSettings.modelGenerate.value}
           </span>
-          <span aria-hidden className="text-ink-faint">·</span>
+          <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="truncate text-caption text-ink-faint">
             {llmSettings.baseUrl.value}
           </span>

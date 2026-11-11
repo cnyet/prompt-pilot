@@ -14,9 +14,8 @@ const NAV: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
 ]
 
 /**
- * 窄屏下的主导航。侧边导航是固定 240px 的桌面布局，在手机上会把内容
- * 挤到不足 200px；这里用媒体查询隐藏侧栏，并在内容顶部提供同一组入口。
- * 入口顺序与桌面侧栏保持一致，避免两处导航漂移。
+ * 窄屏下的主导航。桌面左轨在 1024px 以下隐藏，这里在内容顶部提供同一组
+ * 入口；入口顺序与桌面左轨保持一致，避免两处导航漂移。
  */
 export function MobileNav() {
   const pathname = usePathname()
@@ -24,7 +23,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="移动端主导航"
-      className="sticky top-0 z-20 flex gap-1 overflow-x-auto border-b border-line bg-sidebar px-2 py-1.5 md:hidden"
+      className="sticky top-0 z-20 flex gap-1 overflow-x-auto border-b border-line bg-sidebar px-2 py-1.5 lg:hidden"
     >
       {NAV.map((item) => {
         const active =
@@ -35,7 +34,7 @@ export function MobileNav() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-control px-2.5 py-1.5 text-label transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-control px-2 py-1.5 text-label transition-colors',
               active
                 ? 'bg-accent-subtle font-medium text-accent'
                 : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',

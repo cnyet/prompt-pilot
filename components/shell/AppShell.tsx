@@ -109,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
       <aside
-        className="flex shrink-0 flex-col border-r border-line bg-sidebar"
+        className="hidden shrink-0 flex-col border-r border-line bg-sidebar lg:flex"
         style={{ width }}
       >
         <div
