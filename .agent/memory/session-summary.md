@@ -119,3 +119,23 @@
 - [ ] Q2 工作台迁移（AC-1 / 3 / 12 / 13），新会话启动。
 - [ ] R3 `components/eval/EvalWorkspace.tsx` 仍未提交（工作区保留原改动）。
 - [ ] `.claude/harness.json`、`.claude/settings.json` 的本地修改不入库。
+
+## 2026-11-11（Q2 工作台迁移）
+
+### Completed
+- [x] 工作台迁移：需求摘要 Card + 假设 chip、视图切换 Tabs、3 列 bento、字段卡卡片化、诊断 dock 头部 chips + 常显修复/忽略、试运行/渲染/JSON 卡片、390px 适配。
+- [x] 借鉴 design-v2 截图亮点（不引入右栏，保持 DESIGN §4.1 / ADR-0004）：时间轴副标签（N 个假设 / 正在生成第 N 字段 / 已完成 N 字段 / 自动运行 / 在评估页进行 / 评估后开放）；诊断 dock 宽屏 auto-fit 多栏、全部修复移入头部。
+- [x] 验证：typecheck ✓、493/493 ✓、build ✓、harness 25 pass / 0 fail、contrast ✓、浏览器 2560 深色实测副标签与诊断头部。
+
+### Key Decisions
+- 工作台结构继续以 DESIGN §4.1 + ADR-0004 为准（时间轴 → 需求摘要 → 八字段 bento → 底部诊断 dock）；截图只借信息密度与局部形态，不引入右栏版本/对比/质量/导出 | Reason: 右栏依赖的 FR-7/FR-11 UI 尚未接入，硬搬会产生空面板。
+- 时间轴副标签由 `StudioWorkspace` 计算后经 `details` 传入，`FlowTimeline` 保持展示组件 | Reason: 不把生成状态耦合进时间轴。
+
+### Pitfalls
+- 残留 dev server 占用 3100 导致新代码未编译，`pnpm dev` 报 EADDRINUSE；重启前先 `lsof -ti:3100` 杀掉 next-server 子进程。
+- bsk 新 CLI：动作需 cooperate sync 的 context + observation；click 会消费 observation，下一步动作前重新 sync。
+
+### Carry-over
+- [ ] Q2 代码待提交；R3 `EvalWorkspace.tsx` 不得混入。
+- [ ] Q3 库 + 评估迁移（AC-6）。
+- [ ] 390px 下诊断头部新增按钮的换行未复测。
