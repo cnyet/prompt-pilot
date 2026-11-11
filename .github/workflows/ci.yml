@@ -23,7 +23,7 @@ jobs:
       DATABASE_URL: file:../data/app.db
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
