@@ -247,6 +247,57 @@ describe('追加新版本与 v0 共存', () => {
     expect(detail.currentVersionId).toBe(v1?.id)
   })
 
+  it('回滚生成新版本，旧版本与 v0 都不被改写', async () => {
+    const title = `回滚版本-${randomUUID().slice(0, 8)}`
+    const prompt = await createPrompt(title, '帮我写个周报')
+    const baseline = prompt.versions[0]
+    expect(baseline).toBeDefined()
+    if (!baseline) {
+      return
+    }
+
+    const saved = await patchPrompt(prompt.id, {
+      version: {
+        schema: versionedSchema(title, '写一份包含进展与风险的本周周报'),
+        origin: 'human_edited',
+        changeSummary: '补充边界',
+      },
+    })
+    expect(saved.status).toBe(200)
+    const savedBody = (await saved.json()) as PromptResponse
+    const v1 = savedBody.prompt.versions[1]
+    expect(v1).toBeDefined()
+    if (!v1) {
+      return
+    }
+
+    // 回滚到 v1：以 v1 内容追加 v2。
+    const rolled = await patchPrompt(prompt.id, {
+      version: {
+        origin: 'rollback',
+        schemaJson: v1.schemaJson,
+        renderedText: v1.renderedText,
+        changeSummary: '回滚到 v1',
+        parentVersionId: v1.id,
+      },
+    })
+    expect(rolled.status).toBe(200)
+    const rolledBody = (await rolled.json()) as PromptResponse
+    const detail = rolledBody.prompt
+    expect(detail.versions.map((version) => version.versionNo)).toEqual([0, 1, 2])
+    const v2 = detail.versions[2]
+    expect(v2?.origin).toBe('rollback')
+    expect(v2?.parentVersionId).toBe(v1.id)
+    // 写入时服务端会去掉首尾空白，正文内容保持一致。
+    expect(v2?.renderedText).toBe(v1.renderedText.trim())
+    expect(detail.currentVersionId).toBe(v2?.id)
+
+    // 早期版本原样保留。
+    expect(detail.versions[0]?.id).toBe(baseline.id)
+    expect(detail.versions[0]?.renderedText).toBe('帮我写个周报')
+    expect(detail.versions[1]?.renderedText).toBe(v1.renderedText)
+  })
+
   it('并发保存不会出现重复版本号，且当前版本指向最大号', async () => {
     const title = `并发版本-${randomUUID().slice(0, 8)}`
     const prompt = await createPrompt(title)

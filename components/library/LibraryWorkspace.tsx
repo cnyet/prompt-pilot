@@ -153,6 +153,8 @@ export function LibraryWorkspace() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState('')
   const [notice, setNotice] = useState('')
+  const [rollbackState, setRollbackState] = useState<'idle' | 'rolling'>('idle')
+  const [rollbackError, setRollbackError] = useState('')
 
   const detailRequestRef = useRef(0)
 
@@ -209,6 +211,7 @@ export function LibraryWorkspace() {
     setEditor(null)
     setSaveError('')
     setNotice('')
+    setRollbackError('')
     void (async () => {
       try {
         const payload = await requestJson(
@@ -248,6 +251,8 @@ export function LibraryWorkspace() {
     setEditor(null)
     setSaveError('')
     setNotice('')
+    setRollbackError('')
+    setRollbackState('idle')
   }, [])
 
   const selectedVersion = useMemo<PromptVersionDetail | null>(() => {
@@ -358,6 +363,61 @@ export function LibraryWorkspace() {
       setSaveError(error instanceof Error ? error.message : '保存新版本失败。')
     }
   }, [detail, editor, saveState])
+
+  /**
+   * 回滚到选中版本：以该版本内容追加一个新版本，不改写历史。
+   * FR-7.5 要求回滚本身也产生新版本，旧版本全部保留。
+   */
+  const handleRollback = useCallback(async () => {
+    if (!detail || !selectedVersion || rollbackState === 'rolling') {
+      return
+    }
+    if (selectedVersion.id === detail.currentVersionId) {
+      setNotice('这个版本已经是当前版本。')
+      return
+    }
+    setRollbackState('rolling')
+    setRollbackError('')
+    setNotice('')
+    try {
+      const payload = await requestJson(
+        `/api/prompts/${encodeURIComponent(detail.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: {
+              origin: 'rollback',
+              schemaJson: selectedVersion.schemaJson,
+              renderedText: selectedVersion.renderedText,
+              changeSummary: `回滚到 v${selectedVersion.versionNo}`,
+              parentVersionId: selectedVersion.id,
+            },
+          }),
+        },
+      )
+      const updated = readDetailPayload(payload)
+      if (!updated) {
+        throw new Error('回滚后的返回数据格式不正确。')
+      }
+      setDetail(updated)
+      const latest = updated.versions[updated.versions.length - 1]
+      setSelectedVersionId(updated.currentVersionId ?? latest?.id ?? null)
+      setEditor(null)
+      setNotice(
+        latest
+          ? `已回滚到 v${selectedVersion.versionNo}，生成 v${latest.versionNo}`
+          : `已回滚到 v${selectedVersion.versionNo}`,
+      )
+      setReloadToken((token) => token + 1)
+    } catch (error) {
+      setRollbackError(
+        error instanceof Error ? error.message : '回滚失败，请稍后重试。',
+      )
+    } finally {
+      setRollbackState('idle')
+    }
+  }, [detail, selectedVersion, rollbackState])
 
   const showEmptyLibrary =
     listState === 'ready' && prompts.length === 0 && activeQuery.length === 0
@@ -708,6 +768,7 @@ export function LibraryWorkspace() {
                               setNotice('')
                               setSaveError('')
                               setSaveState('idle')
+                              setRollbackError('')
                             }}
                             aria-current={active ? 'true' : undefined}
                             className={cn(
@@ -752,16 +813,41 @@ export function LibraryWorkspace() {
                       <p className="text-label font-medium text-ink">
                         v{selectedVersion.versionNo} 内容
                       </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          startEditing(selectedVersion, detail.title)
-                        }
-                        className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-                      >
-                        基于此版本编辑
-                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startEditing(selectedVersion, detail.title)
+                          }
+                          className="rounded-control border border-line px-2 py-0.5 text-caption text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                        >
+                          基于此版本编辑
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleRollback()}
+                          disabled={
+                            rollbackState === 'rolling' ||
+                            selectedVersion.id === detail.currentVersionId
+                          }
+                          title={
+                            selectedVersion.id === detail.currentVersionId
+                              ? '已经是当前版本'
+                              : `以 v${selectedVersion.versionNo} 的内容生成新版本`
+                          }
+                        >
+                          {rollbackState === 'rolling'
+                            ? '正在回滚'
+                            : '回滚到此版本'}
+                        </Button>
+                      </div>
                     </div>
+                    {rollbackError.length > 0 ? (
+                      <p role="alert" className="mt-2 text-caption text-danger">
+                        {rollbackError}
+                      </p>
+                    ) : null}
                     {selectedVersion.isBaseline ? (
                       <p className="mt-2 rounded-panel border border-line bg-bg-sunken px-3 py-2 text-caption text-ink-muted">
                         基线 v0 保存的是首次输入的原文，服务端锁定为只读。继续编辑会生成新版本，v0 不会被覆盖。
