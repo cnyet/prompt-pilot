@@ -47,6 +47,9 @@ jobs:
       - name: Token contrast
         run: pnpm check:contrast
 
+      - name: Generate Next types
+        run: pnpm exec next typegen
+
       - name: Typecheck
         run: pnpm run typecheck
 
