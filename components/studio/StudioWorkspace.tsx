@@ -18,7 +18,10 @@ import { buildSchemaFromFields } from '@/lib/engine/paths'
 import { mergeAssumptions } from '@/lib/engine/assumptions'
 import { cn } from '@/lib/utils'
 import { Button, IconButton } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
+import { Tabs } from '@/components/ui/Tabs'
 import { AssumptionChips } from './AssumptionChips'
 import { DiagnosticsPanel } from './DiagnosticsPanel'
 import {
@@ -830,14 +833,32 @@ export function StudioWorkspace() {
   const displayTitle =
     title || (phase === 'streaming' ? '正在生成结构' : '生成结果')
 
-  // 时间轴阶段判定（FlowTimeline）：生成 → 试运行（运行中）→ 编辑（done）。
+  // 时间轴阶段判定（FlowTimeline）：生成完成后停在试运行，
+  // 评估与优化在各自页面发生，不在这里提前标成“已过”。
   let flowStage: FlowStage = 'generate'
   if (phase === 'streaming') {
     flowStage = 'generate'
   } else if (trialActive) {
     flowStage = 'trial'
   } else if (phase === 'done') {
-    flowStage = 'optimize'
+    flowStage = 'trial'
+  }
+
+  // 时间轴副标签：借鉴 design-v2 截图的分阶段状态摘要，宽屏显示。
+  const timelineDetails: Partial<Record<FlowStage, string>> = {
+    requirement:
+      assumptionChips.length > 0
+        ? `${assumptionChips.length} 个假设`
+        : undefined,
+    generate:
+      phase === 'streaming'
+        ? `正在生成第 ${currentIndex} 个字段`
+        : filledCount > 0
+          ? `已完成 ${filledCount} 字段`
+          : undefined,
+    trial: trialActive ? '运行中' : '自动运行',
+    eval: '在评估页进行',
+    optimize: '评估后开放',
   }
 
   // 三个视图读同一份展示文本：流式中未手改的字段用 pending，其余用已提交值。
@@ -929,7 +950,7 @@ export function StudioWorkspace() {
         role="tablist"
         aria-label="工作台分区"
         onKeyDown={handlePaneKeyDown}
-        className="sticky top-0 z-20 -mx-4 mb-5 flex gap-1 border-b border-line-subtle bg-bg px-4 py-2 min-[1440px]:hidden"
+        className="sticky top-[42px] z-20 -mx-4 mb-5 flex gap-1 border-b border-line-subtle bg-bg px-4 py-2 md:top-0 min-[1440px]:hidden"
       >
         {STUDIO_PANES.map((pane) => {
           const active = mobilePane === pane.id
@@ -946,7 +967,7 @@ export function StudioWorkspace() {
               className={cn(
                 'rounded-control px-3 py-1.5 text-label transition-colors duration-150',
                 active
-                  ? 'bg-surface-raised font-medium text-ink'
+                  ? 'bg-accent-subtle font-medium text-accent'
                   : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
               )}
             >
@@ -968,6 +989,7 @@ export function StudioWorkspace() {
           errorCount={diagnosticsSummary.error}
           filledFields={filledCount}
           totalFields={FIELD_KEYS.length}
+          details={timelineDetails}
         />
 
         <div
@@ -981,32 +1003,38 @@ export function StudioWorkspace() {
               : 'max-[1439px]:hidden',
           )}
         >
-          <div className="rounded-panel bg-surface-inset px-4 py-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-caption font-medium text-ink-faint">原始需求</p>
-              <div className="flex flex-wrap items-center gap-1.5">
+          <Card padding="sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-caption text-ink-faint">本次需求</p>
+                <p className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-words font-display text-h3 text-ink">
+                  {submitted}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 {suggestionCount > 0 ? (
-                  <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-warning tnum">
-                    {suggestionCount} 条建议待处理
-                  </span>
+                  <Chip tone="warning">{suggestionCount} 条建议待处理</Chip>
                 ) : null}
-                <span className="rounded-chip bg-surface px-2 py-0.5 text-caption text-ink-faint tnum">
+                <Chip>
                   {filledCount} / {FIELD_KEYS.length} 字段
-                </span>
+                </Chip>
+                <Button variant="ghost" size="sm" onClick={handleReset}>
+                  重新开始
+                </Button>
               </div>
             </div>
-            <p className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words text-body-sm text-ink-muted">
-              {submitted}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
-              className="mt-2"
-            >
-              重新开始
-            </Button>
-          </div>
+            {hasAnyField && phase !== 'streaming' ? (
+              <div className="mt-3 border-t border-line-subtle pt-3">
+                <AssumptionChips
+                  chips={assumptionChips}
+                  exportWithoutAssumptions={exportWithoutAssumptions}
+                  onSelect={setAssumption}
+                  onToggleExport={setExportWithoutAssumptions}
+                  disabled={opBusy}
+                />
+              </div>
+            ) : null}
+          </Card>
         </div>
 
         <section
@@ -1018,7 +1046,7 @@ export function StudioWorkspace() {
         >
           <header className="mb-6">
             <p className="text-caption text-ink-faint">结构化提示词</p>
-            <h1 className="mt-1.5 text-[2rem] leading-[1.18] text-balance font-semibold text-ink">
+            <h1 className="mt-1.5 font-display text-display font-normal text-balance text-ink lg:text-[2.75rem] lg:leading-[1.1]">
               {displayTitle}
             </h1>
             {/* 需求原文、字段计数、建议数都在上方 hero 条；这里只留瞬态保存结果。 */}
@@ -1086,8 +1114,19 @@ export function StudioWorkspace() {
                 >
                   重新开始
                 </Button>
+                {phase === 'streaming' ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon="stop"
+                    onClick={handleStop}
+                    className="text-danger"
+                  >
+                    停止生成
+                  </Button>
+                ) : null}
               </div>
-              <span aria-hidden className="h-5 w-px bg-line-subtle" />
+              <span aria-hidden className="hidden h-5 w-px bg-line-subtle sm:inline-block" />
               <div className="flex items-center gap-1">
                 <IconButton
                   icon="undo"
@@ -1118,7 +1157,7 @@ export function StudioWorkspace() {
                   </Button>
                 ) : null}
               </div>
-              <span aria-hidden className="h-5 w-px bg-line-subtle" />
+              <span aria-hidden className="hidden h-5 w-px bg-line-subtle sm:inline-block" />
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -1178,40 +1217,28 @@ export function StudioWorkspace() {
             <ThinkingPanel text={reasoning} streaming={isBusy} />
           ) : null}
 
-          <div
-            role="tablist"
-            aria-label="中栏视图"
-            className="mb-4 flex items-center gap-1 border-b border-line-subtle"
-          >
-            {STUDIO_VIEWS.map((item) => {
-              const active = view === item.id
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setView(item.id)}
-                  title={`${item.label}（${item.hint}）`}
-                  className={cn(
-                    'relative px-3 py-2 text-label transition-colors duration-150',
-                    active ? 'text-ink' : 'text-ink-muted hover:text-ink',
-                  )}
-                >
-                  {item.label}
-                  {active ? (
-                    <span
-                      aria-hidden
-                      className="absolute inset-x-2 -bottom-px h-0.5 rounded-chip bg-accent"
-                    />
-                  ) : null}
-                </button>
-              )
-            })}
-          </div>
+          <Tabs
+            items={STUDIO_VIEWS.map((item) => ({
+              value: item.id,
+              label: item.label,
+              title: `${item.label}（${item.hint}）`,
+            }))}
+            value={view}
+            onValueChange={(next) => {
+              if (
+                next === 'structured' ||
+                next === 'rendered' ||
+                next === 'json'
+              ) {
+                setView(next)
+              }
+            }}
+            ariaLabel="中栏视图"
+            className="mb-4"
+          />
 
           {view === 'structured' ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-flow-dense xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-flow-dense xl:grid-cols-3">
               {FIELD_KEYS.map((field, index) => {
                 const focus =
                   diagnosticsFocus !== null &&
@@ -1238,14 +1265,14 @@ export function StudioWorkspace() {
                     className={cn(
                       'scroll-mt-6',
                       showEditor
-                        ? 'sm:col-span-2 xl:col-span-4'
+                        ? 'sm:col-span-2 xl:col-span-3'
                         : PREVIEW_SPANS[field],
                       focus !== null
                         ? focus.level === 'error'
                           ? 'ring-1 ring-danger'
                           : focus.level === 'warn'
                             ? 'ring-1 ring-warning'
-                            : 'ring-1 ring-line-strong'
+                            : 'shadow-glow'
                         : '',
                     )}
                   >
@@ -1327,8 +1354,9 @@ export function StudioWorkspace() {
                         }
                         title={`编辑${FIELD_LABELS[field]}字段`}
                         className={cn(
-                          'group flex h-full w-full flex-col rounded-panel border border-line bg-surface px-4 py-3.5 text-left',
-                          'transition-colors duration-150 hover:border-line-strong',
+                          'group flex h-full w-full flex-col rounded-panel border border-line bg-surface px-4 py-3.5 text-left shadow-sm',
+                          'transition-colors duration-150 hover:border-line-strong hover:bg-surface-raised',
+                          field === 'objective' && 'border-t-2 border-t-accent',
                         )}
                       >
                         {FieldPreview({ field, index: index + 1, text: previewText }) ?? (
@@ -1361,19 +1389,19 @@ export function StudioWorkspace() {
               })}
             </div>
           ) : view === 'rendered' ? (
-            <div className="overflow-hidden rounded-panel bg-surface-inset">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2">
+            <div className="overflow-hidden rounded-panel border border-line bg-surface shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2.5">
                 <p className="text-caption text-ink-faint">
                   按当前八字段文本渲染的 Markdown
                 </p>
               </div>
-              <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-body text-ink">
+              <pre className="max-h-[70vh] overflow-auto bg-bg-sunken px-4 py-3 font-mono text-body text-ink">
                 {markdownPreview}
               </pre>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-panel bg-surface-inset">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2">
+            <div className="overflow-hidden rounded-panel border border-line bg-surface shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-2.5">
                 <p className="text-caption text-ink-faint">
                   由字段文本按结构化路径解析生成的 schema
                 </p>
@@ -1381,23 +1409,11 @@ export function StudioWorkspace() {
                   {schema.meta.title}
                 </span>
               </div>
-              <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-caption text-ink">
+              <pre className="max-h-[70vh] overflow-auto bg-bg-sunken px-4 py-3 font-mono text-caption text-ink">
                 {jsonPreview}
               </pre>
             </div>
           )}
-
-          {hasAnyField && phase !== 'streaming' ? (
-            <div className="mt-6 border-t border-line-subtle pt-4">
-              <AssumptionChips
-                chips={assumptionChips}
-                exportWithoutAssumptions={exportWithoutAssumptions}
-                onSelect={setAssumption}
-                onToggleExport={setExportWithoutAssumptions}
-                disabled={opBusy}
-              />
-            </div>
-          ) : null}
 
           {hasAnyField ? (
             <RunDrawer
@@ -1425,17 +1441,6 @@ export function StudioWorkspace() {
                 {historyText}
               </p>
             </div>
-            {phase === 'streaming' ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon="stop"
-                onClick={handleStop}
-                className="text-danger"
-              >
-                停止生成
-              </Button>
-            ) : null}
           </div>
         </section>
 

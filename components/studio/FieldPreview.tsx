@@ -64,7 +64,7 @@ function ObjectivePreview({ text }: { text: string }) {
   }
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <p className="numeral text-balance text-h2 font-semibold leading-[1.28] text-ink">
+      <p className="font-display text-balance text-h2 font-normal leading-[1.35] text-ink">
         {goal}
       </p>
       {(criteria.length > 0 || nonGoals.length > 0) && (
@@ -122,7 +122,7 @@ function ContextPreview({ text }: { text: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5 rounded-control bg-surface-inset px-3 py-2.5">
       {background.length > 0 && (
-        <p className="text-body-sm line-clamp-2 text-ink-muted">{background}</p>
+        <p className="text-body line-clamp-2 text-ink-muted">{background}</p>
       )}
       {audience.length > 0 && (
         <p className="truncate text-caption text-ink-faint">受众：{audience}</p>
@@ -150,7 +150,7 @@ function InputPreview({ text }: { text: string }) {
       text.trimStart().startsWith('变量：无')
     ) {
       return (
-        <p className="text-body-sm text-ink-faint">
+        <p className="text-body text-ink-faint">
           无外部变量，可直接使用。
         </p>
       )
@@ -163,7 +163,8 @@ function InputPreview({ text }: { text: string }) {
         <tr className="border-b border-line-subtle text-left text-ink-faint">
           <th scope="col" className="py-1.5 pr-3 font-normal">变量名</th>
           <th scope="col" className="py-1.5 pr-3 font-normal">类型</th>
-          <th scope="col" className="py-1.5 font-normal">默认值</th>
+          <th scope="col" className="py-1.5 pr-3 font-normal">默认值</th>
+          <th scope="col" className="py-1.5 text-right font-normal">必填</th>
         </tr>
       </thead>
       <tbody>
@@ -176,7 +177,10 @@ function InputPreview({ text }: { text: string }) {
             </td>
             <td className="py-1.5 pr-3 text-ink-muted">{variable.type}</td>
             <td className="max-w-[24ch] truncate py-1.5 text-ink-muted">
-              {variable.defaultValue ?? (variable.required ? '必填' : '可选')}
+              {variable.defaultValue ?? '—'}
+            </td>
+            <td className="py-1.5 text-right text-ink-muted">
+              {variable.required ? '是' : '否'}
             </td>
           </tr>
         ))}
@@ -229,11 +233,11 @@ function TintList({
     >
       <li className="mb-0.5 text-caption font-medium text-ink">{label}</li>
       {items.length === 0 ? (
-        <li className="text-body-sm text-ink-faint">未声明</li>
+        <li className="text-body text-ink-faint">未声明</li>
       ) : (
         <>
           {shown.map((item, i) => (
-            <li key={i} className="text-body-sm text-ink-muted">
+            <li key={i} className="text-body text-ink-muted">
               {item}
             </li>
           ))}
@@ -266,13 +270,16 @@ function OutputPreview({ text }: { text: string }) {
         {[format, length, language, tone].filter(Boolean).join(' · ')}
       </p>
       {sections.length > 0 && (
-        <ol className="flex flex-col gap-1">
+        <ol className="flex flex-col gap-1 rounded-control bg-bg-sunken px-3 py-2 font-mono text-caption">
           {sections.map((section, i) => (
             <li key={i} className="flex items-baseline gap-2">
-              <span aria-hidden className="numeral text-caption text-ink-faint">
+              <span aria-hidden className="text-ink-faint tnum">
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span className="text-body-sm text-ink-muted">{section}</span>
+              <span className="text-ink-faint" aria-hidden>
+                ##
+              </span>
+              <span className="text-ink-muted">{section}</span>
             </li>
           ))}
         </ol>
@@ -302,7 +309,7 @@ function ExamplesPreview({ text }: { text: string }) {
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-body-sm text-ink">
+                <p className="truncate text-body text-ink">
                   {item.input || '（无输入）'}
                 </p>
                 <p className="truncate text-caption text-ink-faint">
@@ -318,7 +325,7 @@ function ExamplesPreview({ text }: { text: string }) {
           <p className="text-caption font-medium text-ink">反例</p>
           {negative.slice(0, 2).map((item, i) => (
             <div key={i} className="min-w-0">
-              <p className="truncate text-body-sm text-ink-muted">
+              <p className="truncate text-body text-ink-muted">
                 {item.input || '（无输入）'}
               </p>
               <p className="truncate text-caption text-ink-faint">
@@ -348,7 +355,7 @@ function SelfCheckPreview({ text }: { text: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       {checklist.map((item, i) => (
-        <p key={i} className="flex items-baseline gap-2 text-body-sm text-ink-muted">
+        <p key={i} className="flex items-baseline gap-2 text-body text-ink-muted">
           <span
             aria-hidden
             className="mt-1 size-2.5 shrink-0 rounded-[3px] border border-line-strong"
@@ -390,11 +397,17 @@ export function FieldPreview({ field, index, text }: PreviewProps) {
   }
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <p className="text-caption tracking-[0.08em] text-ink-faint">
-        <span className="numeral">{String(index).padStart(2, '0')}</span>
-        <span className="mx-1.5">·</span>
-        {FIELD_LABELS[field]}
-      </p>
+      <div className="flex items-baseline gap-2">
+        <span className="numeral text-caption text-ink-faint">
+          {String(index).padStart(2, '0')}
+        </span>
+        <span className="text-label font-medium text-ink">
+          {FIELD_LABELS[field]}
+        </span>
+        <span className="ml-auto font-mono text-caption text-ink-faint">
+          {field}
+        </span>
+      </div>
       {node}
     </div>
   )

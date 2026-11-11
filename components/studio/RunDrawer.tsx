@@ -280,7 +280,7 @@ export function RunDrawer({
   return (
     <section
       aria-labelledby="trial-run-heading"
-      className="mt-6 overflow-hidden rounded-panel border border-line bg-surface"
+      className="mt-6 overflow-hidden rounded-panel border border-line bg-surface shadow-sm"
     >
       <div className="border-b border-line-subtle px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

@@ -3,10 +3,11 @@
 import { cn } from '@/lib/utils'
 
 /**
- * 流程时间轴（编辑部 bento，ADR 0004）。
+ * 流程时间轴（DESIGN.md 5.9）。
  *
- * 需求 → 生成 → 试运行 → 评估 → 优化 五个阶段横排在页面顶部，
- * 当前阶段赤陶块加 now 脉冲点，诊断 error 数进当前阶段徽标。
+ * 需求 → 生成 → 试运行 → 评估 → 优化 五个阶段横排在页面顶部：
+ * 已过阶段用凹陷底，当前阶段金色底加 glow 与 now 脉冲点，
+ * 未到阶段用虚线描边。诊断 error 数进当前阶段徽标。
  * 只动 opacity（now-pulse），reduced-motion 下静止。
  */
 
@@ -25,6 +26,8 @@ export interface FlowTimelineProps {
   /** 生成进度：已填充字段数（含流式 pending），仅在生成阶段显示 */
   filledFields?: number
   totalFields?: number
+  /** 各阶段的补充说明，如「6 个假设」「已完成 8 字段」；窄屏隐藏。 */
+  details?: Partial<Record<FlowStage, string>>
   className?: string
 }
 
@@ -44,6 +47,7 @@ export function FlowTimeline({
   errorCount,
   filledFields = 0,
   totalFields = 0,
+  details,
   className,
 }: FlowTimelineProps) {
   const currentIndex = STAGES.findIndex((item) => item.id === stage)
@@ -52,13 +56,14 @@ export function FlowTimeline({
     <nav
       aria-label="流程阶段"
       className={cn(
-        'flex items-stretch gap-0 overflow-hidden rounded-panel border border-line bg-surface',
+        'flex items-stretch gap-0 rounded-panel border border-line bg-surface shadow-sm',
         className,
       )}
     >
       {STAGES.map((item, index) => {
         const done = currentIndex > index
         const current = currentIndex === index
+        const future = !done && !current
         const progressText =
           current &&
           item.id === 'generate' &&
@@ -71,55 +76,69 @@ export function FlowTimeline({
             key={item.id}
             aria-current={current ? 'step' : undefined}
             className={cn(
-              'flex min-w-0 flex-1 items-center gap-2 px-4 py-3',
+              'flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-1.5 py-2.5 sm:px-4 sm:py-3',
+              'first:rounded-l-panel last:rounded-r-panel',
               index > 0 && 'border-l border-line-subtle',
               done && 'bg-bg-sunken',
-              current && 'bg-accent-subtle',
+              current && 'bg-accent text-on-accent shadow-glow',
+              future && 'border-l border-dashed border-line',
             )}
           >
+            <div className="flex min-w-0 items-center justify-center gap-1 sm:justify-start sm:gap-2">
             <span
               aria-hidden
               className={cn(
-                'numeral shrink-0 text-label',
-                done ? 'text-ink-faint' : current ? 'text-accent' : 'text-ink-faint',
+                'numeral hidden shrink-0 text-label sm:inline',
+                current
+                  ? 'text-on-accent/80'
+                  : done
+                    ? 'text-ink-faint'
+                    : 'text-ink-faint',
               )}
             >
               {String(index + 1).padStart(2, '0')}
             </span>
             <span
               className={cn(
-                'truncate text-label',
-                done
-                  ? 'text-ink-muted'
-                  : current
-                    ? 'font-medium text-ink'
+                'truncate text-caption sm:text-label',
+                current
+                  ? 'font-medium text-on-accent'
+                  : done
+                    ? 'text-ink-muted'
                     : 'text-ink-faint',
               )}
             >
               {item.label}
             </span>
             {progressText ? (
-              <span className="text-caption text-ink-muted tnum">
+              <span className="hidden text-caption text-on-accent/80 tnum sm:inline">
                 {progressText}
               </span>
             ) : null}
             {current && errorCount > 0 ? (
               <span
-                className="ml-auto shrink-0 rounded-chip bg-diff-del px-1.5 py-0.5 text-caption text-danger tnum"
+                className="ml-auto shrink-0 rounded-chip bg-tint-red px-1.5 py-0.5 text-caption text-danger tnum"
                 title="诊断有错误级问题"
               >
                 {errorCount}
               </span>
             ) : null}
-            {current ? (
+            {current && errorCount === 0 ? (
               <span
                 aria-hidden
-                className={cn(
-                  'ml-auto size-1.5 shrink-0 rounded-full bg-accent',
-                  errorCount > 0 && 'hidden',
-                  'now-pulse',
-                )}
+                className="ml-auto hidden size-1.5 shrink-0 rounded-full bg-on-accent now-pulse sm:inline-block"
               />
+            ) : null}
+            </div>
+            {details?.[item.id] ? (
+              <span
+                className={cn(
+                  'hidden truncate text-caption sm:block',
+                  current ? 'text-on-accent/80' : 'text-ink-faint',
+                )}
+              >
+                {details[item.id]}
+              </span>
             ) : null}
           </div>
         )

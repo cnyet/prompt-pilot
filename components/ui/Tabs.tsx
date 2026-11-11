@@ -8,6 +8,8 @@ export interface TabItem {
   label: React.ReactNode
   /** 计数用 12px 弱化数字，不抢标签。 */
   count?: React.ReactNode
+  /** 原生 title 提示，用于补充快捷键等信息。 */
+  title?: string
   disabled?: boolean
 }
 
@@ -78,6 +80,7 @@ export function Tabs({
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             disabled={item.disabled}
+            title={item.title}
             onClick={() => activate(item)}
             className={cn(
               '-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-label transition-colors duration-150',

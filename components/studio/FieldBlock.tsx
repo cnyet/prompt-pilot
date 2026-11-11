@@ -169,8 +169,8 @@ export function FieldBlock({
     <section
       id={anchorId}
       className={cn(
-        'group rise scroll-mt-24 py-7',
-        index > 1 && 'border-t border-line-subtle',
+        'group rise scroll-mt-24 rounded-panel border border-line bg-surface px-4 py-4 shadow-sm',
+        'transition-shadow duration-150 focus-within:shadow-glow',
       )}
       aria-labelledby={`${editorId}-title`}
       aria-busy={running}
@@ -198,7 +198,7 @@ export function FieldBlock({
             </span>
             <span
               id={`${editorId}-title`}
-              className="truncate text-body-lg font-medium text-ink"
+              className="truncate text-h3 font-medium text-ink"
             >
               {FIELD_LABELS[field]}
             </span>
@@ -241,7 +241,7 @@ export function FieldBlock({
         </div>
 
         {expanded ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 transition-opacity duration-150 sm:opacity-0 sm:focus-within:opacity-100 sm:group-hover:opacity-100">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="text-caption text-ink-faint">重算</span>
             {FIELD_OPS.map((op) => (
               <button

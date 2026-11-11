@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import { FIELD_KEYS, FIELD_LABELS } from '@/lib/engine/schema'
@@ -17,37 +18,37 @@ const TEMPLATES: readonly {
     label: '通用问答',
     sample: '解释一下什么是向量数据库，面向非技术读者。',
     icon: 'spark',
-    tint: 'bg-tint-butter',
+    tint: 'bg-tint-gold',
   },
   {
     label: '内容创作',
     sample: '帮我写一篇关于远程办公的产品博客。',
     icon: 'studio',
-    tint: 'bg-tint-coral',
+    tint: 'bg-tint-red',
   },
   {
     label: '代码生成',
     sample: '用 TypeScript 写一个解析 CSV 的函数，包含错误处理。',
     icon: 'terminal',
-    tint: 'bg-tint-lavender',
+    tint: 'bg-tint-purple',
   },
   {
     label: '数据分析',
     sample: '分析这份月度销售数据，找出下降原因。',
     icon: 'eval',
-    tint: 'bg-tint-sage',
+    tint: 'bg-tint-green',
   },
   {
     label: '客服对话',
     sample: '把这段客服话术改成更专业的版本。',
     icon: 'library',
-    tint: 'bg-tint-butter',
+    tint: 'bg-tint-gold',
   },
   {
     label: '结构化抽取',
     sample: '从订单邮件里抽取订单号、金额和收货城市。',
     icon: 'template',
-    tint: 'bg-tint-lavender',
+    tint: 'bg-tint-purple',
   },
 ]
 
@@ -107,15 +108,15 @@ export function RequirementInput({
     <div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col justify-center px-6 py-16">
       <div className="mb-8">
         <p className="text-caption text-ink-faint">工作台</p>
-        <h1 className="mt-1.5 text-display font-semibold text-ink">
+        <h1 className="mt-1.5 font-display text-display font-normal text-balance text-ink lg:text-display-lg">
           把一句话变成结构化提示词
         </h1>
-        <p className="mt-2 max-w-[56ch] text-body text-ink-muted">
+        <p className="mt-3 max-w-[56ch] text-balance text-body text-ink-muted">
           先写清要做什么，生成后可以逐字段修改、诊断与试运行。
         </p>
       </div>
 
-      <div className="rounded-panel border border-transparent bg-surface-inset p-4 transition-colors duration-150 focus-within:border-line-strong focus-within:bg-surface focus-within:ring-1 focus-within:ring-accent/20">
+      <div className="rounded-panel border border-line bg-surface p-4 shadow-sm transition-colors duration-150 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/25">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>
@@ -142,7 +143,6 @@ export function RequirementInput({
             </span>
             <Button
               variant="primary"
-              size="sm"
               icon="spark"
               onClick={submit}
               disabled={!canSubmit}
@@ -160,13 +160,19 @@ export function RequirementInput({
             key={template.label}
             type="button"
             onClick={() => applySample(template.sample)}
-            className={cn(
-              'flex items-center gap-1.5 whitespace-nowrap rounded-control px-2.5 py-2 text-left text-caption font-medium text-ink transition-colors duration-150 hover:brightness-[0.97]',
-              template.tint,
-            )}
+            className="group flex flex-col items-start gap-2 rounded-panel border border-line bg-surface px-3 py-3 text-left shadow-sm transition-colors duration-150 hover:border-line-strong hover:bg-surface-raised"
           >
-            <Icon name={template.icon} size={15} className="text-ink-muted" />
-            {template.label}
+            <span
+              className={cn(
+                'flex size-8 items-center justify-center rounded-control text-ink-muted',
+                template.tint,
+              )}
+            >
+              <Icon name={template.icon} size={15} />
+            </span>
+            <span className="text-label font-medium text-ink">
+              {template.label}
+            </span>
           </button>
         ))}
       </div>
@@ -199,27 +205,39 @@ export function RequirementInput({
           </p>
           <ul className="mt-3 flex flex-wrap gap-1.5">
             {FIELD_KEYS.map((field) => (
-              <li
-                key={field}
-                className="rounded-chip bg-bg-sunken px-2 py-1 text-caption text-ink-muted"
-              >
-                {FIELD_LABELS[field]}
+              <li key={field}>
+                <Chip>{FIELD_LABELS[field]}</Chip>
               </li>
             ))}
           </ul>
         </div>
       </div>
 
-      <p className="mt-8 text-caption text-ink-faint">
-        {model.status === 'loading'
-          ? '正在确认模型可用性。'
-          : model.status === 'available'
-            ? model.providerId === 'mock'
-              ? '离线模板模式：生成使用本地模板，试运行使用本地 Mock 模型。配置 ARK_API_KEY 后可用真实模型。'
-              : `当前模型：${model.modelLabel ?? '可用模型'}。生成仍可使用离线模板兜底。`
-            : model.status === 'error'
-              ? '无法确认模型状态。生成、编辑与导出仍可用，试运行可能不可用。'
-              : '当前为离线模板模式。生成、编辑与导出可用，试运行需要先配置 ARK_API_KEY。'}
+      <p className="mt-8 flex items-start gap-2 text-caption text-ink-faint">
+        <span
+          aria-hidden
+          className={cn(
+            'mt-1 size-1.5 shrink-0 rounded-full',
+            model.status === 'available'
+              ? model.providerId === 'mock'
+                ? 'bg-warning'
+                : 'bg-success'
+              : model.status === 'error'
+                ? 'bg-danger'
+                : 'bg-ink-faint',
+          )}
+        />
+        <span>
+          {model.status === 'loading'
+            ? '正在确认模型可用性。'
+            : model.status === 'available'
+              ? model.providerId === 'mock'
+                ? '离线模板模式：生成使用本地模板，试运行使用本地 Mock 模型。配置 ARK_API_KEY 后可用真实模型。'
+                : `当前模型：${model.modelLabel ?? '可用模型'}。生成仍可使用离线模板兜底。`
+              : model.status === 'error'
+                ? '无法确认模型状态。生成、编辑与导出仍可用，试运行可能不可用。'
+                : '当前为离线模板模式。生成、编辑与导出可用，试运行需要先配置 ARK_API_KEY。'}
+        </span>
       </p>
     </div>
   )

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { FieldKey } from '@/lib/engine/schema'
 import type { LintIssue, LintLevel } from '@/lib/engine/lint/engine'
 import { Button, IconButton } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import {
@@ -24,17 +25,17 @@ const LEVEL_META: Readonly<
   error: {
     label: '错误',
     countClass: 'border-danger text-danger',
-    headerClass: 'bg-tint-coral',
+    headerClass: 'bg-tint-red',
   },
   warn: {
     label: '警告',
     countClass: 'border-warning text-warning',
-    headerClass: 'bg-tint-butter',
+    headerClass: 'bg-tint-gold',
   },
   info: {
     label: '提示',
     countClass: 'border-line text-ink-muted',
-    headerClass: 'bg-tint-lavender',
+    headerClass: 'bg-tint-purple',
   },
 }
 
@@ -58,11 +59,12 @@ export interface DiagnosticsPanelProps {
 }
 
 /**
- * 右栏诊断面板。
+ * 底部诊断 dock（ADR-0004）。
  *
- * 分组顺序固定为 error、warn、info，计数徽标在存在 error 时切到 danger 色。
- * 每条问题展示级别、规则编号、位置、原因与建议，点击正文跳到字段并选中命中词。
- * 修复分单项与全部两种；目标字段被手改过时，单项修复先展开二次确认。
+ * 分组顺序固定为 error、warn、info，宽屏三栏并排、窄屏堆叠；
+ * 每栏保留自己的语义底色标题。每条问题展示级别、规则编号、位置、
+ * 原因与建议，点击正文跳到字段并选中命中词。修复分单项与全部两种；
+ * 目标字段被手改过时，单项修复先展开二次确认。
  */
 export function DiagnosticsPanel({
   groups,
@@ -96,80 +98,67 @@ export function DiagnosticsPanel({
   return (
     <section
       aria-label="诊断面板"
-      className="flex min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-surface"
+      className="flex min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-surface shadow-sm"
       aria-busy={busy}
     >
-      <header className="border-b border-line-subtle px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-label font-medium text-ink">诊断</h2>
-              <span
-                className={cn(
-                  'rounded-chip px-1.5 py-0.5 text-caption tnum',
-                  summary.hasError
-                    ? 'bg-diff-del text-danger'
-                    : 'bg-bg-sunken text-ink-muted',
-                )}
-                title={
-                  summary.hasError ? '存在必须处理的问题' : '当前没有错误级问题'
+      <header className="border-b border-line-subtle px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h2 className="font-display text-h3 font-semibold text-ink">诊断</h2>
+          {summary.total === 0 ? (
+            <Chip tone="success">没有发现问题</Chip>
+          ) : (
+            LEVEL_ORDER.filter((level) => summary[level] > 0).map((level) => (
+              <Chip
+                key={level}
+                tone={
+                  level === 'error'
+                    ? 'error'
+                    : level === 'warn'
+                      ? 'warning'
+                      : 'info'
                 }
               >
-                {summary.total} 条
-              </span>
-            </div>
-            <p className="mt-0.5 text-caption text-ink-faint">
-              本地规则检查，输入停顿后刷新 · ⌘J 开关
-            </p>
-          </div>
-          <IconButton
-            icon="panel"
-            label="收起诊断面板"
-            onClick={onCollapse}
-            size="sm"
-            className="-mr-1 -mt-1"
-          />
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {LEVEL_ORDER.map((level) => (
-            <span
-              key={level}
-              className={cn(
-                'text-caption tnum',
-                summary[level] > 0
-                  ? LINT_LEVEL_TEXT_CLASS[level]
-                  : 'text-ink-faint',
-              )}
-            >
-              {LEVEL_META[level].label} {summary[level]}
-            </span>
-          ))}
-        </div>
-      </header>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-3 py-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon="wand"
-          onClick={onFixAll}
-          disabled={busy || fixableCount === 0}
-          title={
-            fixableCount === 0
-              ? '没有可自动修复的问题'
-              : '批量修复所有未手改字段里的可修复问题'
-          }
-        >
-          全部修复
-          {fixableCount > 0 ? `（${fixableCount}）` : ''}
-        </Button>
-        {skippedIssueCount > 0 ? (
-          <span className="text-caption text-warning tnum">
-            {skippedIssueCount} 条在手改字段里，需单条确认
+                {LEVEL_META[level].label} {summary[level]}
+              </Chip>
+            ))
+          )}
+          <span className="text-caption text-ink-faint">
+            16 条本地规则 · 零 token
           </span>
-        ) : null}
-      </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="wand"
+              onClick={onFixAll}
+              disabled={busy || fixableCount === 0}
+              title={
+                fixableCount === 0
+                  ? '没有可自动修复的问题'
+                  : '批量修复所有未手改字段里的可修复问题'
+              }
+            >
+              全部修复
+              {fixableCount > 0 ? `（${fixableCount}）` : ''}
+            </Button>
+            <IconButton
+              icon="panel"
+              label="收起诊断面板"
+              onClick={onCollapse}
+              size="sm"
+              className="-mr-1"
+            />
+          </div>
+        </div>
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-caption text-ink-faint">
+          <span>输入停顿后自动刷新 · ⌘J 开关</span>
+          {skippedIssueCount > 0 ? (
+            <span className="text-warning tnum">
+              {skippedIssueCount} 条在手改字段里，需单条确认
+            </span>
+          ) : null}
+        </p>
+      </header>
 
       {notice ? (
         <p
@@ -180,10 +169,16 @@ export function DiagnosticsPanel({
         </p>
       ) : null}
 
-      <div className="max-h-[min(40vh,480px)] min-h-0 flex-1 overflow-auto">
+      <div
+        className={cn(
+          'max-h-[min(40vh,480px)] min-h-0 flex-1 overflow-auto',
+          summary.total > 0 &&
+            'xl:grid xl:grid-cols-[repeat(auto-fit,minmax(0,1fr))] xl:items-start',
+        )}
+      >
         {summary.total === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-            <span className="flex size-10 items-center justify-center rounded-full bg-tint-sage text-ink-muted">
+            <span className="flex size-10 items-center justify-center rounded-full bg-tint-green text-ink-muted">
               <Icon name="alert" size={18} />
             </span>
             <p className="text-body text-ink">没有发现问题</p>
@@ -199,7 +194,11 @@ export function DiagnosticsPanel({
             }
             const meta = LEVEL_META[level]
             return (
-              <section key={level} aria-label={`${meta.label}问题`}>
+              <section
+                key={level}
+                aria-label={`${meta.label}问题`}
+                className="min-w-0 border-line-subtle xl:border-r xl:last:border-r-0"
+              >
                 <h3
                   className={cn(
                     'flex items-center justify-between border-b border-line-subtle px-3 py-2',
@@ -283,26 +282,30 @@ export function DiagnosticsPanel({
                             </span>
                           </button>
 
-                          <div className="flex shrink-0 flex-col items-end gap-1 py-2 pr-2 opacity-0 transition-opacity duration-150 pointer-events-none focus-within:pointer-events-auto focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
+                          <div className="flex shrink-0 flex-col items-end gap-0.5 py-1.5 pr-1">
                             {canFix ? (
-                              <IconButton
-                                icon="wand"
-                                label={`修复 ${issue.ruleId}`}
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleFixClick(issue)}
                                 disabled={busy}
-                                size="sm"
-                              />
+                                aria-label={`修复 ${issue.ruleId}`}
+                              >
+                                修复
+                              </Button>
                             ) : (
-                              <span className="px-1 text-caption text-ink-faint">
+                              <span className="px-2 py-1 text-caption text-ink-faint">
                                 手动
                               </span>
                             )}
-                            <IconButton
-                              icon="eye-off"
-                              label={`忽略 ${issue.ruleId}`}
-                              onClick={() => onIgnore(issue)}
+                            <Button
+                              variant="ghost"
                               size="sm"
-                            />
+                              onClick={() => onIgnore(issue)}
+                              aria-label={`忽略 ${issue.ruleId}`}
+                            >
+                              忽略
+                            </Button>
                           </div>
                         </div>
 
