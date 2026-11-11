@@ -170,6 +170,19 @@
 
 ### Carry-over
 - [ ] 真实 ARK 密钥端到端验证（usage 落库、reasoning_content、错误码映射、评委 verdict 稳定性）。
-- [ ] 模板「用它开始」仍为禁用态，需接工作台预填。
 - [ ] 已知缺口：FR-6.4 盲评的位置随机化与双向交换尚未实现。
 - [ ] `.claude/harness.json`、`.claude/settings.json` 本地修改不入库。
+
+## 2026-11-11（模板入口接通工作台）
+
+### Completed
+- [x] `3dae599`：模板页「用它开始」从禁用态改为 `/studio?template=<id>`；工作台按查询参数预填示例需求，光标置末；未知 id 静默忽略；示例只作首次初值，生成后「重新开始」恢复空输入。
+
+### Key Decisions
+- 场景模板抽到 `lib/templates.ts`，模板页与工作台入口共用一份定义 | Reason: 原先两处各自维护名称/示例，容易漂移。
+- 用 server component 读 `searchParams` 再以 prop 下发，不用 `useSearchParams` | Reason: 避免给 `/studio` 增加 Suspense 边界。
+- 预填只在首次进入生效（父组件 mount 后清空 seed） | Reason: 「重新开始」应回到空态，而不是再次塞入模板示例。
+
+### Verification
+- `pnpm run typecheck` ✓；`pnpm test` 496/496 ✓；harness check 全 pass。
+- CDP 实测：6 个入口 href 正确且均非 disabled；`template=content` 预填文案与光标位置正确；未知 id 输入框为空且无错误遮罩；生成完成后「重新开始」输入框为空。
