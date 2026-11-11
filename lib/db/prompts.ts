@@ -141,6 +141,7 @@ export interface UpdatePromptMetaInput {
   title?: string
   description?: string | null
   tags?: string
+  favorite?: boolean
 }
 
 export interface ListPromptsInput {
@@ -688,6 +689,9 @@ export async function updatePromptMeta(
   }
   if (input.tags !== undefined) {
     data.tags = input.tags.trim()
+  }
+  if (input.favorite !== undefined) {
+    data.favorite = input.favorite
   }
   if (Object.keys(data).length === 0) {
     throw new PromptStoreError('INVALID_INPUT', 400, '没有需要更新的内容。')

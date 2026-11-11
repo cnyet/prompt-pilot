@@ -32,6 +32,7 @@ const patchRequestSchema = z.object({
   title: z.string().trim().min(1, '标题不能为空。').max(120).optional(),
   description: z.string().trim().max(1_000).nullable().optional(),
   tags: z.string().trim().max(200).optional(),
+  favorite: z.boolean().optional(),
   versionNo: z.number().int().optional(),
   version: versionPayloadSchema.optional(),
 })
@@ -194,6 +195,9 @@ export async function PATCH(
   }
   if (body.tags !== undefined) {
     meta.tags = body.tags
+  }
+  if (body.favorite !== undefined) {
+    meta.favorite = body.favorite
   }
   const hasMetaUpdate = Object.keys(meta).length > 0
 

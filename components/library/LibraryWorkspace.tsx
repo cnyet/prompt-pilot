@@ -155,6 +155,9 @@ export function LibraryWorkspace() {
   const [notice, setNotice] = useState('')
   const [rollbackState, setRollbackState] = useState<'idle' | 'rolling'>('idle')
   const [rollbackError, setRollbackError] = useState('')
+  const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null)
+  const [favoriteError, setFavoriteError] = useState('')
 
   const detailRequestRef = useRef(0)
 
@@ -419,10 +422,63 @@ export function LibraryWorkspace() {
     }
   }, [detail, selectedVersion, rollbackState])
 
-  const showEmptyLibrary =
-    listState === 'ready' && prompts.length === 0 && activeQuery.length === 0
-  const showEmptySearch =
-    listState === 'ready' && prompts.length === 0 && activeQuery.length > 0
+  const toggleFavorite = useCallback(
+    async (promptId: string, favorite: boolean) => {
+      if (favoriteBusyId !== null) {
+        return
+      }
+      setFavoriteBusyId(promptId)
+      setFavoriteError('')
+      setPrompts((list) =>
+        list.map((item) =>
+          item.id === promptId ? { ...item, favorite } : item,
+        ),
+      )
+      setDetail((current) =>
+        current && current.id === promptId ? { ...current, favorite } : current,
+      )
+      try {
+        const payload = await requestJson(`/api/prompts/${promptId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ favorite }),
+        })
+        const updated = readDetailPayload(payload)
+        if (!updated) {
+          throw new Error('收藏状态返回的数据格式不正确。')
+        }
+        setPrompts((list) =>
+          list.map((item) =>
+            item.id === promptId
+              ? { ...item, favorite: updated.favorite }
+              : item,
+          ),
+        )
+        setDetail((current) =>
+          current && current.id === promptId
+            ? { ...current, favorite: updated.favorite }
+            : current,
+        )
+      } catch (error) {
+        setPrompts((list) =>
+          list.map((item) =>
+            item.id === promptId ? { ...item, favorite: !favorite } : item,
+          ),
+        )
+        setDetail((current) =>
+          current && current.id === promptId
+            ? { ...current, favorite: !favorite }
+            : current,
+        )
+        setFavoriteError(
+          error instanceof Error ? error.message : '更新收藏失败，请稍后重试。',
+        )
+      } finally {
+        setFavoriteBusyId(null)
+      }
+    },
+    [favoriteBusyId],
+  )
 
   const versionTotal = prompts.reduce(
     (sum, prompt) => sum + prompt.versionCount,
@@ -432,8 +488,11 @@ export function LibraryWorkspace() {
   const recentTotal = prompts.filter(
     (prompt) => Date.parse(prompt.updatedAt) >= weekAgo,
   ).length
+  const favoriteTotal = prompts.filter((prompt) => prompt.favorite).length
   const sortedPrompts = useMemo(() => {
-    const list = [...prompts]
+    const list = favoriteOnly
+      ? prompts.filter((prompt) => prompt.favorite)
+      : [...prompts]
     if (sort === 'versions') {
       list.sort(
         (a, b) =>
@@ -446,7 +505,17 @@ export function LibraryWorkspace() {
       list.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     }
     return list
-  }, [prompts, sort])
+  }, [prompts, sort, favoriteOnly])
+
+  const showEmptyLibrary =
+    listState === 'ready' && prompts.length === 0 && activeQuery.length === 0
+  const showEmptySearch =
+    listState === 'ready' && prompts.length === 0 && activeQuery.length > 0
+  const showEmptyFavorites =
+    listState === 'ready' &&
+    favoriteOnly &&
+    prompts.length > 0 &&
+    sortedPrompts.length === 0
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-6 py-8 lg:px-10">
@@ -504,6 +573,23 @@ export function LibraryWorkspace() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          aria-pressed={favoriteOnly}
+          onClick={() => setFavoriteOnly((value) => !value)}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-control px-2 py-1 text-caption transition-colors duration-150',
+            favoriteOnly
+              ? 'bg-bg-sunken font-medium text-ink'
+              : 'text-ink-muted hover:text-ink',
+          )}
+        >
+          <Icon name="bookmark" size={13} />
+          只看收藏
+          {favoriteTotal > 0 ? (
+            <span className="text-ink-faint tnum">{favoriteTotal}</span>
+          ) : null}
+        </button>
         <span
           className="ml-auto text-caption text-ink-faint tnum"
           aria-live="polite"
@@ -511,6 +597,8 @@ export function LibraryWorkspace() {
           {listState === 'ready'
             ? activeQuery.length > 0
               ? `${total} 条匹配「${activeQuery}」`
+              : favoriteOnly
+                ? `${sortedPrompts.length} 条收藏 · 共 ${total} 条`
               : `${total} 条 · ${versionTotal} 个版本 · 近七天更新 ${recentTotal} 条`
             : listState === 'loading'
               ? '正在读取提示词库'
@@ -533,6 +621,11 @@ export function LibraryWorkspace() {
         )}
       >
         <section aria-label="提示词列表" className="min-w-0">
+          {favoriteError ? (
+            <p role="alert" className="mb-3 text-caption text-danger">
+              {favoriteError}
+            </p>
+          ) : null}
           {listState === 'loading' ? (
             <div className="rounded-panel border border-line-subtle bg-surface p-6">
               <p className="text-body text-ink-muted">正在读取提示词库。</p>
@@ -576,6 +669,37 @@ export function LibraryWorkspace() {
                 }
               />
             </div>
+          ) : showEmptyFavorites ? (
+            <div className="rounded-panel border border-line-subtle bg-surface">
+              <EmptyState
+                icon="bookmark"
+                title="收藏为空"
+                hint={
+                  activeQuery.length > 0
+                    ? `「${activeQuery}」的搜索结果里没有收藏的提示词。清空搜索，或者取消收藏筛选查看全部。`
+                    : '点列表行右侧的书签图标即可收藏。收藏状态会写入本地库，下次打开仍在。'
+                }
+                action={
+                  activeQuery.length > 0 ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setQuery('')}
+                    >
+                      清空搜索
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setFavoriteOnly(false)}
+                    >
+                      看全部提示词
+                    </Button>
+                  )
+                }
+              />
+            </div>
           ) : (
             <ul className="divide-y divide-line-subtle rounded-panel border border-line-subtle bg-surface">
               {sortedPrompts.map((prompt) => {
@@ -586,13 +710,13 @@ export function LibraryWorkspace() {
                   prompt.preview?.replace(/^#+\s*/, '') ||
                   ''
                 return (
-                  <li key={prompt.id}>
+                  <li key={prompt.id} className="flex items-stretch">
                     <button
                       type="button"
                       onClick={() => openPrompt(prompt.id)}
                       aria-current={active ? 'true' : undefined}
                       className={cn(
-                        'rise grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 px-4 py-4 text-left transition-colors duration-150 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem]',
+                        'rise grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 px-4 py-4 text-left transition-colors duration-150 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem]',
                         active
                           ? 'bg-accent-subtle shadow-[inset_0_2px_0_var(--accent)]'
                           : 'hover:bg-bg-sunken',
@@ -647,6 +771,28 @@ export function LibraryWorkspace() {
                         </span>
                       </span>
                     </button>
+                    <div className="flex items-center border-l border-line-subtle px-1.5">
+                      <IconButton
+                        icon="bookmark"
+                        label={
+                          prompt.favorite
+                            ? `取消收藏「${prompt.title}」`
+                            : `收藏「${prompt.title}」`
+                        }
+                        size="sm"
+                        aria-pressed={prompt.favorite}
+                        disabled={favoriteBusyId === prompt.id}
+                        className={cn(
+                          'shrink-0',
+                          prompt.favorite
+                            ? 'text-accent [&_svg]:fill-current'
+                            : 'text-ink-faint',
+                        )}
+                        onClick={() =>
+                          void toggleFavorite(prompt.id, !prompt.favorite)
+                        }
+                      />
+                    </div>
                   </li>
                 )
               })}

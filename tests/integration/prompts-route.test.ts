@@ -411,6 +411,31 @@ describe('输入校验与不存在', () => {
   })
 })
 
+describe('收藏状态', () => {
+  it('收藏与取消收藏写回详情和列表，不影响版本', async () => {
+    const title = `收藏-${randomUUID().slice(0, 8)}`
+    const prompt = await createPrompt(title)
+    expect(prompt.favorite).toBe(false)
+
+    const favorited = await patchPrompt(prompt.id, { favorite: true })
+    expect(favorited.status).toBe(200)
+    const favoritedBody = (await favorited.json()) as PromptResponse
+    expect(favoritedBody.prompt.favorite).toBe(true)
+    expect(favoritedBody.prompt.versionCount).toBe(1)
+
+    const listed = await listPromptsRoute(
+      request('GET', `http://localhost/api/prompts?q=${encodeURIComponent(title)}`),
+    )
+    const listedBody = (await listed.json()) as ListResponse
+    expect(listedBody.prompts[0]?.favorite).toBe(true)
+
+    const unfavorited = await patchPrompt(prompt.id, { favorite: false })
+    const unfavoritedBody = (await unfavorited.json()) as PromptResponse
+    expect(unfavoritedBody.prompt.favorite).toBe(false)
+    expect(unfavoritedBody.prompt.versionCount).toBe(1)
+  })
+})
+
 describe('列表项形状', () => {
   it('列表项只暴露摘要，不携带完整正文', async () => {
     const title = `摘要形状-${randomUUID().slice(0, 8)}`
