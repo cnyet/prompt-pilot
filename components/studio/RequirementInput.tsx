@@ -3,54 +3,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
-import { Icon, type IconName } from '@/components/ui/Icon'
+import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/utils'
 import { FIELD_KEYS, FIELD_LABELS } from '@/lib/engine/schema'
+import { SCENE_TEMPLATES } from '@/lib/templates'
 import { useModelStatus } from './modelStatus'
-
-const TEMPLATES: readonly {
-  label: string
-  sample: string
-  icon: IconName
-  tint: string
-}[] = [
-  {
-    label: '通用问答',
-    sample: '解释一下什么是向量数据库，面向非技术读者。',
-    icon: 'spark',
-    tint: 'bg-tint-gold',
-  },
-  {
-    label: '内容创作',
-    sample: '帮我写一篇关于远程办公的产品博客。',
-    icon: 'studio',
-    tint: 'bg-tint-red',
-  },
-  {
-    label: '代码生成',
-    sample: '用 TypeScript 写一个解析 CSV 的函数，包含错误处理。',
-    icon: 'terminal',
-    tint: 'bg-tint-purple',
-  },
-  {
-    label: '数据分析',
-    sample: '分析这份月度销售数据，找出下降原因。',
-    icon: 'eval',
-    tint: 'bg-tint-green',
-  },
-  {
-    label: '客服对话',
-    sample: '把这段客服话术改成更专业的版本。',
-    icon: 'library',
-    tint: 'bg-tint-gold',
-  },
-  {
-    label: '结构化抽取',
-    sample: '从订单邮件里抽取订单号、金额和收货城市。',
-    icon: 'template',
-    tint: 'bg-tint-purple',
-  },
-]
 
 const EXAMPLES: readonly string[] = [
   '帮我写个周报',
@@ -127,22 +84,22 @@ export function RequirementInput({
         </p>
       </div>
 
-      <div className="rounded-panel border border-line bg-surface p-4 shadow-sm transition-colors duration-150 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/25">
+      <div className="rounded-panel border border-line bg-surface p-4 shadow-sm transition-colors duration-150 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/25 sm:p-5">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>
         <textarea
           id="requirement"
           ref={textareaRef}
-          rows={4}
+          rows={7}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="用一句话说清你要做什么，也可以直接粘贴一份已有的提示词。"
           aria-describedby="requirement-hint"
-          className="h-24 w-full resize-none bg-transparent text-body-lg text-ink placeholder:text-ink-faint focus:outline-none"
+          className="min-h-[184px] w-full resize-y bg-transparent text-body-lg text-ink placeholder:text-ink-faint focus:outline-none lg:min-h-[240px]"
         />
-        <div className="mt-2 flex items-center justify-between gap-4">
+        <div className="mt-3 flex items-center justify-between gap-4">
           <p id="requirement-hint" className="text-caption text-ink-faint">
             {improveMode
               ? '改进模式：长文本会按已有内容优化'
@@ -165,10 +122,10 @@ export function RequirementInput({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {TEMPLATES.map((template) => (
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+        {SCENE_TEMPLATES.map((template) => (
           <button
-            key={template.label}
+            key={template.id}
             type="button"
             onClick={() => applySample(template.sample)}
             className="group flex flex-col items-start gap-2 rounded-panel border border-line bg-surface px-3 py-3 text-left shadow-sm transition-colors duration-150 hover:border-line-strong hover:bg-surface-raised"
@@ -182,7 +139,7 @@ export function RequirementInput({
               <Icon name={template.icon} size={15} />
             </span>
             <span className="text-label font-medium text-ink">
-              {template.label}
+              {template.name}
             </span>
           </button>
         ))}

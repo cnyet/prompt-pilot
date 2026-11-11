@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 
+import { BrandMark } from '@/components/brand/BrandMark'
 import { ModelStatusBadge } from '@/components/studio/modelStatus'
 import { CommandPalette } from './CommandPalette'
 import { IconButton } from '@/components/ui/Button'
@@ -118,12 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             expanded ? 'gap-2.5 px-3' : 'justify-center px-0',
           )}
         >
-          <span
-            aria-hidden
-            className="grid size-10 shrink-0 place-items-center rounded-control border border-accent bg-surface text-caption font-semibold text-accent shadow-sm"
-          >
-            PP
-          </span>
+          <BrandMark size={40} className="text-accent" />
           {expanded ? (
             <span className="truncate text-label font-medium text-ink">
               PromptPilot
@@ -216,7 +212,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <main className="min-h-0 flex-1 overflow-auto">
+          <div className="flex min-h-full flex-col">
+            <div className="flex-1">{children}</div>
+            <footer className="border-t border-line-subtle px-6 py-4 text-caption text-ink-faint lg:px-8">
+              © 2026 PromptPilot · 本地优先的提示词工坊
+            </footer>
+          </div>
+        </main>
         <CommandPalette onToggleTheme={toggleTheme} />
       </div>
     </div>

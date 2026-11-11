@@ -20,9 +20,20 @@ import type { LLMProvider } from './types'
  * 有 ARK_API_KEY 时生成走方舟，没有时由路由继续走离线 heuristic composer。
  */
 
-export const ARK_DEFAULT_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
-export const DEFAULT_GENERATE_MODEL_ID = 'doubao-seed-2-1-pro-260915'
-export const DEFAULT_EVALUATE_MODEL_ID = 'doubao-seed-2-1-lite-260915'
+/** 默认走 OpenAI 兼容网关；部署在火山方舟时用 ARK_BASE_URL 覆盖回方舟数据面。 */
+export const ARK_DEFAULT_BASE_URL = 'https://opencode.ai/inference/go'
+export const DEFAULT_GENERATE_MODEL_ID = 'deepseek-v4.1-flash'
+export const DEFAULT_EVALUATE_MODEL_ID = 'gpt-5.6-luna'
+
+/** 模型 ID 到界面显示名的映射；未知 ID 原样显示。 */
+export const MODEL_DISPLAY_LABELS: Readonly<Record<string, string>> = {
+  'deepseek-v4.1-flash': 'DeepSeek V4.1 Flash',
+  'gpt-5.6-luna': 'GPT 5.6 Luna',
+}
+
+export function modelDisplayLabel(modelId: string): string {
+  return MODEL_DISPLAY_LABELS[modelId] ?? modelId
+}
 export const DEFAULT_GENERATE_MODEL_CONFIG_ID = 'ark-generate'
 export const DEFAULT_EVALUATE_MODEL_CONFIG_ID = 'ark-evaluate'
 
@@ -125,7 +136,7 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
     return {
       id,
       label,
-      provider: 'ark',
+      provider: 'openai_compatible',
       baseUrl,
       modelId,
       apiKeyEnvVar: 'ARK_API_KEY',
@@ -144,14 +155,14 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
       DEFAULT_GENERATE_MODEL_CONFIG_ID,
       'generate',
       generateModel,
-      `方舟生成模型 · ${generateModel}`,
+      `生成模型 · ${modelDisplayLabel(generateModel)}`,
       true,
     ),
     makeConfig(
       DEFAULT_EVALUATE_MODEL_CONFIG_ID,
       'evaluate',
       evaluateModel,
-      `方舟评估模型 · ${evaluateModel}`,
+      `评估模型 · ${modelDisplayLabel(evaluateModel)}`,
       false,
     ),
     {

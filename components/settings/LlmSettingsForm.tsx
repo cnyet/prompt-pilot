@@ -100,7 +100,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           ok = false
         }
         if (!ok) {
-          next.baseUrl = '填完整的 http(s) 地址，例如 https://ark.cn-beijing.volces.com/api/v3。'
+          next.baseUrl = '填完整的 http(s) 地址，例如 https://opencode.ai/inference/go。'
         }
       }
     }
@@ -256,7 +256,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
             autoComplete="off"
             value={values.apiKey}
             placeholder={
-              view.apiKey.configured ? '已配置，留空则不修改' : '粘贴 ARK API Key'
+              view.apiKey.configured ? '已配置，留空则不修改' : '粘贴 API Key'
             }
             onChange={(event) => {
               markTouched('apiKey')
@@ -269,7 +269,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         {field(
           'baseUrl',
           '数据面端点',
-          '方舟默认端点。使用自定义网关或代理时改这里，必须是 http(s) 完整地址。',
+          '默认走 opencode 推理网关。换成方舟、代理或自建网关时改这里，必须是 http(s) 完整地址。',
           view.baseUrl.source,
           <input
             id="setting-baseUrl"

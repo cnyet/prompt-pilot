@@ -197,7 +197,7 @@ function assertBaseUrl(value: string): void {
     throw new SettingsError(
       'INVALID_BASE_URL',
       400,
-      '端点必须是完整的 http(s) 地址，例如 https://ark.cn-beijing.volces.com/api/v3。',
+      '端点必须是完整的 http(s) 地址，例如 https://opencode.ai/inference/go。',
     )
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {

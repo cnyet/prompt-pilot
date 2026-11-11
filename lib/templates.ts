@@ -18,11 +18,21 @@ export interface SceneTemplate {
 
 export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   {
+    id: 'expand',
+    name: '一句话扩写',
+    note: '主路径：任意一句话需求，直接补成八字段标准提示词',
+    sample: '帮我写个周报',
+    icon: 'spark',
+    tint: 'bg-tint-gold',
+    iconBox: 'size-16',
+    featured: true,
+  },
+  {
     id: 'general-qa',
     name: '通用问答',
     note: '需要明确受众与答案粒度，避免泛泛而谈',
     sample: '解释一下什么是向量数据库，面向非技术读者。',
-    icon: 'spark',
+    icon: 'search',
     tint: 'bg-tint-gold',
     iconBox: 'size-10',
   },
@@ -34,7 +44,6 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     icon: 'studio',
     tint: 'bg-tint-red',
     iconBox: 'size-16',
-    featured: true,
   },
   {
     id: 'code',

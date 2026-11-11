@@ -5,6 +5,7 @@ import { renderFieldText } from '@/lib/engine/render'
 import { FIELD_KEYS, type FieldKey } from '@/lib/engine/schema'
 import { parseSseStream, type SseMessage } from '@/lib/engine/sse'
 import { MockProvider } from '@/lib/llm/mock'
+import { DEFAULT_GENERATE_MODEL_ID } from '@/lib/llm/registry'
 import type { ChatChunk, LLMProvider } from '@/lib/llm/types'
 
 /**
@@ -180,7 +181,7 @@ describe('有 provider 时的真流式与用量透传', () => {
       expect(usage.data.cachedTokens).toBe(10)
       expect(usage.data.reasoningTokens).toBe(30)
       expect(usage.data.costCny).toBe(0.0123)
-      expect(usage.data.model).toBe('doubao-seed-2-1-pro-260915')
+      expect(usage.data.model).toBe(DEFAULT_GENERATE_MODEL_ID)
     }
 
     // 思维链不能出现在任何 delta 里。

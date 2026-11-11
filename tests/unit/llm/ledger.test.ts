@@ -527,6 +527,39 @@ describe('聚合', () => {
     expect(summary.byModel[0]?.key).toBe(PRO_MODEL)
   })
 
+  it('近 14 天按上海时区切日，未知金额不计入当日金额', () => {
+    const base = {
+      stage: 'compose',
+      modelId: 'mock',
+      status: 'succeeded',
+      tokensIn: 10,
+      tokensOut: 5,
+      cachedTokens: null,
+      reasoningTokens: null,
+    }
+    const summary = summarizeCalls(
+      [
+        { ...base, costCny: 0.02, createdAt: '2026-11-11T02:00:00Z' },
+        { ...base, costCny: null, createdAt: '2026-11-10T20:00:00Z' },
+        { ...base, costCny: 0.5, createdAt: '2026-10-01T02:00:00Z' },
+      ],
+      new Date('2026-11-11T04:00:00Z'),
+    )
+
+    expect(summary.daily).toHaveLength(14)
+    const today = summary.daily[summary.daily.length - 1]
+    expect(today?.date).toBe('2026-11-11')
+    expect(today?.calls).toBe(2)
+    expect(today?.knownCostCalls).toBe(1)
+    expect(today?.unknownCostCalls).toBe(1)
+    expect(today?.costCny).toBe(0.02)
+    expect(summary.daily.find((day) => day.date === '2026-11-10')?.calls).toBe(0)
+    expect(summary.daily.some((day) => day.date === '2026-10-01')).toBe(false)
+    // 总额仍统计窗口外的历史调用。
+    expect(summary.total.calls).toBe(3)
+    expect(summary.total.costCny).toBe(0.52)
+  })
+
   it('空账本不伪造金额，缓存命中率为未知', () => {
     const summary = summarizeCalls([])
     expect(summary.total.calls).toBe(0)

@@ -10,6 +10,7 @@ import {
   isEndpointId,
   isValidArkModel,
   listModelConfigs,
+  modelDisplayLabel,
   resolveProvider,
 } from '@/lib/llm/registry'
 
@@ -21,20 +22,23 @@ describe('模型注册表与 provider 选择', () => {
     expect(getGenerateProvider({ ARK_API_KEY: '   ' })).toBeNull()
   })
 
-  it('有 ARK_API_KEY 时生成 provider 指向方舟', () => {
+  it('有 ARK_API_KEY 时生成 provider 指向默认网关', () => {
     const provider = getGenerateProvider(withKey)
     expect(provider).not.toBeNull()
     expect(provider?.id).toBe('ark-generate')
-    expect(provider?.label).toContain(DEFAULT_GENERATE_MODEL_ID)
+    expect(provider?.label).toContain(modelDisplayLabel(DEFAULT_GENERATE_MODEL_ID))
   })
 
-  it('默认生成用 pro，评估用 lite', () => {
+  it('默认生成与评估使用不同模型', () => {
     const configs = listModelConfigs(withKey)
     expect(configs.find((config) => config.id === 'ark-generate')?.modelId).toBe(
       DEFAULT_GENERATE_MODEL_ID,
     )
     expect(configs.find((config) => config.id === 'ark-evaluate')?.modelId).toBe(
       DEFAULT_EVALUATE_MODEL_ID,
+    )
+    expect(configs.find((config) => config.id === 'ark-generate')?.baseUrl).toBe(
+      'https://opencode.ai/inference/go',
     )
     expect(getDefaultModelConfig('generate', withKey)?.id).toBe('ark-generate')
     expect(getDefaultModelConfig('evaluate', withKey)?.id).toBe('ark-evaluate')
@@ -78,7 +82,10 @@ describe('模型注册表与 provider 选择', () => {
   })
 
   it('已知 Model ID 带价格与上下文窗口', () => {
-    const config = getModelConfig('ark-generate', withKey)
+    const config = getModelConfig('ark-generate', {
+      ...withKey,
+      ARK_MODEL_GENERATE: 'doubao-seed-2-1-pro-260915',
+    })
     expect(config?.pricing?.inputCnyPerMillion).toBe(6)
     expect(config?.pricing?.outputCnyPerMillion).toBe(30)
     expect(config?.contextWindow).toBe(1_048_576)

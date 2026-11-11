@@ -688,6 +688,8 @@ export interface LlmCallStatsRow {
   cachedTokens: number | null
   reasoningTokens: number | null
   costCny: number | null
+  /** 聚合趋势图用；纯函数测试可以不传。 */
+  createdAt?: Date | string | null
 }
 
 export interface CostBucket {
@@ -713,10 +715,26 @@ export interface CostBucket {
   cacheHitRate: number | null
 }
 
+/** 趋势图的一天。没有调用的日期也保留，柱高为 0。 */
+export interface CostDay {
+  /** YYYY-MM-DD，按 Asia/Shanghai 切日。 */
+  date: string
+  /** MM-DD，直接给图表横轴。 */
+  label: string
+  calls: number
+  knownCostCalls: number
+  unknownCostCalls: number
+  costCny: number
+  tokensIn: number
+  tokensOut: number
+}
+
 export interface CostSummary {
   total: CostBucket
   byStage: CostBucket[]
   byModel: CostBucket[]
+  /** 最近 14 天，按日期升序。 */
+  daily: CostDay[]
   generatedAt: string
 }
 
@@ -852,16 +870,61 @@ function sortBuckets(left: CostBucket, right: CostBucket): number {
   return left.key.localeCompare(right.key)
 }
 
+const DAILY_WINDOW_DAYS = 14
+const DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** 按上海时区切日，避免服务端 UTC 与用户看到的日期差一天。 */
+function dayKeyOf(value: Date | string): string | null {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  return DAY_KEY_FORMATTER.format(date)
+}
+
+function recentDayKeys(now: Date): string[] {
+  const keys: string[] = []
+  for (let offset = DAILY_WINDOW_DAYS - 1; offset >= 0; offset -= 1) {
+    const key = dayKeyOf(new Date(now.getTime() - offset * 86_400_000))
+    if (key) {
+      keys.push(key)
+    }
+  }
+  return keys
+}
+
 /**
  * 纯函数聚合，方便单测直接喂行数据。
  * null 表示未知，不计入对应合计，也不当成 0。
  */
 export function summarizeCalls(
   rows: readonly LlmCallStatsRow[],
+  now: Date = new Date(),
 ): CostSummary {
   const total = createAccumulator('total', '全部')
   const stages = new Map<string, BucketAccumulator>()
   const models = new Map<string, BucketAccumulator>()
+  const dayKeys = recentDayKeys(now)
+  const days = new Map<string, CostDay>(
+    dayKeys.map((key) => [
+      key,
+      {
+        date: key,
+        label: key.slice(5),
+        calls: 0,
+        knownCostCalls: 0,
+        unknownCostCalls: 0,
+        costCny: 0,
+        tokensIn: 0,
+        tokensOut: 0,
+      },
+    ]),
+  )
 
   for (const row of rows) {
     addRow(total, row)
@@ -876,13 +939,48 @@ export function summarizeCalls(
       createAccumulator(row.modelId, row.modelId)
     addRow(modelAccumulator, row)
     models.set(row.modelId, modelAccumulator)
+
+    if (row.createdAt === undefined || row.createdAt === null) {
+      continue
+    }
+    const key = dayKeyOf(row.createdAt)
+    const day = key === null ? undefined : days.get(key)
+    if (!day) {
+      continue
+    }
+    day.calls += 1
+    if (row.costCny === null) {
+      day.unknownCostCalls += 1
+    } else {
+      day.knownCostCalls += 1
+      day.costCny += row.costCny
+    }
+    if (row.tokensIn !== null) {
+      day.tokensIn += row.tokensIn
+    }
+    if (row.tokensOut !== null) {
+      day.tokensOut += row.tokensOut
+    }
   }
 
   return {
     total: finalizeBucket(total),
     byStage: [...stages.values()].map(finalizeBucket).sort(sortBuckets),
     byModel: [...models.values()].map(finalizeBucket).sort(sortBuckets),
-    generatedAt: new Date().toISOString(),
+    daily: dayKeys.map((key) => {
+      const day = days.get(key)
+      return {
+        date: key,
+        label: key.slice(5),
+        calls: day?.calls ?? 0,
+        knownCostCalls: day?.knownCostCalls ?? 0,
+        unknownCostCalls: day?.unknownCostCalls ?? 0,
+        costCny: Math.round((day?.costCny ?? 0) * 1_000_000) / 1_000_000,
+        tokensIn: day?.tokensIn ?? 0,
+        tokensOut: day?.tokensOut ?? 0,
+      }
+    }),
+    generatedAt: now.toISOString(),
   }
 }
 
@@ -906,6 +1004,7 @@ export async function getCostSummary(): Promise<CostSummary | null> {
         cachedTokens: true,
         reasoningTokens: true,
         costCny: true,
+        createdAt: true,
       },
     })
     return summarizeCalls(rows)

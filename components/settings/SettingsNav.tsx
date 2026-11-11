@@ -7,7 +7,6 @@ const SECTIONS = [
   { id: 'settings-model', label: '模型' },
   { id: 'settings-cost', label: '成本' },
   { id: 'settings-data', label: '数据' },
-  { id: 'settings-shortcuts', label: '快捷键' },
 ] as const
 
 /**

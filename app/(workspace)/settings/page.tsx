@@ -1,7 +1,9 @@
+import { CostTrend } from '@/components/settings/CostTrend'
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { Section } from '@/components/ui/Section'
 import { getLlmSettingsView } from '@/lib/settings/store'
+import { modelDisplayLabel } from '@/lib/llm/registry'
 import { cn } from '@/lib/utils'
 import {
   getCostSummary,
@@ -168,7 +170,11 @@ export default async function SettingsPage() {
           </span>
           <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="text-caption text-ink-muted tnum">
-            生成 {llmSettings.modelGenerate.value}
+            生成 {modelDisplayLabel(llmSettings.modelGenerate.value)}
+          </span>
+          <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
+          <span className="text-caption text-ink-muted tnum">
+            评估 {modelDisplayLabel(llmSettings.modelEvaluate.value)}
           </span>
           <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="truncate text-caption text-ink-faint">
@@ -234,6 +240,8 @@ export default async function SettingsPage() {
               {statusLine(summary)}
             </p>
 
+            <CostTrend days={summary.daily} />
+
             <h3 className="mt-8 text-label font-medium text-ink">按阶段</h3>
             <BucketTable buckets={summary.byStage} firstHeader="阶段" />
 
@@ -267,30 +275,6 @@ export default async function SettingsPage() {
         </p>
       </Section>
 
-      </div>
-
-      <div id="settings-shortcuts" className="scroll-mt-8">
-      <Section title="快捷键">
-        <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-1.5 text-label">
-          {[
-            ['⌘Enter', '生成 / 运行'],
-            ['⌘S', '保存新版本'],
-            ['⌘K', '命令面板'],
-            ['⌘Z / ⌘⇧Z', '撤销 / 重做'],
-            ['⌥1 / ⌥2 / ⌥3', '结构化 / 渲染文本 / JSON'],
-            ['Esc', '中断生成 / 关闭浮层'],
-            ['\\', '折叠侧栏'],
-          ].map(([key, action]) => (
-            <div key={key} className="contents">
-              <dt className="font-mono text-ink-muted">{key}</dt>
-              <dd>{action}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-3 text-caption text-ink-faint">
-          在输入框里按 `\` 不会触发折叠，避免打断写作。`⌥1` 到 `⌥3` 只在工作台生效。
-        </p>
-      </Section>
       </div>
       </div>
     </div>
