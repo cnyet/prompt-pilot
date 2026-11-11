@@ -44,15 +44,6 @@
   --tint-do: #e4eedf;
   --tint-dont: #f3dfd9;
 
-  /*
-   * Q1 兼容别名：Q2-Q5 页面仍在使用旧 tint 名。
-   * 页面迁移完成后删除这四个别名，统一用 tint-gold/red/green/purple。
-   */
-  --tint-coral: var(--tint-red);
-  --tint-sage: var(--tint-green);
-  --tint-lavender: var(--tint-purple);
-  --tint-butter: var(--tint-gold);
-
   --diff-add-bg: #e4eedf;
   --diff-add-mark: #cbe0c2;
   --diff-del-bg: #f3dfd9;
@@ -132,12 +123,6 @@
   --color-tint-do: var(--tint-do);
   --color-tint-dont: var(--tint-dont);
 
-  /* Q1 兼容别名，随页面迁移删除 */
-  --color-tint-coral: var(--tint-coral);
-  --color-tint-sage: var(--tint-sage);
-  --color-tint-lavender: var(--tint-lavender);
-  --color-tint-butter: var(--tint-butter);
-
   --color-sidebar: var(--sidebar);
 
   --color-line: var(--border);
@@ -169,8 +154,6 @@
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
-  /* 旧名保留，浮层继续使用 shadow-overlay */
-  --shadow-overlay: var(--elevation-lg);
   --shadow-glow: var(--glow-gold);
   --shadow-glow-strong: var(--glow-gold-strong);
 

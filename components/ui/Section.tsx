@@ -51,35 +51,4 @@ export function Section({
   )
 }
 
-/** 页面标题区。一个页面只有一个，承载页面级主操作。 */
-export function PageHeader({
-  title,
-  description,
-  actions,
-  className,
-}: {
-  title: React.ReactNode
-  description?: React.ReactNode
-  actions?: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'flex flex-wrap items-end justify-between gap-x-6 gap-y-3',
-        className,
-      )}
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-display font-normal text-ink text-balance lg:text-[2.75rem] lg:leading-[1.1]">{title}</h1>
-        {description ? (
-          <p className="max-w-[72ch] text-balance text-body text-ink-muted">{description}</p>
-        ) : null}
-      </div>
-      {actions ? (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
-      ) : null}
-    </div>
-  )
-}
 

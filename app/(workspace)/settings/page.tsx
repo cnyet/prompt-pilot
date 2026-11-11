@@ -1,6 +1,6 @@
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { SettingsNav } from '@/components/settings/SettingsNav'
-import { PageHeader, Section } from '@/components/ui/Section'
+import { Section } from '@/components/ui/Section'
 import { getLlmSettingsView } from '@/lib/settings/store'
 import { cn } from '@/lib/utils'
 import {
@@ -30,14 +30,14 @@ function hasKnownCost(bucket: CostBucket): boolean {
 
 function usageCell(bucket: CostBucket, value: number): string {
   if (!hasKnownUsage(bucket)) {
-    return '未知'
+    return '—'
   }
   return `${formatNumber(value)}${bucket.unknownUsageCalls > 0 ? ' *' : ''}`
 }
 
 function cachedCell(bucket: CostBucket): string {
   if (bucket.cachedKnownCalls === 0) {
-    return '未知'
+    return '—'
   }
   const tokens = formatNumber(bucket.cachedTokens)
   const rate =
@@ -49,7 +49,7 @@ function cachedCell(bucket: CostBucket): string {
 
 function reasoningCell(bucket: CostBucket): string {
   if (bucket.reasoningKnownCalls === 0) {
-    return '未知'
+    return '—'
   }
   return `${formatNumber(bucket.reasoningTokens)}${
     bucket.reasoningKnownCalls < bucket.calls ? ' *' : ''
@@ -58,7 +58,7 @@ function reasoningCell(bucket: CostBucket): string {
 
 function costCell(bucket: CostBucket): string {
   if (!hasKnownCost(bucket)) {
-    return '未知'
+    return '—'
   }
   return `¥${cnyFormatter.format(bucket.costCny)}${
     bucket.unknownCostCalls > 0 ? ' *' : ''
@@ -146,18 +146,17 @@ export default async function SettingsPage() {
     <div className="mx-auto flex w-full max-w-[1080px] gap-10 px-6 py-8 lg:px-10">
       <SettingsNav />
       <div className="flex min-w-0 flex-1 flex-col gap-12">
-      <PageHeader
-        title="设置"
-        description="模型接入、成本汇总与本机数据都在这一个页面里。"
-      />
+      <p className="max-w-[68ch] text-balance text-body text-ink-muted">
+        模型接入、成本汇总与本机数据都在这一个页面里。
+      </p>
 
       <div id="settings-model" className="scroll-mt-8">
       <Section
         title="模型"
         description="设置页写入的值优先于环境变量。密钥只存在本机数据库，界面不显示明文，也不会回传浏览器。"
       >
-        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel bg-bg-sunken px-4 py-3">
-          <span className="inline-flex items-center gap-2 text-label font-medium text-ink">
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel border border-line bg-surface-raised px-5 py-4">
+          <span className="inline-flex items-center gap-2 text-body-lg font-medium text-ink">
             <span
               aria-hidden
               className={cn(
@@ -169,10 +168,10 @@ export default async function SettingsPage() {
           </span>
           <span aria-hidden className="text-ink-faint">·</span>
           <span className="text-caption text-ink-muted tnum">
-            {llmSettings.modelGenerate.value}
+            生成 {llmSettings.modelGenerate.value}
           </span>
           <span aria-hidden className="text-ink-faint">·</span>
-          <span className="text-caption text-ink-faint">
+          <span className="truncate text-caption text-ink-faint">
             {llmSettings.baseUrl.value}
           </span>
         </div>
@@ -199,33 +198,33 @@ export default async function SettingsPage() {
             <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">调用次数</dt>
-                <dd className="mt-1 font-mono text-h3 tnum">
+                <dd className="numeral mt-1 text-h2 font-semibold tnum">
                   {formatNumber(total.calls)}
                 </dd>
               </div>
               <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">总金额</dt>
-                <dd className="mt-1 font-mono text-h3 tnum">
+                <dd className="numeral mt-1 text-h2 font-semibold tnum">
                   {hasKnownCost(total)
                     ? `¥${cnyFormatter.format(total.costCny)}`
-                    : '未知'}
+                    : '—'}
                 </dd>
               </div>
               <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">输入与输出 token</dt>
-                <dd className="mt-1 font-mono text-label tnum">
+                <dd className="numeral mt-1 text-h3 font-semibold tnum">
                   {hasKnownUsage(total)
                     ? `${formatNumber(total.tokensIn)} / ${formatNumber(
                         total.tokensOut,
                       )}`
-                    : '未知'}
+                    : '—'}
                 </dd>
               </div>
               <div className="rounded-panel bg-bg-sunken px-4 py-3">
                 <dt className="text-caption text-ink-muted">缓存命中率</dt>
-                <dd className="mt-1 font-mono text-h3 tnum">
+                <dd className="numeral mt-1 text-h2 font-semibold tnum">
                   {total.cacheHitRate === null
-                    ? '未知'
+                    ? '—'
                     : `${total.cacheHitRate.toFixed(1)}%`}
                 </dd>
               </div>
@@ -252,7 +251,8 @@ export default async function SettingsPage() {
 
             <p className="mt-3 text-caption text-ink-faint">
               单价默认取代码内价格表，可在 AppSetting 的 `llm.pricing.cny`
-              中按模型覆盖，单位是元每百万 token。取不到价格时显示「未知」。
+              中按模型覆盖，单位是元每百万 token。取不到价格时显示「—」，不按
+              0 计入合计。
             </p>
           </>
         )}

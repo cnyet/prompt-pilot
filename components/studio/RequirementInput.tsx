@@ -107,10 +107,9 @@ export function RequirementInput({
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col justify-center px-6 py-16">
       <div className="mb-8">
-        <p className="text-caption text-ink-faint">工作台</p>
-        <h1 className="mt-1.5 font-display text-display font-normal text-balance text-ink lg:text-display-lg">
+        <h2 className="font-display text-display font-normal text-balance text-ink lg:text-display-lg">
           把一句话变成结构化提示词
-        </h1>
+        </h2>
         <p className="mt-3 max-w-[56ch] text-balance text-body text-ink-muted">
           先写清要做什么，生成后可以逐字段修改、诊断与试运行。
         </p>

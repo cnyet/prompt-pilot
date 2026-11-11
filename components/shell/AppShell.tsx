@@ -30,16 +30,34 @@ const PATH_LABEL: Record<string, string> = {
   '/settings': '设置',
 }
 
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'short',
+})
+
+/** 日期在挂载后再算，避免服务端与浏览器时区不一致导致 hydration 对不上。 */
+function formatToday(): string {
+  const parts = dateFormatter.formatToParts(new Date())
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return `${pick('year')} 年 ${pick('month')} 月 ${pick('day')} 日 · ${pick('weekday')}`
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [dark, setDark] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [today, setToday] = useState('')
 
   useEffect(() => {
     setMounted(true)
+    setToday(formatToday())
     try {
-      setCollapsed(localStorage.getItem('pp-nav-collapsed') === '1')
+      setExpanded(localStorage.getItem('pp-nav-expanded') === '1')
       setDark(document.documentElement.classList.contains('dark'))
     } catch {
       // 隐私模式下 localStorage 可能不可用，保持默认即可
@@ -47,16 +65,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   const toggleNav = useCallback(() => {
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = !prev
       try {
-        localStorage.setItem('pp-nav-collapsed', next ? '1' : '0')
+        localStorage.setItem('pp-nav-expanded', next ? '1' : '0')
       } catch {}
       return next
     })
   }, [])
 
-  // `\` 折叠侧栏。在输入框里按下时不拦截，避免打断写作。
+  // `\` 展开或收起左轨标签。在输入框里按下时不拦截，避免打断写作。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== '\\' || event.metaKey || event.ctrlKey || event.altKey) {
@@ -86,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   const pageLabel = PATH_LABEL[pathname] ?? '工作台'
-  const width = collapsed ? 56 : 240
+  const width = expanded ? 208 : 64
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
@@ -96,19 +114,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div
           className={cn(
-            'flex h-12 items-center gap-2 border-b border-line-subtle px-3',
-            collapsed && 'justify-center px-0',
+            'flex h-[72px] items-center border-b border-line-subtle',
+            expanded ? 'gap-2.5 px-3' : 'justify-center px-0',
           )}
         >
-          <span className="grid size-6 shrink-0 place-items-center rounded-chip bg-accent text-caption font-semibold text-bg">
+          <span
+            aria-hidden
+            className="grid size-10 shrink-0 place-items-center rounded-control border border-accent bg-surface text-caption font-semibold text-accent shadow-sm"
+          >
             PP
           </span>
-          {!collapsed && (
-            <span className="truncate text-label font-medium">PromptPilot</span>
-          )}
+          {expanded ? (
+            <span className="truncate text-label font-medium text-ink">
+              PromptPilot
+            </span>
+          ) : null}
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5 p-2" aria-label="主导航">
+        <nav className="flex flex-1 flex-col gap-1.5 p-3" aria-label="主导航">
           {NAV.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -117,25 +140,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                title={collapsed ? item.label : undefined}
+                title={expanded ? undefined : item.label}
                 className={cn(
-                  'group flex h-8 items-center gap-2.5 rounded-control px-2 text-label transition-colors duration-150',
+                  'flex h-10 items-center rounded-control border transition-colors duration-150',
+                  expanded ? 'gap-2.5 px-2.5' : 'w-10 justify-center',
                   active
-                    ? 'bg-bg-sunken font-medium text-accent'
-                    : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
-                  collapsed && 'justify-center px-0',
+                    ? 'border-accent bg-accent-subtle font-medium text-accent shadow-[var(--glow-gold)]'
+                    : 'border-transparent text-ink-muted hover:bg-surface-raised hover:text-ink',
                 )}
               >
                 <Icon
                   name={item.icon}
-                  size={16}
-                  className={
-                    active
-                      ? 'text-accent'
-                      : 'text-ink-faint group-hover:text-ink'
-                  }
+                  size={18}
+                  className={active ? 'text-accent' : 'text-ink-faint'}
                 />
-                <span className={cn('truncate', collapsed && 'sr-only')}>
+                <span className={cn('truncate text-label', !expanded && 'sr-only')}>
                   {item.label}
                 </span>
               </Link>
@@ -145,58 +164,54 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div
           className={cn(
-            'flex border-t border-line-subtle p-2',
-            collapsed ? 'justify-center' : 'justify-end',
+            'flex flex-col gap-1.5 border-t border-line-subtle p-3',
+            !expanded && 'items-center',
           )}
         >
           <IconButton
+            icon={mounted && dark ? 'sun' : 'moon'}
+            label={
+              !mounted
+                ? '切换主题'
+                : dark
+                  ? '切换到浅色主题'
+                  : '切换到深色主题'
+            }
+            onClick={toggleTheme}
+            size="sm"
+          />
+          <IconButton
             icon="panel"
-            label={collapsed ? '展开导航' : '折叠导航'}
+            label={expanded ? '收起导航标签' : '展开导航标签'}
             onClick={toggleNav}
-            aria-expanded={!collapsed}
+            aria-expanded={expanded}
             size="sm"
           />
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-surface px-4">
-          <div className="flex min-w-0 items-center gap-1.5 text-caption">
-            <span className="text-ink-faint">工作区</span>
-            <Icon name="chevron-right" size={12} className="text-ink-faint" />
-            <span className="truncate text-label font-medium text-ink">
-              {pageLabel}
+        <header className="flex h-[72px] shrink-0 items-center gap-6 border-b border-line bg-bg px-6 lg:px-8">
+          <h1 className="font-display text-h2 font-semibold leading-tight text-ink">
+            {pageLabel}
+          </h1>
+          {today.length > 0 ? (
+            <span className="hidden border-l border-line-subtle pl-4 text-caption text-ink-faint tnum sm:inline">
+              {today}
             </span>
-          </div>
+          ) : null}
 
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <ModelStatusBadge />
+            <IconButton
+              icon="search"
+              label="打开命令面板（⌘K）"
+              size="sm"
               onClick={() => {
                 window.dispatchEvent(
                   new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
                 )
               }}
-              className="hidden items-center gap-2 rounded-control border border-line bg-surface px-2 py-1 text-caption text-ink-faint transition-colors duration-150 hover:border-line-strong hover:text-ink-muted sm:inline-flex"
-              aria-label="打开命令面板"
-            >
-              <Icon name="search" size={13} />
-              搜索
-              <kbd className="rounded-chip bg-bg-sunken px-1 text-[11px]">⌘K</kbd>
-            </button>
-            <ModelStatusBadge />
-            <span aria-hidden className="h-4 w-px bg-line-subtle" />
-            <IconButton
-              icon={mounted && dark ? 'sun' : 'moon'}
-              label={
-                !mounted
-                  ? '切换主题'
-                  : dark
-                    ? '切换到浅色主题'
-                    : '切换到深色主题'
-              }
-              onClick={toggleTheme}
-              size="sm"
             />
           </div>
         </header>

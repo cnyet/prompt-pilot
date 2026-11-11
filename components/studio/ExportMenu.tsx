@@ -223,7 +223,7 @@ export function ExportMenu({
             }
             setOpen(false)
           }}
-          className="absolute right-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface-raised p-3 shadow-overlay"
+          className="absolute right-0 top-full z-20 mt-2 w-[min(34rem,calc(100vw-2rem))] rounded-overlay border border-line-strong bg-surface-raised p-3 shadow-lg"
         >
           <div
             role="group"

@@ -1046,9 +1046,9 @@ export function StudioWorkspace() {
         >
           <header className="mb-6">
             <p className="text-caption text-ink-faint">结构化提示词</p>
-            <h1 className="mt-1.5 font-display text-display font-normal text-balance text-ink lg:text-[2.75rem] lg:leading-[1.1]">
+            <h2 className="mt-1.5 font-display text-display font-normal text-balance text-ink lg:text-[2.75rem] lg:leading-[1.1]">
               {displayTitle}
-            </h1>
+            </h2>
             {/* 需求原文、字段计数、建议数都在上方 hero 条；这里只留瞬态保存结果。 */}
             {librarySave.message.length > 0 ? (
               <div className="mt-3 flex flex-wrap items-center text-caption">

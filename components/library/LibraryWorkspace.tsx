@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
-import { PageHeader } from '@/components/ui/Section'
 import {
   FIELD_KEYS,
   FIELD_LABELS,
@@ -369,6 +368,10 @@ export function LibraryWorkspace() {
     (sum, prompt) => sum + prompt.versionCount,
     0,
   )
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const recentTotal = prompts.filter(
+    (prompt) => Date.parse(prompt.updatedAt) >= weekAgo,
+  ).length
   const sortedPrompts = useMemo(() => {
     const list = [...prompts]
     if (sort === 'versions') {
@@ -387,20 +390,7 @@ export function LibraryWorkspace() {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-6 py-8 lg:px-10">
-      <PageHeader
-        title="提示词库"
-        description="首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。"
-        actions={
-          <Button variant="primary" size="md" asChild>
-            <Link href="/studio">
-              <Icon name="plus" size={15} />
-              新建
-            </Link>
-          </Button>
-        }
-      />
-
-      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-2">
         <div className="relative min-w-0 flex-1 basis-60 sm:max-w-xs">
           <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint">
             <Icon name="search" size={14} />
@@ -461,11 +451,17 @@ export function LibraryWorkspace() {
           {listState === 'ready'
             ? activeQuery.length > 0
               ? `${total} 条匹配「${activeQuery}」`
-              : `${total} 条 · ${versionTotal} 个版本`
+              : `${total} 条 · ${versionTotal} 个版本 · 近七天更新 ${recentTotal} 条`
             : listState === 'loading'
               ? '正在读取提示词库'
               : null}
         </span>
+        <Button variant="primary" size="sm" asChild>
+          <Link href="/studio">
+            <Icon name="plus" size={14} />
+            新建
+          </Link>
+        </Button>
       </div>
 
       <div
@@ -537,7 +533,9 @@ export function LibraryWorkspace() {
                       aria-current={active ? 'true' : undefined}
                       className={cn(
                         'rise grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 px-4 py-4 text-left transition-colors duration-150 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem]',
-                        active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
+                        active
+                          ? 'bg-accent-subtle shadow-[inset_0_2px_0_var(--accent)]'
+                          : 'hover:bg-bg-sunken',
                       )}
                     >
                       <span className="min-w-0">

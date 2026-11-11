@@ -169,7 +169,7 @@ export function CommandPalette({ onToggleTheme }: { onToggleTheme: () => void })
         role="dialog"
         aria-modal="true"
         aria-label="命令面板"
-        className="reveal w-full max-w-[520px] overflow-hidden rounded-overlay border border-line-strong bg-surface-raised shadow-overlay"
+        className="reveal w-full max-w-[520px] overflow-hidden rounded-overlay border border-line-strong bg-surface-raised shadow-lg"
       >
         <div className="flex items-center gap-2 border-b border-line-subtle px-3">
           <Icon name="search" size={15} className="text-ink-faint" />
