@@ -1,11 +1,11 @@
 # Active Context
 
-> Last updated: 2026-11-10T10:45:00Z
+> Last updated: 2026-11-11T01:05:00Z
 
 ## Current Task
-- In progress: R1 工作台 bento 重构已完成并验证（typecheck ✓、493 测试 ✓、build ✓），等待用户查看确认。
-- Goal: 按 `docs/BENTO-REFACTOR-PLAN.md`（ADR-0004 编辑部 bento）逐阶段重构，先只做工作台页。
-- Next step: 用户确认 R1 效果后进入 R2（提示词库页）；未确认则按反馈微调。
+- Done: R1 工作台 bento、简化轮、shadcn 模式推广（fed11f2）、R2 提示词库行式 bento（86f6d41），均 typecheck ✓、493 测试 ✓、build ✓。
+- Goal: 按 `docs/BENTO-REFACTOR-PLAN.md`（ADR-0004 编辑部 bento）继续 R3 评估页。
+- Next step: R3 顶部创建区重排 + KPI 条衬线数字 + 样本对照双栏，行为不变。
 - Blockers: 无。
 
 ## Current Constraints
@@ -31,6 +31,8 @@
 - 编辑部 bento（ADR-0004）：改构图不改色，Orbit 色板 ≈ 现有色板 | Reason: 参考即用户指定的 open-design Orbit。
 - 八字段异构预览 + 编辑态统一回退 FieldBlock | Reason: 文本是唯一事实源，预览只读解析。
 - 预览跨度：objective/constraints/examples/selfCheck 各占 2 列 + grid-flow-dense | Reason: 单列下巨型衬线与做/不做双栏过挤。
+- R2 行式 bento：列表行 = 标题/单行描述/标签 + 版本数、v0 胜率两列衬线数字；搜索与排序（最近更新/版本最多/标题）在列表上方一行 | Reason: 卡片网格信息密度低，行式更接近编辑部目录。
+- 列表接口 `winRate` 取该提示词最近一次已完成评估任务的胜率（最多扫 200 条任务），无数据一律 null → 前端显示 — | Reason: 未知不写 0。
 - R1 只动工作台页，其他页面不动 | Reason: 用户要求先测效果再推广。
 - 视觉方向、动效、评估判定、设置优先级沿袭 ADR-0001..0003。
 

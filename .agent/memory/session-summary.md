@@ -50,3 +50,11 @@
 - 坑: Radix Slot 要求单一子元素，asChild 时不能再注入 icon 节点；图标须由子元素自带，否则 build 报 "Slot failed to slot onto its children"。
 - 文档: docs/adr/0005-adopt-shadcn-ui.md 新增；ARCHITECTURE.md 选型表/目录树同步（Next 16、状态层改 React hooks、组件行标注 ADR-0005）。
 - 验证: typecheck ✓、493 测试 ✓、build ✓、词库页「新建」与工作台截图正常。
+
+## 2026-11-11（shadcn 推广 + R2 提示词库）
+- 决策: PageShell/StatTile/MeterBar 改用 cva 变体（形态/色调），与 Button 同写法；删除 0 引用的 OutlineRail、DocSection，Section 去掉 Panel 导出 | Reason: 收口手写组件，统一变体模式。
+- 事实: 提交 fed11f2（组件推广）、86f6d41（R2）。R2 行式 bento = 标题/单行描述/标签 + 版本数与 v0 胜率两列衬线数字（text-h2 numeral）；搜索与排序（最近更新/版本最多/标题，客户端排序）收拢到列表上方一行；行点击保留右侧详情抽屉。
+- 事实: `PromptListItem` 新增 `winRate: number | null`；`latestWinRates()` 取最近 200 条已完成评估任务，按 versionIds JSON 映射到提示词，无记录 null，前端显示 —；集成测试覆盖（列表路由 null、评估后胜率 1）。
+- 坑: 行描述回退 preview 时会带 markdown 的 `#` 前缀，展示前用 `/^#+\s*/` 剥离。
+- 验证: typecheck ✓、493/493 ✓、build ✓；CDP 实测排序、行点击抽屉、搜索空态；截图归档 docs/assets/bento-r2/（1440 明暗、1024、390、详情、空态）。
+- 服务与 Chrome 已停；工作区仅剩 `.agent/memory/handoff-*.md` 未跟踪。
