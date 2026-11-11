@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { MeterBar } from '@/components/ui/MeterBar'
-import { StatTile } from '@/components/ui/StatTile'
 import { cn } from '@/lib/utils'
 
 interface PromptOption {
@@ -64,9 +62,9 @@ const VERDICT_META: Record<
   string,
   { label: string; className: string }
 > = {
-  satisfied: { label: '满足', className: 'bg-tint-sage text-ink' },
-  partial: { label: '部分满足', className: 'bg-tint-butter text-ink' },
-  unsatisfied: { label: '不满足', className: 'bg-tint-coral text-ink' },
+  satisfied: { label: '满足', className: 'bg-tint-green text-ink' },
+  partial: { label: '部分满足', className: 'bg-tint-gold text-ink' },
+  unsatisfied: { label: '不满足', className: 'bg-tint-red text-ink' },
 }
 
 const COMPARISON_LABEL: Record<string, string> = {
@@ -197,62 +195,98 @@ export function EvalWorkspace() {
     return [...bySample.entries()].sort((a, b) => a[0] - b[0])
   }, [detail])
 
+  const summary = detail?.result?.summary ?? null
+  const unsatisfiedCount =
+    summary === null ? null : (summary.counts.unsatisfied ?? 0)
+  const verdictCount =
+    summary === null
+      ? null
+      : (summary.counts.satisfied ?? 0) +
+        (summary.counts.partial ?? 0) +
+        (summary.counts.unsatisfied ?? 0)
+  // 无判定（没有评估模型或输出无法解析）时不能把未知显示成 0。
+  // 有样本级对比但标准判定为空时仍算有判定，避免误标待人工判定。
+  const noVerdicts =
+    summary === null || (verdictCount === 0 && summary.judgedSamples === 0)
+
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid gap-3 rounded-panel border border-line-subtle bg-surface p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="eval-prompt" className="text-label text-ink">
-            评估对象
-          </label>
-          <select
-            id="eval-prompt"
-            value={promptId}
-            onChange={(event) => setPromptId(event.target.value)}
-            className="h-9 min-w-[240px] flex-1 rounded-control border border-line bg-surface px-2.5 text-label text-ink focus:border-accent focus:outline-none"
-          >
-            {prompts.length === 0 ? (
-              <option value="">库里还没有提示词</option>
-            ) : (
-              prompts.map((prompt) => (
-                <option key={prompt.id} value={prompt.id}>
-                  {prompt.title}（{prompt.versionCount} 个版本）
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+      <section className="flex flex-col gap-3">
+        <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <h2 className="text-h3 font-medium text-ink">新建评估</h2>
+          <span className="text-caption text-ink-faint">评估跑的是输出</span>
+        </header>
 
-        <label htmlFor="eval-samples" className="text-label text-ink">
-          样本输入
-        </label>
-        <textarea
-          id="eval-samples"
-          value={samplesText}
-          onChange={(event) => setSamplesText(event.target.value)}
-          rows={4}
-          placeholder={'每行一条样本，最多 5 条\n帮我写个周报\n帮我写一份产品评审议程'}
-          className="w-full resize-y rounded-control border border-line bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-        />
+        <div className="rounded-panel border border-line-subtle bg-surface p-5">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="eval-prompt" className="text-label text-ink">
+                评估对象
+              </label>
+              <select
+                id="eval-prompt"
+                value={promptId}
+                onChange={(event) => setPromptId(event.target.value)}
+                className="h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink focus:border-accent focus:outline-none"
+              >
+                {prompts.length === 0 ? (
+                  <option value="">库里还没有提示词</option>
+                ) : (
+                  prompts.map((prompt) => (
+                    <option key={prompt.id} value={prompt.id}>
+                      {prompt.title}（{prompt.versionCount} 个版本）
+                    </option>
+                  ))
+                )}
+              </select>
+              <span className="text-caption text-ink-faint tnum">
+                {prompts.length} 条可选 · 当前版本对照 v0
+              </span>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="primary" onClick={run} disabled={running}>
-            {running ? '评估中' : '开始评估'}
-          </Button>
-          <span className="text-caption text-ink-faint tnum">
-            {samples.length} 条样本 · 成功标准取自版本自身
-          </span>
-          {notice ? (
-            <span role="status" className="text-caption text-success">
-              {notice}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <label htmlFor="eval-samples" className="text-label text-ink">
+                  样本输入
+                </label>
+                <span className="text-caption text-ink-faint tnum">
+                  {samples.length} 条样本
+                </span>
+              </div>
+              <textarea
+                id="eval-samples"
+                value={samplesText}
+                onChange={(event) => setSamplesText(event.target.value)}
+                rows={4}
+                placeholder={'每行一条样本，最多 5 条\n帮我写个周报\n帮我写一份产品评审议程'}
+                className="min-h-24 w-full resize-y rounded-control border border-line bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+              />
+              <span className="text-caption text-ink-faint">
+                空行自动忽略，样本按行读取
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
+            <Button variant="primary" onClick={run} disabled={running}>
+              {running ? '评估中' : '开始评估'}
+            </Button>
+            <span className="text-caption text-ink-faint tnum">
+              最多 5 条 · 成功标准取自版本自身
             </span>
-          ) : null}
-          {error ? (
-            <span role="alert" className="text-caption text-danger">
-              {error}
-            </span>
-          ) : null}
+            {notice ? (
+              <span role="status" className="text-caption text-success">
+                {notice}
+              </span>
+            ) : null}
+            {error ? (
+              <span role="alert" className="text-caption text-danger">
+                {error}
+              </span>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
 
       {tasks.length === 0 ? (
         <div className="rounded-panel border border-line-subtle bg-surface">
@@ -283,8 +317,8 @@ export function EvalWorkspace() {
                     className={cn(
                       'rounded-chip px-1.5 py-0.5 text-caption tnum',
                       task.status === 'completed'
-                        ? 'bg-tint-sage text-ink'
-                        : 'bg-tint-butter text-ink',
+                        ? 'bg-tint-green text-ink'
+                        : 'bg-tint-gold text-ink',
                     )}
                   >
                     {task.status === 'completed' ? '已判定' : '待人工判定'}
@@ -305,74 +339,124 @@ export function EvalWorkspace() {
       )}
 
       {detail ? (
-        <div className="flex flex-col gap-4 rounded-panel border border-line-subtle bg-surface p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-h3 font-medium text-ink">{detail.name}</h2>
+        <section className="flex flex-col gap-5 rounded-panel border border-line-subtle bg-surface p-5">
+          <header className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-caption text-ink-faint">评估结果</p>
+              <h2 className="text-balance text-h2 font-medium text-ink">
+                {detail.name}
+              </h2>
+              <p className="text-caption text-ink-faint tnum">
+                {formatTime(detail.createdAt)} · 共 {detail.sampleCount} 条样本
+              </p>
+            </div>
             <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>
               关闭详情
             </Button>
-          </div>
+          </header>
 
           {loadingDetail ? (
             <p className="text-body text-ink-muted">正在读取详情。</p>
           ) : null}
 
-          <div className="grid gap-2 sm:grid-cols-3">
-            <StatTile
-              label="通过率"
-              value={
-                detail.result?.summary?.passRate === null ||
-                detail.result?.summary?.passRate === undefined
-                  ? '—'
-                  : `${Math.round((detail.result.summary.passRate ?? 0) * 100)}%`
-              }
-              hint="满足记 1，部分满足记 0.5"
-            />
-            <StatTile
-              label="与 v0 相比"
-              value={
-                detail.winRate === null
-                  ? '—'
-                  : `${Math.round(detail.winRate * 100)}%`
-              }
-              hint="better / (better + worse)"
-            />
-            <StatTile
-              label="已判定样本"
-              value={String(detail.result?.summary?.judgedSamples ?? 0)}
-              hint={`共 ${detail.sampleCount} 条`}
-            />
-          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
+            <div className="grid overflow-hidden rounded-panel bg-surface-inset sm:grid-cols-3 sm:divide-x sm:divide-line-subtle">
+              <div className="flex min-w-0 flex-col gap-1 px-5 py-4">
+                <span className="text-caption text-ink-muted">通过率</span>
+                <span
+                  className={cn(
+                    'numeral text-numeral-hero font-semibold leading-none tnum',
+                    summary === null ? 'text-ink-faint' : 'text-ink',
+                  )}
+                >
+                  {summary === null || summary.passRate === null
+                    ? '—'
+                    : `${Math.round(summary.passRate * 100)}%`}
+                </span>
+                <span className="text-caption text-ink-faint">
+                  {noVerdicts ? '待人工判定' : '满足记 1，部分满足记 0.5'}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 border-t border-line-subtle px-5 py-4 sm:border-t-0">
+                <span className="text-caption text-ink-muted">v0 胜率</span>
+                <span
+                  className={cn(
+                    'numeral text-numeral-hero font-semibold leading-none tnum',
+                    detail.winRate === null ? 'text-ink-faint' : 'text-ink',
+                  )}
+                >
+                  {detail.winRate === null
+                    ? '—'
+                    : `${Math.round(detail.winRate * 100)}%`}
+                </span>
+                <span className="text-caption text-ink-faint">
+                  {noVerdicts ? '待人工判定' : 'better / (better + worse)'}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 border-t border-line-subtle px-5 py-4 sm:border-t-0">
+                <span className="text-caption text-ink-muted">已判定样本</span>
+                <span
+                  className={cn(
+                    'numeral text-numeral-hero font-semibold leading-none tnum',
+                    noVerdicts ? 'text-ink-faint' : 'text-ink',
+                  )}
+                >
+                  {noVerdicts ? '—' : String(summary?.judgedSamples ?? '—')}
+                </span>
+                <span className="text-caption text-ink-faint tnum">
+                  {noVerdicts ? '待人工判定' : `共 ${detail.sampleCount} 条`}
+                </span>
+              </div>
+            </div>
 
-          {detail.result?.summary ? (
-            <MeterBar
-              label="通过率"
-              value={detail.result.summary.passRate ?? 0}
-              empty={detail.result.summary.passRate === null}
-            />
-          ) : null}
+            <div className="flex flex-col justify-between gap-2 rounded-panel bg-tint-red px-5 py-4">
+              <span className="text-caption text-ink-muted">不满足</span>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={cn(
+                    'numeral text-numeral-mega font-semibold leading-none tnum',
+                    noVerdicts ? 'text-ink-muted' : 'text-danger',
+                  )}
+                >
+                  {noVerdicts ? '—' : unsatisfiedCount}
+                </span>
+                <span className="text-caption text-ink-muted">条判定</span>
+              </div>
+              <span className="text-caption text-ink-muted tnum">
+                {noVerdicts ? '待人工判定' : `共 ${verdictCount} 条判定`}
+              </span>
+            </div>
+          </div>
 
           {detail.result?.samples && detail.result.samples.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h3 className="text-label font-medium text-ink">样本输出</h3>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-label font-medium text-ink">样本对照</h3>
+                <span className="text-caption text-ink-faint tnum">
+                  {detail.result.samples.length} 条
+                </span>
+              </div>
               <ol className="flex flex-col gap-1.5">
                 {detail.result.samples.map((sample, index) => (
                   <li key={index}>
-                    <details className="rounded-control border border-line-subtle bg-surface px-3 py-2">
+                    <details className="rounded-control bg-surface-inset px-3 py-2">
                       <summary className="cursor-pointer text-label text-ink">
-                        #{index + 1} {sample.input}
+                        <span className="numeral mr-2 text-ink-faint tnum">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        {sample.input}
                       </summary>
-                      <div className="mt-2 flex flex-col gap-2">
-                        <div>
-                          <p className="text-caption text-ink-faint">当前版本输出</p>
-                          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-inset p-2 text-caption text-ink">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <div className="min-w-0">
+                          <p className="text-caption text-ink-faint">当前版本</p>
+                          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface p-2 text-caption text-ink">
                             {sample.targetOutput || '（空输出）'}
                           </pre>
                         </div>
                         {sample.baselineOutput !== null ? (
-                          <div>
-                            <p className="text-caption text-ink-faint">v0 输出</p>
-                            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-inset p-2 text-caption text-ink">
+                          <div className="min-w-0">
+                            <p className="text-caption text-ink-faint">v0 基线</p>
+                            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface p-2 text-caption text-ink">
                               {sample.baselineOutput || '（空输出）'}
                             </pre>
                           </div>
@@ -386,7 +470,7 @@ export function EvalWorkspace() {
           ) : null}
 
           {groupedChecks.length === 0 ? (
-            <p className="rounded-control bg-tint-butter px-3 py-2 text-caption text-ink">
+            <p className="rounded-control bg-tint-gold px-3 py-2 text-caption text-ink">
               本次没有产生判定。可能没有可用评估模型，或模型输出无法解析。样本输出仍然保留，可人工判定。
             </p>
           ) : (
@@ -396,8 +480,8 @@ export function EvalWorkspace() {
                 return (
                   <li key={sampleIndex} className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-caption text-ink-faint tnum">
-                        #{sampleIndex + 1}
+                      <span className="numeral shrink-0 text-h3 font-semibold leading-none text-ink-faint tnum">
+                        {String(sampleIndex + 1).padStart(2, '0')}
                       </span>
                       <span className="text-body text-ink">
                         {sample?.input ?? '样本输入'}
@@ -441,7 +525,7 @@ export function EvalWorkspace() {
               })}
             </ol>
           )}
-        </div>
+        </section>
       ) : null}
     </div>
   )
