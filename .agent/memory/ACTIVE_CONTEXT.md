@@ -1,42 +1,43 @@
 # Active Context
 
-> Last updated: 2026-11-11T01:05:00Z
+> Last updated: 2026-11-11T03:46:00Z
 
 ## Current Task
-- Done: R1 工作台 bento、简化轮、shadcn 模式推广（fed11f2）、R2 提示词库行式 bento（86f6d41），均 typecheck ✓、493 测试 ✓、build ✓。
-- Goal: 按 `docs/BENTO-REFACTOR-PLAN.md`（ADR-0004 编辑部 bento）继续 R3 评估页。
-- Next step: R3 顶部创建区重排 + KPI 条衬线数字 + 样本对照双栏，行为不变。
-- Blockers: 无。
+- Done: Q0 烛光羊皮纸设计系统：`DESIGN.md` 重写、ADR-0006、工作台静态样张、1440/390 三张截图、WCAG 全组合实测；用户已确认方向。
+- Goal: 按 Q1-Q5 迁移，不一次性重写。
+- In progress: 会话预算收口，Q1 尚未启动。
+- Next step: 新会话从 Q1 开始：令牌层 + Button / Input / Chip / Card / Panel / Tabs。
+- Blockers: R3 `components/eval/EvalWorkspace.tsx` 仍未提交；Q1 需在新会话执行。
 
 ## Current Constraints
-- 零依赖基调（ADR-0005 修订）：UI 基座允许 cva + @radix-ui/react-slot；动效库、图标库、CSS-in-JS、图表库、状态库仍禁。Cormorant 未引 webfont，用 Georgia 系回退。
-- 界面中文；禁止感叹号与 em dash。
-- 跑测试前必须停掉 3100 上的服务（共用 SQLite）；测试偶发单失败重跑即过。
-- Chrome 隔离只加 `--user-data-dir` 与 `--password-store=basic`，**绝不覆盖 HOME**。
+- 新方向：烛光羊皮纸（QuestUI 语法 + 中文适配）。浅色羊皮纸日光为默认，深色烛光地下室。
+- 令牌见 `DESIGN.md` 第二节；浅/深所有文字组合 ≥4.5:1，实测最低 4.62:1（浅 accent/tint-gold）。
+- 中文标题系统宋体，正文系统无衬线，零网络字体；金色只给主操作、当前步骤、关键数字；glow 只给 active/selected/focus，同屏 ≤2。
+- 保留：八字段 Schema、假设 chip、16 条诊断、试运行、v0 盲评、版本链、导出、快捷键、离线可作业、密钥安全、修复不覆盖手改。
+- 零依赖基调（ADR-0005）：cva + Radix Slot；不引动效库、图标库、CSS-in-JS、图表库、状态库。
+- 界面中文；禁止感叹号与 em dash；单屏 primary 按钮 1 个。
+- 跑测试前停 3100；Chrome 隔离只用 `--user-data-dir` 与 `--password-store=basic`，绝不覆盖 HOME。
 
 ## Hard Constraints
 - `lib/engine/schema.ts` 与 `lib/llm/types.ts` 是冻结契约。
 - 未知一律 null，不写 0。
 - 密钥只存本机 SQLite，接口只回末四位。
-- 单屏 border 容器 ≤3；每屏 primary 按钮 1 个；卡片不加阴影。
 
 ## Do Not Retry
-- 组件函数返回的 JSX 元素当 null 判断（`<Preview/>` 永远非 null）| 原因: FieldPreview 空卡 bug 根因；回退判断要用纯函数调用返回值。
-- 预览组件里用 useMemo 再被父组件当普通函数调用 | 原因: hook 数量随分支变化，违反 hooks 规则；预览函数保持无 hook。
-- 把 `MOCK_LLM_FAULT=valid` 无条件放进 registry | 原因: e2e 8 字段变 0。
-- 用 `HOME=/tmp/...` 跑 Chrome | 原因: 钥匙串弹窗。
+- 直接照搬 QuestUI 原稿 | 原因: 无中文、仅深色、11px 大写、语义色对比度 1.73-2.94:1；只借语法并重写令牌。
+- 在 Q0 未确认前改应用代码 | 原因: 方向未定，避免返工。
+- 组件 JSX 当 null 判断 / 预览组件用 useMemo / 无条件启用 valid mock / 覆盖 HOME 跑 Chrome | 原因: 历史坑。
 
 ## Current Decisions
-- 组件层回归 shadcn 路线（ADR-0005）：cva 变体 + Radix Slot `asChild`，保留项目 token 与内联 SVG | Reason: ARCHITECTURE.md 原选型即 shadcn，手写实现造成规划分叉；不映射 shadcn 默认 token 名，避免 bg-accent 二义。
-- 编辑部 bento（ADR-0004）：改构图不改色，Orbit 色板 ≈ 现有色板 | Reason: 参考即用户指定的 open-design Orbit。
-- 八字段异构预览 + 编辑态统一回退 FieldBlock | Reason: 文本是唯一事实源，预览只读解析。
-- 预览跨度：objective/constraints/examples/selfCheck 各占 2 列 + grid-flow-dense | Reason: 单列下巨型衬线与做/不做双栏过挤。
-- R2 行式 bento：列表行 = 标题/单行描述/标签 + 版本数、v0 胜率两列衬线数字；搜索与排序（最近更新/版本最多/标题）在列表上方一行 | Reason: 卡片网格信息密度低，行式更接近编辑部目录。
-- 列表接口 `winRate` 取该提示词最近一次已完成评估任务的胜率（最多扫 200 条任务），无数据一律 null → 前端显示 — | Reason: 未知不写 0。
-- R1 只动工作台页，其他页面不动 | Reason: 用户要求先测效果再推广。
-- 视觉方向、动效、评估判定、设置优先级沿袭 ADR-0001..0003。
+- 视觉方向定为「烛光羊皮纸」：QuestUI 的深棕分层、金色主操作、衬线标题、2-8px 圆角；浅色为羊皮纸日光变体 | Reason: 用户明确选择，替代瑞士黑白与旧暖纸 bento。
+- 中文用系统宋体 + 无衬线正文，零网络字体 | Reason: 中文字体子集体积与首屏预算。
+- Q0 只交付 DESIGN.md + 样张 + 截图，不改应用代码 | Reason: 先确认方向。
+- ADR-0001/0004 视觉结论被 ADR-0006 取代；ADR-0002/0003/0005 继续有效。
+- R1-R3 bento 实现暂保留；Q1 起按新系统迁移。
+- 用户于 2026-11-11 确认 Q0 方向；Q1 未开始，因会话预算收口。
 
 ## Current References
-- `docs/BENTO-REFACTOR-PLAN.md`（R0-R5 计划）、`docs/adr/0004-editorial-bento-redesign.md`
-- `components/studio/FieldPreview.tsx`、`FlowTimeline.tsx`、`StudioWorkspace.tsx`
-- `docs/DESIGN.md`、`CONTEXT.md`、`docs/adr/0001..0003`
+- `DESIGN.md`、`docs/adr/0006-questui-parchment-direction.md`
+- `docs/design-preview/questui-workbench.html`
+- `docs/assets/design-v2/workbench-light-1440.png`、`workbench-dark-1440.png`、`workbench-light-390.png`
+- `PRODUCT.md`、`CONTEXT.md`、`docs/BENTO-REFACTOR-PLAN.md`

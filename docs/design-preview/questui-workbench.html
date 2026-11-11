@@ -1,0 +1,1081 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptPilot · 工作台 · 烛光羊皮纸样张</title>
+<style>
+  :root {
+    --bg: #F3EAD8;
+    --bg-sunken: #EADFC8;
+    --surface: #FBF5E9;
+    --surface-raised: #FFF9EE;
+    --surface-inset: #EFE3CE;
+    --sidebar: #EFE3CE;
+    --border: #D8C7A8;
+    --border-strong: #B99F72;
+    --border-subtle: #E4D7BF;
+    --text: #2A1A10;
+    --text-muted: #6B4B2E;
+    --text-faint: #85643F;
+    --accent: #8A5A00;
+    --accent-hover: #6F4800;
+    --accent-subtle: #F0E2C4;
+    --on-accent: #FBF5E9;
+    --success: #2F6B3A;
+    --warning: #8A5A00;
+    --danger: #8F1D14;
+    --info: #5B2A86;
+    --tint-gold: #F0E2C4;
+    --tint-red: #F3DFD9;
+    --tint-green: #DFEBDA;
+    --tint-purple: #E8DDF0;
+    --tint-do: #E4EEDF;
+    --tint-dont: #F3DFD9;
+    --diff-add-bg: #E4EEDF;
+    --diff-add-mark: #CBE0C2;
+    --diff-del-bg: #F3DFD9;
+    --diff-del-mark: #E8C4BB;
+    --shadow-sm: 0 1px 3px rgba(90, 60, 20, .14);
+    --shadow-md: 0 2px 8px rgba(90, 60, 20, .18);
+    --shadow-lg: 0 8px 24px -12px rgba(90, 60, 20, .28);
+    --glow-gold: 0 0 0 1px #8A5A00, 0 0 16px rgba(138, 90, 0, .25);
+    --font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  [data-theme="dark"] {
+    --bg: #1A0F0A;
+    --bg-sunken: #120A06;
+    --surface: #2C1A10;
+    --surface-raised: #3D2517;
+    --surface-inset: #24140C;
+    --sidebar: #24140C;
+    --border: #5C3D2E;
+    --border-strong: #8A6440;
+    --border-subtle: #3D2517;
+    --text: #F5E6D3;
+    --text-muted: #BFA98A;
+    --text-faint: #AB8D69;
+    --accent: #CA8A04;
+    --accent-hover: #E0A21A;
+    --accent-subtle: #3A2A12;
+    --on-accent: #1A0F0A;
+    --success: #22C55E;
+    --warning: #EAB308;
+    --danger: #F87171;
+    --info: #C4A5F5;
+    --tint-gold: #3A2A12;
+    --tint-red: #3A1A16;
+    --tint-green: #1E3324;
+    --tint-purple: #2E1F3A;
+    --tint-do: #1E3324;
+    --tint-dont: #3A1A16;
+    --diff-add-bg: #1E3324;
+    --diff-add-mark: #2E4A35;
+    --diff-del-bg: #3A1A16;
+    --diff-del-mark: #4A2420;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, .45);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, .5);
+    --shadow-lg: 0 8px 24px -12px rgba(0, 0, 0, .7);
+    --glow-gold: 0 0 0 1px #CA8A04, 0 0 16px rgba(202, 138, 4, .28);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--accent); }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .serif { font-family: var(--font-display); }
+
+  .app {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  /* left rail */
+  .rail {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 20px;
+    z-index: 20;
+  }
+  .brand {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .rail nav { display: flex; flex-direction: column; gap: 6px; }
+  .rail-btn {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .rail-btn:hover { background: var(--surface-raised); color: var(--text); }
+  .rail-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rail-btn[aria-current="page"] {
+    background: var(--accent-subtle);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: var(--glow-gold);
+  }
+  .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+
+  /* topbar */
+  .topbar {
+    min-height: 72px;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .topbar h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: .01em;
+  }
+  .topbar .date {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding-left: 16px;
+    border-left: 1px solid var(--border-subtle);
+  }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .status-short { display: none; }
+
+  /* chips and buttons */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .chip.gold { background: var(--tint-gold); border-color: var(--border); color: var(--accent); }
+  .chip.green { background: var(--tint-green); border-color: transparent; color: var(--success); }
+  .chip.red { background: var(--tint-red); border-color: transparent; color: var(--danger); }
+  .chip.purple { background: var(--tint-purple); border-color: transparent; color: var(--info); }
+  .chip.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    font-weight: 500;
+    background: transparent;
+  }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent-hover);
+    color: var(--on-accent);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.secondary {
+    background: transparent;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn.secondary:hover { background: var(--accent-subtle); }
+  .btn.ghost { color: var(--text-muted); }
+  .btn.ghost:hover { background: var(--surface-raised); color: var(--text); }
+  .btn.sm { height: 30px; padding: 0 10px; font-size: 12px; }
+  .icon-btn {
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+  .icon-btn:hover { border-color: var(--border-strong); color: var(--text); }
+
+  /* content */
+  .content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 32px 56px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-sm);
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: .12em;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  /* request strip */
+  .request {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 18px 22px;
+    border-top: 2px solid var(--accent);
+  }
+  .request-main { min-width: 0; flex: 1; }
+  .request-quote {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+  .request-quote::before { content: "「"; color: var(--accent); }
+  .request-quote::after { content: "」"; color: var(--accent); }
+  .request-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .request-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  /* timeline */
+  .timeline {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 18px 0 20px;
+  }
+  .stage {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+  }
+  .stage .stage-name { font-size: 13px; font-weight: 600; line-height: 1.4; }
+  .stage .stage-meta { font-size: 12px; color: var(--text-faint); line-height: 1.4; }
+  .stage.done { background: var(--bg-sunken); border-color: var(--border); }
+  .stage.done .stage-meta { color: var(--text-muted); }
+  .stage.current {
+    background: var(--accent);
+    border-color: var(--accent-hover);
+    color: var(--on-accent);
+    box-shadow: var(--glow-gold);
+  }
+  .stage.current .stage-meta { color: var(--on-accent); }
+  .stage.future { border-style: dashed; color: var(--text-faint); }
+  .stage-sep {
+    align-self: center;
+    width: 12px;
+    height: 1px;
+    background: var(--border-strong);
+    flex-shrink: 0;
+  }
+
+  /* workspace */
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 344px;
+    gap: 20px;
+    align-items: start;
+  }
+  .fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .field {
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+  .field.span-2 { grid-column: span 2; }
+  .field.accent-top { border-top: 2px solid var(--accent); }
+  .field-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .field-index {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .field-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .field-meta { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+  .field-body { font-size: 15px; line-height: 1.75; color: var(--text); }
+  .field-body p { margin: 0; }
+  .field-hint { margin: 2px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-faint); }
+  .field-actions { display: flex; gap: 2px; margin-top: auto; padding-top: 4px; opacity: 0; transition: opacity 120ms ease; }
+  .field:hover .field-actions, .field:focus-within .field-actions { opacity: 1; }
+  .field-actions .btn { height: 26px; padding: 0 8px; font-size: 12px; color: var(--text-muted); }
+
+  .objective-text {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 29px;
+    line-height: 1.42;
+    font-weight: 500;
+    text-wrap: balance;
+  }
+  .objective-text em { font-style: normal; color: var(--accent); }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .side-note {
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .side-note h4 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: .08em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+  .side-note ul { margin: 0; padding-left: 18px; }
+  .side-note li { margin: 2px 0; }
+  .side-note.do { background: var(--tint-do); }
+  .side-note.do h4 { color: var(--success); }
+  .side-note.dont { background: var(--tint-dont); }
+  .side-note.dont h4 { color: var(--danger); }
+
+  .audience-row { display: flex; align-items: center; gap: 12px; }
+  .avatars { display: flex; flex-shrink: 0; }
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--font-display);
+    font-size: 14px;
+    border: 2px solid var(--surface);
+    margin-left: -8px;
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+  .avatar:first-child { margin-left: 0; }
+  .avatar.p { background: var(--tint-purple); color: var(--info); }
+  .avatar.g { background: var(--tint-green); color: var(--success); }
+
+  .excerpt {
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .excerpt strong { color: var(--text); font-weight: 600; }
+
+  .code {
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    overflow-x: auto;
+    color: var(--text);
+    white-space: pre;
+  }
+  .code .k { color: var(--accent); }
+  .code .c { color: var(--text-faint); }
+
+  table.vars { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.vars th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: var(--text-faint);
+    font-weight: 500;
+    padding: 0 8px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.vars td { padding: 7px 8px; border-bottom: 1px solid var(--border-subtle); }
+  table.vars tr:last-child td { border-bottom: 0; }
+  table.vars td.num { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+
+  .criteria { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .criteria li { display: flex; gap: 9px; align-items: flex-start; font-size: 14px; line-height: 1.55; }
+  .tick {
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: grid; place-items: center;
+    color: var(--text-faint);
+    font-size: 10px;
+  }
+  .tick.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+  .example { display: flex; gap: 12px; }
+  .example + .example { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+  .example-no {
+    font-family: var(--font-display);
+    font-size: 30px;
+    line-height: 1;
+    color: var(--accent);
+    min-width: 34px;
+  }
+  .example-body { font-size: 14px; line-height: 1.65; color: var(--text-muted); }
+  .example-body b { color: var(--text); font-weight: 600; display: block; margin-bottom: 2px; }
+  .example-body b + span { display: block; }
+
+  /* side column */
+  .side { display: grid; gap: 16px; position: sticky; top: 24px; }
+  .side-card { padding: 18px 20px; }
+  .side-title {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 12px;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .side-title .count { margin-left: auto; font-family: var(--font-body); font-size: 12px; color: var(--text-faint); font-weight: 400; }
+  .form-row { display: grid; gap: 4px; margin-bottom: 10px; }
+  .form-row label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .input, .select {
+    height: 36px;
+    width: 100%;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .input:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(138, 90, 0, .22); }
+  [data-theme="dark"] .input:focus, [data-theme="dark"] .select:focus { box-shadow: 0 0 0 3px rgba(202, 138, 4, .24); }
+  .run-meta {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .run-meta span { display: inline-flex; align-items: center; gap: 4px; }
+  .output {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text-muted);
+    max-height: 146px;
+    overflow: hidden;
+  }
+  .output strong { color: var(--text); }
+
+  .version-row { display: flex; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+  .version-row:last-child { border-bottom: 0; }
+  .version-no { font-family: var(--font-display); font-size: 22px; color: var(--text); min-width: 34px; }
+  .version-no.current { color: var(--accent); }
+  .version-desc { font-size: 12px; color: var(--text-muted); }
+  .version-time { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+  .winrate { margin-top: 10px; }
+  .winrate-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+  .winrate-head b { font-family: var(--font-display); font-size: 22px; color: var(--accent); line-height: 1; }
+  .meter { height: 6px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border-subtle); overflow: hidden; }
+  .meter > i { display: block; height: 100%; width: 73%; background: var(--accent); }
+
+  .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .export-grid .btn { justify-content: flex-start; }
+
+  .diff {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+  }
+  .diff-line { display: flex; gap: 6px; padding: 6px 8px; }
+  .diff-line + .diff-line { border-top: 1px solid var(--border-subtle); }
+  .diff-line.del { background: var(--diff-del-bg); border-left: 2px solid var(--diff-del-mark); color: var(--danger); }
+  .diff-line.add { background: var(--diff-add-bg); border-left: 2px solid var(--diff-add-mark); color: var(--success); }
+  .diff-line .sign { flex-shrink: 0; width: 10px; font-weight: 600; }
+  .diff-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--text-faint); }
+
+  .quality-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .quality-row:last-of-type { border-bottom: 0; }
+  .quality-row b { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text); }
+  .quality-row b.danger { color: var(--danger); }
+  .quality-row b.muted { font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--text-faint); }
+  .quality-meter { margin: 0 0 10px; }
+
+  /* diagnostics dock */
+  .dock {
+    margin-top: 20px;
+    overflow: hidden;
+  }
+  .dock-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dock-head h2 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+  .dock-head .hint { font-size: 11px; color: var(--text-faint); }
+  .dock-head .spacer { flex: 1; }
+  .dock-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dock-group { padding: 14px 18px 16px; border-right: 1px solid var(--border-subtle); }
+  .dock-group:last-child { border-right: 0; }
+  .dock-group-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .dock-group.error .dock-group-head { color: var(--danger); }
+  .dock-group.warn .dock-group-head { color: var(--warning); }
+  .dock-group.info .dock-group-head { color: var(--info); }
+  .lint {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-subtle);
+    align-items: start;
+  }
+  .lint:first-of-type { border-top: 0; padding-top: 0; }
+  .sev { width: 7px; height: 7px; border-radius: 50%; margin-top: 7px; }
+  .error .sev { background: var(--danger); }
+  .warn .sev { background: var(--warning); }
+  .info .sev { background: var(--info); }
+  .lint-title { font-size: 13px; line-height: 1.5; font-weight: 500; }
+  .lint-why { font-size: 12px; line-height: 1.5; color: var(--text-faint); margin-top: 2px; }
+  .lint-actions { display: flex; gap: 2px; }
+  .lint-actions .btn { height: 24px; padding: 0 6px; font-size: 11px; color: var(--accent); }
+  .lint-actions .btn.muted { color: var(--text-faint); }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  @media (max-width: 1180px) {
+    .workspace { grid-template-columns: 1fr; }
+    .side { grid-template-columns: 1fr 1fr; position: static; }
+    .dock-groups { grid-template-columns: 1fr; }
+    .dock-group { border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+    .dock-group:last-child { border-bottom: 0; }
+  }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .rail {
+      position: sticky;
+      height: auto;
+      flex-direction: row;
+      padding: 8px 12px;
+      gap: 12px;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rail .brand { width: 34px; height: 34px; flex-shrink: 0; }
+    .rail nav { flex-direction: row; }
+    .rail-foot { margin-top: 0; margin-left: auto; flex-direction: row; }
+    .rail-btn { width: 36px; height: 36px; }
+    .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 8px 14px; min-height: 0; }
+    .topbar h1 { font-size: 24px; }
+    .topbar .date { padding-left: 0; border-left: 0; width: 100%; order: 3; }
+    .topbar-right { margin-left: auto; }
+    .content { padding: 18px 16px 40px; }
+    .request { flex-direction: column; gap: 14px; padding: 16px; }
+    .request-actions { width: 100%; }
+    .request-actions .btn { flex: 1; }
+    .timeline { flex-wrap: wrap; }
+    .stage { flex: 1 1 42%; }
+    .stage-sep { display: none; }
+    .fields { grid-template-columns: 1fr; }
+    .field.span-2 { grid-column: span 1; }
+    .twocol { grid-template-columns: 1fr; }
+    .side { grid-template-columns: 1fr; }
+    .dock-head { flex-wrap: wrap; }
+    .dock-head .hint { width: 100%; order: 3; }
+  }
+  @media (max-width: 520px) {
+    .topbar-right .status-text { display: none; }
+    .topbar-right .status-short { display: inline; }
+    .topbar-right .chip { padding: 3px 7px; }
+    .objective-text { font-size: 24px; }
+    .request-quote { font-size: 20px; }
+    .timeline { display: grid; grid-template-columns: 1fr 1fr; }
+    .stage { flex: none; min-width: 0; }
+    .stage:last-child { grid-column: 1 / -1; }
+    .field { padding: 16px; }
+    .version-time { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail" aria-label="主导航">
+    <div class="brand" aria-label="PromptPilot">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h5"/>
+      </svg>
+    </div>
+    <nav>
+      <button class="rail-btn" aria-current="page" aria-label="工作台" title="工作台">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg>
+      </button>
+      <button class="rail-btn" aria-label="提示词库" title="提示词库">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 17h14M9 8h6"/></svg>
+      </button>
+      <button class="rail-btn" aria-label="评估" title="评估">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      </button>
+      <button class="rail-btn" aria-label="模板" title="模板">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+      </button>
+      <button class="rail-btn" aria-label="设置" title="设置">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5L9 6.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.5 3.1h5l.5-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg>
+      </button>
+    </nav>
+    <div class="rail-foot">
+      <button class="rail-btn" id="themeToggle" aria-label="切换深浅主题" title="切换深浅主题">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <h1>工作台</h1>
+      <span class="date">2026 年 11 月 11 日 · 周三</span>
+      <div class="topbar-right">
+        <span class="chip green"><span class="dot"></span><span class="status-text">火山方舟 · doubao-pro 已接入</span><span class="status-short">已接入</span></span>
+        <button class="icon-btn" aria-label="打开命令面板" title="⌘K">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="card request" aria-labelledby="request-title">
+        <div class="request-main">
+          <p class="eyebrow" id="request-title">本次需求</p>
+          <p class="request-quote">帮我写个周报</p>
+          <div class="request-chips" aria-label="模型替你做的假设，可点击修改">
+            <span class="chip gold">输出语言 · 中文</span>
+            <span class="chip">受众 · 管理层</span>
+            <span class="chip">长度 · 600 字</span>
+            <span class="chip">格式 · Markdown</span>
+            <span class="chip">语气 · 直接</span>
+            <span class="chip">示例 · 含 2 条</span>
+          </div>
+        </div>
+        <div class="request-actions">
+          <button class="btn secondary">重新生成</button>
+          <button class="btn ghost">编辑需求</button>
+        </div>
+      </section>
+
+      <nav class="timeline" aria-label="工作流阶段">
+        <div class="stage done">
+          <div class="stage-name">需求</div>
+          <div class="stage-meta">已确认 · 6 个假设</div>
+        </div>
+        <span class="stage-sep" aria-hidden="true"></span>
+        <div class="stage current" aria-current="step">
+          <div class="stage-name">生成</div>
+          <div class="stage-meta">已完成 · 8 字段</div>
+        </div>
+        <span class="stage-sep" aria-hidden="true"></span>
+        <div class="stage done">
+          <div class="stage-name">试运行</div>
+          <div class="stage-meta">2.4s · 812 tokens</div>
+        </div>
+        <span class="stage-sep" aria-hidden="true"></span>
+        <div class="stage future">
+          <div class="stage-name">评估</div>
+          <div class="stage-meta">待运行 · 3 条样本</div>
+        </div>
+        <span class="stage-sep" aria-hidden="true"></span>
+        <div class="stage future">
+          <div class="stage-name">优化</div>
+          <div class="stage-meta">待评估后开放</div>
+        </div>
+      </nav>
+
+      <div class="workspace">
+        <div class="fields">
+          <article class="field card span-2 accent-top" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">02</span>
+              <h2 class="field-title">目标</h2>
+              <span class="field-meta">objective · AI 生成</span>
+            </div>
+            <p class="objective-text">为 12 人的产品团队生成一份本周进展周报，覆盖已完成、进行中、风险与下周计划，<em>全文不超过 600 字</em>，先给结论，再给细节。</p>
+            <div class="field-actions">
+              <button class="btn ghost">重新生成</button>
+              <button class="btn ghost">加长</button>
+              <button class="btn ghost">缩短</button>
+              <button class="btn ghost">更具体</button>
+            </div>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">01</span>
+              <h2 class="field-title">角色</h2>
+              <span class="field-meta">role · AI 生成</span>
+            </div>
+            <div class="audience-row">
+              <div class="avatars" aria-hidden="true">
+                <span class="avatar">CE</span>
+                <span class="avatar p">PM</span>
+                <span class="avatar g">OP</span>
+              </div>
+              <div class="field-body">你是产品团队的技术项目经理，每周向 CEO 与跨部门负责人汇报。读者只有 3 分钟，先看结论与风险。</div>
+            </div>
+            <div class="field-actions">
+              <button class="btn ghost">重新生成</button>
+              <button class="btn ghost">更具体</button>
+            </div>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">03</span>
+              <h2 class="field-title">上下文</h2>
+              <span class="field-meta">context</span>
+            </div>
+            <div class="excerpt"><strong>第 46 周。</strong>新版工作台完成 30% 灰度，评估页进入联调；数据迁移因上游接口变更延期 2 天，影响下周发布窗口。</div>
+            <div class="field-actions">
+              <button class="btn ghost">重新生成</button>
+              <button class="btn ghost">更具体</button>
+            </div>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">04</span>
+              <h2 class="field-title">输入与变量</h2>
+              <span class="field-meta">variables · 5</span>
+            </div>
+            <table class="vars">
+              <thead><tr><th>变量</th><th>类型</th><th>默认值</th><th>必填</th></tr></thead>
+              <tbody>
+                <tr><td class="num">{{week}}</td><td>string</td><td>第 46 周</td><td>是</td></tr>
+                <tr><td class="num">{{team_size}}</td><td>number</td><td>12</td><td>是</td></tr>
+                <tr><td class="num">{{audience}}</td><td>enum</td><td>管理层</td><td>是</td></tr>
+                <tr><td class="num">{{max_words}}</td><td>number</td><td>600</td><td>否</td></tr>
+                <tr><td class="num">{{tone}}</td><td>enum</td><td>直接</td><td>否</td></tr>
+              </tbody>
+            </table>
+            <p class="field-hint">语法 {{variable}}，类型支持 string / number / enum / boolean。</p>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">06</span>
+              <h2 class="field-title">输出格式</h2>
+              <span class="field-meta">outputFormat · Markdown</span>
+            </div>
+            <pre class="code"><span class="k">## 本周结论</span>
+一句话，含 1 个关键数字
+
+<span class="k">## 进展</span>
+- [项目] 结果（数字）
+
+<span class="k">## 风险</span>
+| 风险 | 影响 | 责任人 | 需要支持 |
+
+<span class="k">## 下周计划</span>
+1. 可验证的下一步</pre>
+          </article>
+
+          <article class="field card span-2" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">05</span>
+              <h2 class="field-title">约束与边界</h2>
+              <span class="field-meta">constraints · AI 生成</span>
+            </div>
+            <div class="twocol">
+              <div class="side-note do">
+                <h4>做</h4>
+                <ul>
+                  <li>按结论、进展、风险、下周计划四段输出</li>
+                  <li>风险必须给出影响面、责任人与所需支持</li>
+                  <li>数字带单位，不确定的信息标注「待确认」</li>
+                </ul>
+              </div>
+              <div class="side-note dont">
+                <h4>不做</h4>
+                <ul>
+                  <li>不写空泛形容词，不编造未提供的数据</li>
+                  <li>不把风险埋在段落中间</li>
+                  <li>不使用感叹号与营销腔</li>
+                </ul>
+              </div>
+            </div>
+            <div class="field-actions">
+              <button class="btn ghost">重新生成</button>
+              <button class="btn ghost">更具体</button>
+            </div>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">07</span>
+              <h2 class="field-title">示例</h2>
+              <span class="field-meta">examples · 2</span>
+            </div>
+            <div class="example">
+              <div class="example-no" aria-hidden="true">01</div>
+              <div class="example-body">
+                <b>输入</b><span>第 46 周，工作台灰度 30%，评估页联调中，数据迁移延期 2 天。</span>
+                <b style="margin-top:6px">期望输出开头</b><span>「本周结论：工作台灰度覆盖 30% 目标用户，评估页联调完成 80%，数据迁移延期 2 天，发布窗口需顺延至第 47 周。」</span>
+              </div>
+            </div>
+            <div class="example">
+              <div class="example-no" aria-hidden="true">02</div>
+              <div class="example-body">
+                <b>输入</b><span>风险：数据迁移延期 2 天，上游接口未提供字段映射。</span>
+                <b style="margin-top:6px">期望输出</b><span>「风险：数据迁移延期 2 天，影响第 47 周发布窗口；责任人：数据组；需要支持：上游在本周五前确认字段映射。」</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="field card" tabindex="0">
+            <div class="field-head">
+              <span class="field-index">08</span>
+              <h2 class="field-title">自检</h2>
+              <span class="field-meta">selfCheck · 4</span>
+            </div>
+            <ul class="criteria">
+              <li><span class="tick" aria-hidden="true"></span><span>四段结构齐全，缺少任一段判为不满足</span></li>
+              <li><span class="tick" aria-hidden="true"></span><span>至少 3 个可核对数字，且带单位</span></li>
+              <li><span class="tick" aria-hidden="true"></span><span>风险段包含影响面、责任人、所需支持</span></li>
+              <li><span class="tick" aria-hidden="true"></span><span>全文不超过 600 字，无感叹号</span></li>
+            </ul>
+            <p class="field-hint">生成时逐条自检，未通过则修正后重写。</p>
+          </article>
+        </div>
+
+        <aside class="side" aria-label="试运行与版本">
+          <section class="card side-card">
+            <h2 class="side-title">试运行 <span class="count">doubao-pro-32k</span></h2>
+            <div class="form-row">
+              <label for="week">week</label>
+              <input class="input" id="week" value="第 46 周">
+            </div>
+            <div class="form-row">
+              <label for="words">max_words</label>
+              <input class="input" id="words" value="600">
+            </div>
+            <button class="btn primary" style="width:100%;margin-top:4px">运行一次</button>
+            <div class="output" aria-label="试运行输出">
+              <strong>本周结论</strong><br>
+              工作台灰度覆盖 30% 目标用户，评估页联调完成 80%，数据迁移延期 2 天，发布窗口需顺延至第 47 周。
+            </div>
+            <div class="run-meta">
+              <span class="mono">2.4s</span>
+              <span class="mono">812 tokens</span>
+              <span class="mono">¥0.003</span>
+            </div>
+          </section>
+
+          <section class="card side-card">
+            <h2 class="side-title">版本 <span class="count">3 个</span></h2>
+            <div class="version-row">
+              <span class="version-no current">v3</span>
+              <span class="version-desc">AI 优化 · 补边界</span>
+              <span class="version-time">11:08</span>
+            </div>
+            <div class="version-row">
+              <span class="version-no">v2</span>
+              <span class="version-desc">人工编辑 · 改受众</span>
+              <span class="version-time">10:42</span>
+            </div>
+            <div class="version-row">
+              <span class="version-no">v0</span>
+              <span class="version-desc">基线 · 原始一句话</span>
+              <span class="version-time">10:36</span>
+            </div>
+            <div class="winrate">
+              <div class="winrate-head"><span>v0 对比胜率</span><b>73%</b></div>
+              <div class="meter" role="img" aria-label="v0 对比胜率 73%"><i></i></div>
+            </div>
+          </section>
+
+          <section class="card side-card">
+            <h2 class="side-title">版本对比 <span class="count">v3 vs v0</span></h2>
+            <div class="diff">
+              <div class="diff-line del"><span class="sign">-</span><span>帮我写个周报</span></div>
+              <div class="diff-line add"><span class="sign">+</span><span>为 12 人产品团队生成周报，四段结构，600 字以内</span></div>
+              <div class="diff-line add"><span class="sign">+</span><span>风险段含影响面、责任人、所需支持</span></div>
+              <div class="diff-line add"><span class="sign">+</span><span>信息不足时标注「待确认」，不编造数据</span></div>
+            </div>
+            <div class="diff-foot"><span>3 处新增</span><span>1 处删除</span></div>
+          </section>
+
+          <section class="card side-card">
+            <h2 class="side-title">质量 <span class="count">当前 v3</span></h2>
+            <div class="quality-row"><span>字段齐全度</span><b>8/8</b></div>
+            <div class="meter quality-meter"><i style="width:100%"></i></div>
+            <div class="quality-row"><span>诊断</span><b class="danger">1 错误</b></div>
+            <div class="quality-row"><span>评估</span><b class="muted">未运行</b></div>
+          </section>
+
+          <section class="card side-card">
+            <h2 class="side-title">导出 <span class="count">当前 v3</span></h2>
+            <div class="export-grid">
+              <button class="btn secondary sm">Markdown</button>
+              <button class="btn secondary sm">JSON</button>
+              <button class="btn secondary sm">OpenAI messages</button>
+              <button class="btn secondary sm">火山方舟</button>
+            </div>
+            <p class="field-hint" style="margin-top:10px">变量占位符按目标格式转换。</p>
+          </section>
+        </aside>
+      </div>
+
+      <section class="card dock" aria-labelledby="dock-title">
+        <div class="dock-head">
+          <h2 id="dock-title">诊断</h2>
+          <span class="chip red">1 错误</span>
+          <span class="chip gold">2 警告</span>
+          <span class="chip purple">2 建议</span>
+          <span class="hint">16 条本地规则 · 12ms · 零 token</span>
+          <span class="spacer"></span>
+          <button class="btn secondary sm">全部修复</button>
+        </div>
+        <div class="dock-groups">
+          <div class="dock-group error">
+            <div class="dock-group-head">错误 · 1</div>
+            <div class="lint">
+              <span class="sev" aria-hidden="true"></span>
+              <div>
+                <div class="lint-title">R004 模糊词「尽量简洁」</div>
+                <div class="lint-why">简洁没有可验证标准，模型与读者理解不一致</div>
+              </div>
+              <div class="lint-actions"><button class="btn ghost">修复</button><button class="btn ghost muted">忽略</button></div>
+            </div>
+          </div>
+          <div class="dock-group warn">
+            <div class="dock-group-head">警告 · 2</div>
+            <div class="lint">
+              <span class="sev" aria-hidden="true"></span>
+              <div>
+                <div class="lint-title">R009 缺少信息不足时的行为约定</div>
+                <div class="lint-why">未提供数据时，模型可能编造或直接停住</div>
+              </div>
+              <div class="lint-actions"><button class="btn ghost">修复</button><button class="btn ghost muted">忽略</button></div>
+            </div>
+            <div class="lint">
+              <span class="sev" aria-hidden="true"></span>
+              <div>
+                <div class="lint-title">R012 示例未覆盖风险段</div>
+                <div class="lint-why">示例只展示结论与进展，格式约束可能被忽略</div>
+              </div>
+              <div class="lint-actions"><button class="btn ghost">修复</button><button class="btn ghost muted">忽略</button></div>
+            </div>
+          </div>
+          <div class="dock-group info">
+            <div class="dock-group-head">建议 · 2</div>
+            <div class="lint">
+              <span class="sev" aria-hidden="true"></span>
+              <div>
+                <div class="lint-title">R014 变量 {{max_words}} 未被正文引用</div>
+                <div class="lint-why">声明了变量但目标中写死 600 字，改值不会生效</div>
+              </div>
+              <div class="lint-actions"><button class="btn ghost">修复</button><button class="btn ghost muted">忽略</button></div>
+            </div>
+            <div class="lint">
+              <span class="sev" aria-hidden="true"></span>
+              <div>
+                <div class="lint-title">R016 可补一个反例</div>
+                <div class="lint-why">加入「不要写成流水账」能进一步收紧语气</div>
+              </div>
+              <div class="lint-actions"><button class="btn ghost">采纳</button><button class="btn ghost muted">忽略</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById('themeToggle');
+    function apply(theme) {
+      root.setAttribute('data-theme', theme);
+      try { localStorage.setItem('pp-preview-theme', theme); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('pp-preview-theme'); } catch (e) {}
+    if (location.hash === '#dark') saved = 'dark';
+    if (location.hash === '#light') saved = 'light';
+    if (saved === 'dark' || saved === 'light') apply(saved);
+    toggle.addEventListener('click', function () {
+      apply(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+  })();
+</script>
+</body>
+</html>

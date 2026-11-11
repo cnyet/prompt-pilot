@@ -286,7 +286,7 @@ UI 禁用只是建议。`assertVersionWritable(0)` 在服务端返回 409。
 - [ ] 导出 Markdown，粘贴到任意 Markdown 编辑器
 - [ ] 保存版本，去库里打开，另存一个新版本
 - [ ] 跑 `pnpm test` 与 `node scripts/e2e-http.mjs`，确认全绿
-- [ ] 读完 `docs/PRODUCT.md` 与 `docs/ARCHITECTURE.md` 的状态模型一节
+- [ ] 读完 `PRODUCT.md` 与 `docs/ARCHITECTURE.md` 的状态模型一节
 
 ---
 
@@ -294,8 +294,8 @@ UI 禁用只是建议。`assertVersionWritable(0)` 在服务端返回 409。
 
 | 文件 | 内容 |
 |---|---|
-| `docs/PRODUCT.md` | 需求、验收标准、指标、非目标 |
-| `docs/DESIGN.md` | 视觉规范、组件状态矩阵、交互约束 |
+| `PRODUCT.md` | 需求、验收标准、指标、非目标 |
+| `DESIGN.md` | 视觉规范、组件状态矩阵、交互约束 |
 | `docs/ARCHITECTURE.md` | Provider 接口、SSE 协议、schema、状态模型、数据模型 |
 | `docs/ROADMAP.md` | 里程碑与风险 |
 | `docs/REVIEW.md` | 评审结论与问题闭环 |

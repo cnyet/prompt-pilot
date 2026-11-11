@@ -58,3 +58,28 @@
 - 坑: 行描述回退 preview 时会带 markdown 的 `#` 前缀，展示前用 `/^#+\s*/` 剥离。
 - 验证: typecheck ✓、493/493 ✓、build ✓；CDP 实测排序、行点击抽屉、搜索空态；截图归档 docs/assets/bento-r2/（1440 明暗、1024、390、详情、空态）。
 - 服务与 Chrome 已停；工作区仅剩 `.agent/memory/handoff-*.md` 未跟踪。
+
+## 2026-11-11（R3 评估页）
+- 事实: R3 只改 `components/eval/EvalWorkspace.tsx`。创建区改双栏（评估对象 19rem + 样本输入 1fr，操作条独立一行）；KPI 三项用 `text-numeral-hero`，不满足独立为 `bg-tint-coral` + `text-numeral-mega text-danger`；样本对照用 `sm:grid-cols-2` 并排当前版本 / v0 基线；判定仍按样本分组，序号改衬线两位数。
+- 决策: 无判定判定条件定为 `summary === null || (verdictCount === 0 && judgedSamples === 0)` | Reason: 仅看 verdictCount 会在「有样本级对比、无标准判定」时误标待人工判定；仅看 summary 会把无评委的 0 当已知值显示。
+- 坑: `next dev` 会自动向 `AGENTS.md` 追加 nextjs-agent-rules 块，污染任务 diff；用 `git checkout -- AGENTS.md` 回退，不要带入提交。
+- 验证: typecheck ✓、493/493 ✓、build ✓、project harness check 全 pass；浏览器实测 1440/1024/390 与样本展开态；danger/coral 对比度浅色 4.74:1、深色 5.18:1。
+- 待办: R3 未提交，工作区仅 `EvalWorkspace.tsx` 一个改动；下一步 R4 模板 + 设置 + 全局 chrome。
+
+## 2026-11-11（设计系统重做：瑞士黑白）
+- 决策: 用户对现 DESIGN.md 不满意，要求启用 ui-ux-pro-max 重做；方向选定「瑞士黑白」（Uber 纯黑白 + Blinkist 编辑留白 + Linear 密度）。本轮先交付 DESIGN.md + 单页样张，不改造应用代码；R4 暂停。
+- 事实: 项目 `.claude/settings.json` 已启用 `ui-ux-pro-max@ui-ux-pro-max-skill`（修改前备份 `settings.json.bak-*`，JSON 校验通过）。技能数据库脚本：`~/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.15.0/.claude/skills/ui-ux-pro-max/scripts/search.py`。
+- 事实: 已启动 ui-designer 子代理重写 `DESIGN.md` 与 `docs/design-preview/swiss-workbench.html`（1440/390 截图），结果待返回。
+- 评估: `~/Downloads/questui-DESIGN.md` 是奇幻 RPG 风格（金/深红/紫、Cinzel+Spectral、金色 glow、深棕底），与瑞士黑白方向及 P1 业务用户定位冲突，**不能直接借用视觉系统**；可借用其组件规格清单（按钮/卡片/输入/chip/list/checkbox/radio/tooltip）与 8px 间距刻度作为文档结构。
+- 验证基线: typecheck ✓、493/493 ✓。
+
+## 2026-11-11（设计方向转向 QuestUI：Q0 交付）
+- 决策: 用户最终选定 QuestUI 奇幻视觉，保留其深棕分层、金色主操作、衬线标题、2-8px 圆角与 active glow，改写为中文双主题「烛光羊皮纸」| Reason: 用户明确要求，替代瑞士黑白；直接照搬在中文、浅色与对比度上不可用。
+- 决策: 浅色为羊皮纸日光变体（默认），深色为烛光地下室；中文标题系统宋体、正文系统无衬线、零网络字体 | Reason: 中文子集体积与首屏预算；用户选择系统宋体方案。
+- 事实: 新增 `docs/adr/0006-questui-parchment-direction.md`；ADR-0001/0004 视觉结论标记为被取代，ADR-0002/0003/0005 继续有效。Q0 交付 `DESIGN.md`、`docs/design-preview/questui-workbench.html`、`docs/assets/design-v2/` 三张截图（1440 明暗 + 390 明）。
+- 事实: 令牌 WCAG 实测浅色最低 4.62:1（accent / tint-gold），深色最低 4.70:1（accent / tint-gold）；QuestUI 原稿 `#991B1B` 文字 2.00:1、`#581C87` 1.73:1、白字压 `#CA8A04` 2.94:1，均未采用。
+- 坑: Chrome headless `--window-size 390` 会钳制宽度；移动截图改用 CDP `Emulation.setDeviceMetricsOverride`，实测 `scrollWidth = 390`，无横向溢出。
+- 坑: `sips` 的 cropOffset 不能可靠取顶部；长截图用 PIL 按 y 区间裁剪检查。
+- 验证: harness check 全 pass；typecheck ✓；493/493 ✓；build ✓；桌面 1440 与移动 390 截图目检通过。
+- 事实: 用户于 2026-11-11 确认 Q0 方向，下一步 Q1。因会话预算收口，Q1 未启动；Q0 未改任何应用代码，R3 `EvalWorkspace.tsx` 仍未提交。
+- 待办: 新会话从 Q1 开始（令牌层 + Button / Input / Chip / Card / Panel / Tabs），随后 Q2 工作台迁移。

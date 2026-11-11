@@ -1,5 +1,7 @@
 # 编辑部 bento 重构计划
 
+> 状态（2026-11-11）：R1-R3 已落地，本文保留为构图层的历史记录。视觉材质、色彩、字体与组件规格已由 `docs/adr/0006-questui-parchment-direction.md` 与根目录 `DESIGN.md` 取代；后续 R4/R5 不再按本文执行，改为 `DESIGN.md` 第九节的 Q1-Q5。
+
 不是再调一轮颜色。前四轮（B1-B7、P1-P4）做的是参数层与骨架层，这次动**构图层**：字段长什么样、数字当不当主角、流程怎么画出来。方向决策记录见 `docs/adr/0004-editorial-bento-redesign.md`。
 
 参考物：OpenDesign Orbit 综合简报（`example-orbit-general`）。其色系与本项目同源（暖纸底 `#FAF7F2`、墨 `#1A1816`、赤陶 `#D86A47`，无阴影无渐变），因此**配色基本不动，构图全面替换**。
