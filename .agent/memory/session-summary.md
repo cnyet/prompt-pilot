@@ -239,3 +239,20 @@
 ### Carry-over
 - [ ] 分页、最近使用、版本间 diff 对比仍未做。
 - [ ] `.claude/harness.json`、`.claude/settings.json` 本地修改不入库。
+
+## 2026-11-11（版本间 diff）
+
+### Completed
+- [x] `3e11bca`：FR-7.5 任意两个版本对比。详情时间线下方新增 `VersionDiff`：基准/目标两个下拉，默认 v0 与最新版本；复用 `components/studio/diff.ts` 的行级 LCS，输出新增/删除行数、红绿底纹与 +/- 标记，方向随选择反转；无文本时给出空提示。
+
+### Key Decisions
+- 复用已有 `diffLines` 而非另写对比算法 | Reason: 工作台字段建议已在用同一实现，避免两套 diff 语义漂移。
+- 组件内部持有下拉状态并以 `detail.id` 作 key | Reason: 切换提示词自动回到 v0/最新，不需要额外的重置 effect。
+- 对比区放在时间线之后、版本内容之前 | Reason: 先选版本再读内容；对比是时间线的自然延伸。
+
+### Verification
+- `pnpm run typecheck` ✓；`pnpm test` 503/503 ✓；`pnpm run check:contrast` 全通过；harness check 24 pass / 0 fail。
+- CDP 实测：3 个版本默认 v0→v2 得 0/0（内容相同）；切到 v1 得「新增 88 行 · 删除 1 行」，88 个 `+` 与 1 个 `-`；反向 v1→v0 得「新增 1 行 · 删除 88 行」；同版本全 same；深浅截图均正常。
+
+### Carry-over
+- [ ] 分页、最近使用仍未做；真实 ARK 链路仍缺 key。

@@ -6,12 +6,13 @@
 ## Pending
 - [ ] 真实密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）| Priority: P0 | Created: 2026-11-10
 - [ ] 库的分页 | Priority: P2 | Created: 2026-11-10
-- [ ] 最近使用入口与版本间 diff 对比 | Priority: P2 | Created: 2026-11-11
+- [ ] 最近使用入口 | Priority: P2 | Created: 2026-11-11
 
 ## Blocked
 - [ ] 真实 ARK 密钥验证 | Blocker: 环境无 ARK_API_KEY
 
 ## Done
+- [x] FR-7.5 版本间 diff：基准/目标下拉、行级增删、方向反转（`3e11bca`）| Completed: 2026-11-11
 - [x] FR-8.1 元信息编辑：标题/描述/标签，空标题拦截，不产生版本（`f42c157`）| Completed: 2026-11-11
 - [x] FR-8.5 收藏：行内书签开关、只看收藏筛选、空态与失败回滚（`ef0c28f`）| Completed: 2026-11-11
 - [x] FR-7.5 版本回滚 UI：追加新版本、当前版本禁点、成功提示（`cf64a46`）| Completed: 2026-11-11
