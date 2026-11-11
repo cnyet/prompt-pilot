@@ -277,3 +277,29 @@
 
 ### Carry-over
 - [ ] 仅剩列表分页；真实 ARK 链路仍缺 key。
+
+## 2026-11-11（工作台输入、主路径模板、品牌与设置）
+
+### Completed
+- [x] `4e5a856`：工作台输入区放大（桌面 240px、移动 196px，7 行，可纵向拉伸）；场景入口改为复用 `lib/templates.ts`，新增并置顶 featured「一句话扩写」。
+- [x] `4e5a856`：新增 `BrandMark` 印章式 P + 导引星，替换左轨「PP」；新增 `app/icon.svg`；AppShell 底部统一版权条「© 2026 PromptPilot · 本地优先的提示词工坊」。
+- [x] `4e5a856`：设置默认网关改为 `https://opencode.ai/inference/go`；生成模型 `deepseek-v4.1-flash`（显示 DeepSeek V4.1 Flash），评估模型 `gpt-5.6-luna`（显示 GPT 5.6 Luna）；默认 provider 改 `openai_compatible`，避免向网关发送方舟专属字段。
+- [x] `4e5a856`：成本区新增近 14 天柱状（调用次数）+ 折线（已知金额）组合图，左右双轴、上海时区切日、未知金额不入折线、`role="img"` + `sr-only` 明细表；删除设置「快捷键」分区与导航。
+- [x] 本地 SQLite 清理：12 条重复提示词删到 3 条（6 个版本），备份 `data/app.db.bak-20261111-1430`；保留周报、向量数据库、产品周报三条真实内容。
+
+### Key Decisions
+- 模型 ID 不能含空格，用 kebab slug 存储，界面经 `modelDisplayLabel()` 映射显示名 | Reason: 同时满足 ID 校验与用户可读名称。
+- opencode 网关走 `openai_compatible` 而非 `ark` | Reason: 避免适配层注入 `thinking` / `service_tier` 等方舟专属参数。
+- 趋势图金额未知时不补 0、不画折线，只在图下图注未知调用数 | Reason: 沿用「未知一律 null」契约，不伪造数据。
+- 清理脏数据前先停 3100 并备份数据库 | Reason: SQLite 单文件，避免运行中写入与误删不可回滚。
+
+### Verification
+- `pnpm run typecheck` ✓；`pnpm test` 506/506 ✓（新增上海时区按日聚合、未知金额排除断言）；`pnpm run check:contrast` 全通过（浅色最低 4.51:1，深色 4.70:1）；harness 24 pass / 0 warn / 0 fail。
+- CDP 1440/390 实测：输入框桌面 240px、移动 196px 且无横向溢出；模板页 7 张卡、首张「一句话扩写」、1 张 featured；设置 base URL 与两个模型 ID 正确、导航仅模型/成本/数据、无「快捷键」、图表有 aria-label；库页 3 行；深浅两套 Logo 与版权条正常；`/icon.svg` 返回 200。
+
+### Pitfalls
+- `DEFAULT_MODEL_PRICING_CNY` 尚未收录 DeepSeek V4.1 Flash 与 GPT 5.6 Luna，真实调用成本会先显示未知，需在设置价格覆盖或补表后才进折线。
+- 新模型 ID 含点号可过校验，但含空格必失败；不要直接拿显示名当 ID。
+
+### Carry-over
+- [ ] 真实网关密钥端到端验证；[ ] 新模型价格补表；[ ] 列表分页。

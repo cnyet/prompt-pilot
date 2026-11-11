@@ -1,13 +1,13 @@
 # Active Context
 
-> Last updated: 2026-11-11T13:22:00Z
+> Last updated: 2026-11-11T14:45:00Z
 
 ## Current Task
-- Done: DESIGN Q0-Q5 迁移全部收口（Q3-Q5: `5d771bb` / `d1b86e8` / `1bb2d69`）；模板「用它开始」预填（`3dae599`）；FR-6.4 盲评双向交换（`d9871fd`）；FR-7.5 回滚 UI（`cf64a46`）；FR-8.5 收藏与筛选（`ef0c28f`）；FR-8.1 标题/描述/标签编辑（`f42c157`）；FR-7.5 版本间 diff（`3e11bca`）；FR-8.5 最近使用（`8c32e9d`）。
+- Done: DESIGN Q0-Q5 收口（`5d771bb`/`d1b86e8`/`1bb2d69`）；最近使用（`8c32e9d`）；工作台输入放大、主路径模板、品牌印记/图标/版权条、opencode 网关与成本趋势图、快捷键移除、脏数据清理（`4e5a856`）。
 - Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
 - In progress: 无。
-- Next step: 真实 ARK 密钥端到端验证（生成 → 试运行 usage 落库 → 评估 verdict → 成本页数字），需用户提供 key；无 key 时做列表分页。
-- Blockers: 环境无 ARK_API_KEY，真实链路未验。
+- Next step: 真实网关密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）；无 key 时补新模型价格表，再做列表分页。
+- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。
 
 ## Current Constraints
 - 令牌以 `DESIGN.md` 第二节为准，代码在 `app/globals.css`；改令牌须同步文档并跑 `pnpm check:contrast`。
@@ -25,18 +25,21 @@
 - 冻结契约与 CI 工作流改动须 code owner 审阅（`.github/CODEOWNERS`）。
 
 ## Do Not Retry
-- 直接照搬 QuestUI 原稿 | 原因: 无中文、仅深色、11px 大写、语义色对比度不达标；只借语法并重写令牌。
+- 直接照搬 QuestUI 原稿 | 原因: 无中文、仅深色、11px 大写、语义色对比度不达标。
 - 用 `readonly:` 变体 | 原因: Tailwind v4 无此变体，必须用 `read-only:`。
 - 工作台加右栏版本/对比/质量/导出 | 原因: DESIGN §4.1 + ADR-0004 不采用右栏诊断布局。
-- 在 `about:blank` 上写 localStorage 再截图 | 原因: 源不同，主题不生效，会截出浅色冒充深色。
+- 在 `about:blank` 上写 localStorage 再截图 | 原因: 源不同，主题不生效。
 - 组件 JSX 当 null 判断 / 预览组件用 useMemo / 无条件启用 valid mock / 覆盖 HOME 跑 Chrome | 原因: 历史坑。
+- 模型显示名直接当 modelId | 原因: 含空格无法过校验，用 kebab slug + `modelDisplayLabel()`。
 
 ## Current Decisions
-- 左轨 64px 默认、`\` 展开 208px，主题切换在轨底；顶栏持有唯一 h1 | Reason: 兼顾 DESIGN §3 与既有快捷键。
-- Q2 时间轴副标签与诊断多栏借自 design-v2 截图，骨架保持 DESIGN §4.1 | Reason: 右栏依赖 FR-7/FR-11 未完成。
-- 对比度脚本解析 `globals.css` 变量，不硬编码 | Reason: 防文档与代码漂移。
-- 项目无 `prisma/migrations/`，改 schema 用 `pnpm exec prisma db push` + `prisma generate` | Reason: 当前单机 SQLite 工作流；加可空列不丢数据。
-- CI 顺序：contrast → `next typegen` → typecheck → test → build | Reason: `next-env.d.ts` 未入库。
+- 默认网关 `https://opencode.ai/inference/go`，provider 用 `openai_compatible`，避免发送方舟专属参数。
+- 生成 `deepseek-v4.1-flash`、评估 `gpt-5.6-luna`；显示名只走映射表。
+- 成本趋势图按上海时区切日；未知金额不入折线、不补 0；图为 `role="img"` + sr-only 表。
+- 左轨 64px 默认、`\` 展开 208px；顶栏持有唯一 h1。
+- 对比度脚本解析 `globals.css` 变量，不硬编码。
+- 项目无 `prisma/migrations/`，改 schema 用 `pnpm exec prisma db push` + `prisma generate`。
+- CI 顺序：contrast → `next typegen` → typecheck → test → build。
 - ADR-0001/0004 视觉结论被 ADR-0006 取代；ADR-0002/0003/0005 继续有效。
 
 ## Current References
@@ -44,3 +47,4 @@
 - `scripts/contrast-check.mjs`、`.github/workflows/ci.yml`
 - 截图：`docs/assets/design-v2/`、`docs/assets/bento-r2/`、`docs/assets/bento-r3/`、`docs/assets/bento-q4/`、`docs/assets/q5/`
 - `PRODUCT.md`、`CONTEXT.md`、`docs/HANDOVER.md`
+- 数据库备份：`data/app.db.bak-20261111-1430`

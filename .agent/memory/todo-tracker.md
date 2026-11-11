@@ -5,12 +5,14 @@
 
 ## Pending
 - [ ] 真实密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）| Priority: P0 | Created: 2026-11-10
+- [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 库的分页 | Priority: P2 | Created: 2026-11-10
 
 ## Blocked
 - [ ] 真实 ARK 密钥验证 | Blocker: 环境无 ARK_API_KEY
 
 ## Done
+- [x] 工作台输入放大、主路径模板、品牌印记/图标/版权条、设置网关与成本趋势图、快捷键移除、脏数据清理（`4e5a856`）| Completed: 2026-11-11
 - [x] FR-8.5 最近使用：lastUsedAt、markUsed 去重、最近使用排序（`8c32e9d`）| Completed: 2026-11-11
 - [x] FR-7.5 版本间 diff：基准/目标下拉、行级增删、方向反转（`3e11bca`）| Completed: 2026-11-11
 - [x] FR-8.1 元信息编辑：标题/描述/标签，空标题拦截，不产生版本（`f42c157`）| Completed: 2026-11-11
