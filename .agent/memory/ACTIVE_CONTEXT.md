@@ -1,12 +1,12 @@
 # Active Context
 
-> Last updated: 2026-11-11T13:30:00Z
+> Last updated: 2026-11-11T13:45:00Z
 
 ## Current Task
-- Done: Q0 设计系统；Q1 令牌层 + 基座组件 + 对比度脚本；Q2 工作台；Q3 评估（`5d771bb`）；Q4 模板/设置/chrome（`d1b86e8`）；Q5 响应式 + 双主题 + a11y（`1bb2d69`）。DESIGN.md 的 Q0-Q5 迁移全部收口；模板「用它开始」已接通工作台预填（`3dae599`）。
+- Done: Q0 设计系统；Q1 令牌层 + 基座组件 + 对比度脚本；Q2 工作台；Q3 评估（`5d771bb`）；Q4 模板/设置/chrome（`d1b86e8`）；Q5 响应式 + 双主题 + a11y（`1bb2d69`）。DESIGN.md 的 Q0-Q5 迁移全部收口；模板「用它开始」接通工作台预填（`3dae599`）；FR-6.4 盲评双向交换（`d9871fd`）。
 - Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
 - In progress: 无。
-- Next step: 真实 ARK 密钥端到端验证（生成 → 试运行 usage 落库 → 评估 verdict → 成本页数字），需用户提供 key 或用 MOCK；无 key 时做 FR-6.4 盲评位置随机化与双向交换。
+- Next step: 真实 ARK 密钥端到端验证（生成 → 试运行 usage 落库 → 评估 verdict → 成本页数字），需用户提供 key；无 key 时继续 P2 欠账（版本回滚 UI、库标签/收藏/分页）。
 - Blockers: 环境无 ARK_API_KEY，真实链路未验。
 
 ## Current Constraints

@@ -5,7 +5,6 @@
 
 ## Pending
 - [ ] 真实密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）| Priority: P0 | Created: 2026-11-10
-- [ ] FR-6.4 盲评位置随机化与双向交换 | Priority: P1 | Created: 2026-11-11
 - [ ] 版本回滚 UI | Priority: P2 | Created: 2026-11-10
 - [ ] 库的标签/收藏/分页 | Priority: P2 | Created: 2026-11-10
 
@@ -13,6 +12,7 @@
 - [ ] 真实 ARK 密钥验证 | Blocker: 环境无 ARK_API_KEY
 
 ## Done
+- [x] FR-6.4 盲评位置随机化与双向交换（正反判定合并；`d9871fd`）| Completed: 2026-11-11
 - [x] 模板「用它开始」接通工作台预填（共享登记表、查询参数、重置不回流；`3dae599`）| Completed: 2026-11-11
 - [x] Q5 响应式 + 双主题 + a11y（1024/390 断点、焦点环、深浅截图；`1bb2d69`）| Completed: 2026-11-11
 - [x] Q4 模板 + 设置 + 全局 chrome（左轨 + 顶栏、异构模板网格、成本 KPI；`d1b86e8`）| Completed: 2026-11-11

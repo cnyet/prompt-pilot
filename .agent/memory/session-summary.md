@@ -186,3 +186,16 @@
 ### Verification
 - `pnpm run typecheck` ✓；`pnpm test` 496/496 ✓；harness check 全 pass。
 - CDP 实测：6 个入口 href 正确且均非 disabled；`template=content` 预填文案与光标位置正确；未知 id 输入框为空且无错误遮罩；生成完成后「重新开始」输入框为空。
+
+## 2026-11-11（盲评双向交换）
+
+### Completed
+- [x] `d9871fd`：FR-6.4 位置随机化与双向交换。`buildJudgeMessages` 支持 `target-first` / `baseline-first`；有基线时正反各判一次，`comparisonFromTarget` 把反向结果翻回目标视角，`reconcileComparison` 只在两向一致时采用，冲突记 `same`；标准判定只取正向一次，避免把基线判定算进通过率。
+
+### Key Decisions
+- 双向判定只用于 comparison，不通两倍判标准 | Reason: criterion verdict 必须针对目标版本，反向那次的 A 是基线，用了会污染 passRate。
+- 冲突归为 `same` 而不是丢弃 | Reason: 保留「有判定但方向不可信」的事实，胜率分母只见 decisive，不受影响。
+
+### Verification
+- `pnpm run typecheck` ✓；`pnpm test` 500/500 ✓；harness check 25 pass / 0 fail。
+- 新增单测覆盖 A/B 顺序、反向翻向、合并冲突；集成测试让两个版本输出可区分，双向判官一致时胜率仍为 1（交换后不反转）。
