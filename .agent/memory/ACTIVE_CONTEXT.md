@@ -1,12 +1,12 @@
 # Active Context
 
-> Last updated: 2026-11-11T12:50:00Z
+> Last updated: 2026-11-11T13:05:00Z
 
 ## Current Task
-- Done: Q0 设计系统（DESIGN.md、ADR-0006、样张、截图）；Q1 令牌层 + 基座组件 + 对比度脚本；Q2 工作台迁移 + design-v2 截图亮点借鉴。
+- Done: Q0 设计系统（DESIGN.md、ADR-0006、样张、截图）；Q1 令牌层 + 基座组件 + 对比度脚本；Q2 工作台迁移 + design-v2 截图亮点借鉴 + 字段来源标记。
 - Goal: 按 Q1-Q5 分阶段迁移，每阶段独立 diff；页面结构以 `DESIGN.md` §4.1 与 ADR-0004 为准。
-- In progress: Q2 已通过 typecheck / 493 tests / build / project harness check；Q2 代码与 memory 分两笔提交。
-- Next step: 提交 Q2；随后 Q3 库 + 评估迁移（AC-6，无评委不显示 0）。
+- In progress: 无。Q2 已提交（`5ab4e5b`、`a9a77be`），memory 已提交（`9f1c091`）。
+- Next step: 新会话从 Q3 库 + 评估迁移开始（AC-6，无评委不显示 0），先读 `DESIGN.md` 4.2 / 4.3 与对应组件。
 - Blockers: 无硬阻塞；真实 ARK 密钥端到端验证仍缺凭据。
 
 ## Current Constraints
