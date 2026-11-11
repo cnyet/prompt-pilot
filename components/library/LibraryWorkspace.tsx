@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
+import { Input, Textarea } from '@/components/ui/Input'
 import {
   FIELD_KEYS,
   FIELD_LABELS,
@@ -158,6 +159,13 @@ export function LibraryWorkspace() {
   const [favoriteOnly, setFavoriteOnly] = useState(false)
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null)
   const [favoriteError, setFavoriteError] = useState('')
+  const [metaEditor, setMetaEditor] = useState<{
+    title: string
+    description: string
+    tags: string
+  } | null>(null)
+  const [metaState, setMetaState] = useState<'idle' | 'saving'>('idle')
+  const [metaError, setMetaError] = useState('')
 
   const detailRequestRef = useRef(0)
 
@@ -479,6 +487,73 @@ export function LibraryWorkspace() {
     },
     [favoriteBusyId],
   )
+
+  const startMetaEditing = useCallback(() => {
+    if (!detail) {
+      return
+    }
+    setMetaEditor({
+      title: detail.title,
+      description: detail.description ?? '',
+      tags: detail.tags ?? '',
+    })
+    setMetaError('')
+  }, [detail])
+
+  const closeMetaEditing = useCallback(() => {
+    setMetaEditor(null)
+    setMetaError('')
+  }, [])
+
+  const saveMeta = useCallback(async () => {
+    if (!detail || !metaEditor || metaState === 'saving') {
+      return
+    }
+    const title = metaEditor.title.trim()
+    if (title.length === 0) {
+      setMetaError('标题不能为空。')
+      return
+    }
+    setMetaState('saving')
+    setMetaError('')
+    try {
+      const payload = await requestJson(`/api/prompts/${detail.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: metaEditor.description.trim() || null,
+          tags: metaEditor.tags.trim(),
+        }),
+      })
+      const updated = readDetailPayload(payload)
+      if (!updated) {
+        throw new Error('更新信息返回的数据格式不正确。')
+      }
+      setDetail(updated)
+      setPrompts((list) =>
+        list.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                title: updated.title,
+                description: updated.description,
+                tags: updated.tags,
+                updatedAt: updated.updatedAt,
+              }
+            : item,
+        ),
+      )
+      setMetaEditor(null)
+      setNotice('提示词信息已更新。')
+    } catch (error) {
+      setMetaError(
+        error instanceof Error ? error.message : '更新信息失败，请稍后重试。',
+      )
+    } finally {
+      setMetaState('idle')
+    }
+  }, [detail, metaEditor, metaState])
 
   const versionTotal = prompts.reduce(
     (sum, prompt) => sum + prompt.versionCount,
@@ -857,46 +932,150 @@ export function LibraryWorkspace() {
                     {detail.versionCount} 个版本 · 更新于{' '}
                     {formatDateTime(detail.updatedAt)}
                   </p>
-                  {detail.description ? (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-body text-ink-muted">
-                      {detail.description}
-                    </p>
-                  ) : null}
-                  {splitTags(detail.tags).length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {splitTags(detail.tags).map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-chip border border-line bg-bg-sunken px-1.5 py-0.5 text-caption text-ink-muted"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon="studio"
-                      onClick={() =>
-                        startEditing(selectedVersion, detail.title)
-                      }
-                      disabled={
-                        selectedVersion === null ||
-                        selectedVersion.schema === null
-                      }
+                  {metaEditor ? (
+                    <form
+                      className="mt-3 space-y-3"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void saveMeta()
+                      }}
                     >
-                      {selectedVersion
-                        ? `基于 v${selectedVersion.versionNo} 继续编辑`
-                        : '继续编辑'}
-                    </Button>
-                    {notice.length > 0 ? (
-                      <span className="text-caption text-success" aria-live="polite">
-                        {notice}
-                      </span>
-                    ) : null}
-                  </div>
+                      <label className="block">
+                        <span className="text-caption font-medium text-ink-muted">
+                          标题
+                        </span>
+                        <Input
+                          className="mt-1"
+                          value={metaEditor.title}
+                          maxLength={120}
+                          autoFocus
+                          onChange={(event) =>
+                            setMetaEditor((previous) =>
+                              previous
+                                ? { ...previous, title: event.target.value }
+                                : previous,
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-caption font-medium text-ink-muted">
+                          描述
+                        </span>
+                        <Textarea
+                          className="mt-1 min-h-20"
+                          rows={3}
+                          maxLength={1_000}
+                          value={metaEditor.description}
+                          onChange={(event) =>
+                            setMetaEditor((previous) =>
+                              previous
+                                ? {
+                                    ...previous,
+                                    description: event.target.value,
+                                  }
+                                : previous,
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-caption font-medium text-ink-muted">
+                          标签
+                        </span>
+                        <Input
+                          className="mt-1"
+                          value={metaEditor.tags}
+                          maxLength={200}
+                          placeholder="用逗号分隔，例如 周报, 运营"
+                          onChange={(event) =>
+                            setMetaEditor((previous) =>
+                              previous
+                                ? { ...previous, tags: event.target.value }
+                                : previous,
+                            )
+                          }
+                        />
+                      </label>
+                      {metaError.length > 0 ? (
+                        <p role="alert" className="text-caption text-danger">
+                          {metaError}
+                        </p>
+                      ) : null}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="submit"
+                          variant="secondary"
+                          size="sm"
+                          disabled={metaState === 'saving'}
+                        >
+                          {metaState === 'saving' ? '保存中' : '保存信息'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={closeMetaEditing}
+                          disabled={metaState === 'saving'}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      {detail.description ? (
+                        <p className="mt-2 whitespace-pre-wrap break-words text-body text-ink-muted">
+                          {detail.description}
+                        </p>
+                      ) : null}
+                      {splitTags(detail.tags).length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {splitTags(detail.tags).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-chip border border-line bg-bg-sunken px-1.5 py-0.5 text-caption text-ink-muted"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon="studio"
+                          onClick={() =>
+                            startEditing(selectedVersion, detail.title)
+                          }
+                          disabled={
+                            selectedVersion === null ||
+                            selectedVersion.schema === null
+                          }
+                        >
+                          {selectedVersion
+                            ? `基于 v${selectedVersion.versionNo} 继续编辑`
+                            : '继续编辑'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={startMetaEditing}
+                        >
+                          编辑信息
+                        </Button>
+                        {notice.length > 0 ? (
+                          <span
+                            className="text-caption text-success"
+                            aria-live="polite"
+                          >
+                            {notice}
+                          </span>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="border-b border-line-subtle px-4 py-3">
@@ -1119,7 +1298,7 @@ export function LibraryWorkspace() {
 
                 <div className="px-4 py-3">
                   <p className="text-caption text-ink-faint">
-                    基线 v0 由服务端保护，删除与覆盖请求都会返回 409。首版不提供标签编辑与批量操作。
+                    基线 v0 由服务端保护，删除与覆盖请求都会返回 409。标题、描述与标签只改元信息，不会生成新版本。
                   </p>
                 </div>
               </>

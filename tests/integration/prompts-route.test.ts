@@ -411,6 +411,37 @@ describe('输入校验与不存在', () => {
   })
 })
 
+describe('元信息编辑', () => {
+  it('标题、描述与标签可更新，且不产生新版本', async () => {
+    const title = `改名前-${randomUUID().slice(0, 8)}`
+    const prompt = await createPrompt(title)
+    const nextTitle = `改名后-${randomUUID().slice(0, 8)}`
+
+    const response = await patchPrompt(prompt.id, {
+      title: nextTitle,
+      description: '面向运营团队的周报模板',
+      tags: '周报, 运营',
+    })
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as PromptResponse
+    expect(payload.prompt.title).toBe(nextTitle)
+    expect(payload.prompt.description).toBe('面向运营团队的周报模板')
+    expect(payload.prompt.tags).toBe('周报, 运营')
+    expect(payload.prompt.versionCount).toBe(1)
+    expect(payload.prompt.versions[0]?.versionNo).toBe(0)
+
+    const listed = await listPromptsRoute(
+      request(
+        'GET',
+        `http://localhost/api/prompts?q=${encodeURIComponent(nextTitle)}`,
+      ),
+    )
+    const listedBody = (await listed.json()) as ListResponse
+    expect(listedBody.prompts[0]?.description).toBe('面向运营团队的周报模板')
+    expect(listedBody.prompts[0]?.tags).toBe('周报, 运营')
+  })
+})
+
 describe('收藏状态', () => {
   it('收藏与取消收藏写回详情和列表，不影响版本', async () => {
     const title = `收藏-${randomUUID().slice(0, 8)}`
