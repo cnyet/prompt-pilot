@@ -25,7 +25,7 @@ import {
  * 原先「AI 生成」与「已生成」并排显示，两者说的是同一件事，读起来像噪音。
  * 现在按优先级只出一个：进行中 > 待处理 > 稳定态（按来源命名）。
  */
-function fieldStatus(
+export function fieldStatus(
   state: FieldView,
   phase: GenerationPhase,
   scheduled: boolean,

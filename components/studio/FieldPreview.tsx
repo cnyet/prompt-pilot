@@ -26,6 +26,8 @@ interface PreviewProps {
   index: number
   /** 预览用的字段文本（流式 pending 优先，同三视图口径） */
   text: string
+  /** 内容来源标记（AI 生成 / 已手改 / 已修复），与编辑态同一套状态文案。 */
+  source?: string
 }
 
 function leafFirstValue(
@@ -386,7 +388,7 @@ const PREVIEW_COMPONENTS: Partial<
 }
 
 /** 渲染一个字段的预览；解析不出内容时返回 null，调用方回退 FieldBlock。 */
-export function FieldPreview({ field, index, text }: PreviewProps) {
+export function FieldPreview({ field, index, text, source }: PreviewProps) {
   const Preview = PREVIEW_COMPONENTS[field]
   if (!Preview || text.trim().length === 0) {
     return null
@@ -407,6 +409,9 @@ export function FieldPreview({ field, index, text }: PreviewProps) {
         <span className="ml-auto font-mono text-caption text-ink-faint">
           {field}
         </span>
+        {source ? (
+          <span className="text-caption text-ink-faint">· {source}</span>
+        ) : null}
       </div>
       {node}
     </div>

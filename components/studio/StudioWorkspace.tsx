@@ -39,7 +39,7 @@ import {
 } from './useDiagnostics'
 import { ExportMenu } from './ExportMenu'
 import { copyText } from './clipboard'
-import { FieldBlock } from './FieldBlock'
+import { FieldBlock, fieldStatus } from './FieldBlock'
 import { FieldPreview } from './FieldPreview'
 import { FlowTimeline, type FlowStage } from './FlowTimeline'
 import { RequirementInput } from './RequirementInput'
@@ -1256,6 +1256,13 @@ export function StudioWorkspace() {
                   : state.pendingText.length > 0
                     ? state.pendingText
                     : state.text
+                // 预览卡也带来源标记，和编辑态共用一套状态文案（FR-3.4）。
+                const statusLabel = fieldStatus(
+                  state,
+                  phase,
+                  scheduled.includes(field),
+                  fieldOps[field],
+                ).label
                 return (
                   <div
                     key={field}
@@ -1359,7 +1366,12 @@ export function StudioWorkspace() {
                           field === 'objective' && 'border-t-2 border-t-accent',
                         )}
                       >
-                        {FieldPreview({ field, index: index + 1, text: previewText }) ?? (
+                        {FieldPreview({
+                          field,
+                          index: index + 1,
+                          text: previewText,
+                          source: statusLabel,
+                        }) ?? (
                           <FieldBlock
                             field={field}
                             index={index + 1}
