@@ -3,10 +3,10 @@
 > Last updated: 2026-11-11T13:22:00Z
 
 ## Current Task
-- Done: DESIGN Q0-Q5 迁移全部收口（Q3-Q5: `5d771bb` / `d1b86e8` / `1bb2d69`）；模板「用它开始」预填（`3dae599`）；FR-6.4 盲评双向交换（`d9871fd`）；FR-7.5 回滚 UI（`cf64a46`）；FR-8.5 收藏与筛选（`ef0c28f`）；FR-8.1 标题/描述/标签编辑（`f42c157`）；FR-7.5 版本间 diff（`3e11bca`）。
+- Done: DESIGN Q0-Q5 迁移全部收口（Q3-Q5: `5d771bb` / `d1b86e8` / `1bb2d69`）；模板「用它开始」预填（`3dae599`）；FR-6.4 盲评双向交换（`d9871fd`）；FR-7.5 回滚 UI（`cf64a46`）；FR-8.5 收藏与筛选（`ef0c28f`）；FR-8.1 标题/描述/标签编辑（`f42c157`）；FR-7.5 版本间 diff（`3e11bca`）；FR-8.5 最近使用（`8c32e9d`）。
 - Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
 - In progress: 无。
-- Next step: 真实 ARK 密钥端到端验证（生成 → 试运行 usage 落库 → 评估 verdict → 成本页数字），需用户提供 key；无 key 时继续 P2 欠账（分页、最近使用）。
+- Next step: 真实 ARK 密钥端到端验证（生成 → 试运行 usage 落库 → 评估 verdict → 成本页数字），需用户提供 key；无 key 时做列表分页。
 - Blockers: 环境无 ARK_API_KEY，真实链路未验。
 
 ## Current Constraints
@@ -35,6 +35,7 @@
 - 左轨 64px 默认、`\` 展开 208px，主题切换在轨底；顶栏持有唯一 h1 | Reason: 兼顾 DESIGN §3 与既有快捷键。
 - Q2 时间轴副标签与诊断多栏借自 design-v2 截图，骨架保持 DESIGN §4.1 | Reason: 右栏依赖 FR-7/FR-11 未完成。
 - 对比度脚本解析 `globals.css` 变量，不硬编码 | Reason: 防文档与代码漂移。
+- 项目无 `prisma/migrations/`，改 schema 用 `pnpm exec prisma db push` + `prisma generate` | Reason: 当前单机 SQLite 工作流；加可空列不丢数据。
 - CI 顺序：contrast → `next typegen` → typecheck → test → build | Reason: `next-env.d.ts` 未入库。
 - ADR-0001/0004 视觉结论被 ADR-0006 取代；ADR-0002/0003/0005 继续有效。
 
