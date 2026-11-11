@@ -61,16 +61,28 @@ const EXAMPLES: readonly string[] = [
 export function RequirementInput({
   onSubmit,
   busy,
+  initialValue = '',
 }: {
   onSubmit: (input: string) => void
   busy: boolean
+  /** 从模板页带过来的示例需求。只作初值，之后由用户控制。 */
+  initialValue?: string
 }) {
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(initialValue)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const model = useModelStatus()
 
   useEffect(() => {
-    textareaRef.current?.focus()
+    const textarea = textareaRef.current
+    if (!textarea) {
+      return
+    }
+    textarea.focus()
+    // 模板带进来的示例文本把光标放到末尾，用户可以直接续写。
+    const end = textarea.value.length
+    if (end > 0) {
+      textarea.setSelectionRange(end, end)
+    }
   }, [])
 
   const trimmed = value.trim()

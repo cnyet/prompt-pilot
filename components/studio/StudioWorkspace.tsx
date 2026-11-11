@@ -158,7 +158,12 @@ function readSaveError(payload: unknown): string {
   return '保存失败，请稍后重试。'
 }
 
-export function StudioWorkspace() {
+export function StudioWorkspace({
+  initialRequirement = '',
+}: {
+  /** 从模板页「用它开始」带过来的示例需求，只作输入框初值。 */
+  initialRequirement?: string
+} = {}) {
   const {
     phase,
     fields,
@@ -197,6 +202,11 @@ export function StudioWorkspace() {
 
   const modelStatus = useModelStatus()
   const [mobilePane, setMobilePane] = useState<StudioPane>('editor')
+  // 模板示例只作第一次进入输入框的初值，生成后再「重新开始」不应把它带回来。
+  const [seedValue, setSeedValue] = useState(initialRequirement)
+  useEffect(() => {
+    setSeedValue('')
+  }, [])
   const [submitted, setSubmitted] = useState('')
   const [sessionKey, setSessionKey] = useState(createTrialSessionKey)
   // 自动试运行按轮次去重：每次完整生成或重新开始都换一个轮次号。
@@ -796,7 +806,13 @@ export function StudioWorkspace() {
   }, [phase, libraryPromptId, submitted, fields, createBaselineV0])
 
   if (phase === 'idle') {
-    return <RequirementInput onSubmit={handleSubmit} busy={isBusy} />
+    return (
+      <RequirementInput
+        onSubmit={handleSubmit}
+        busy={isBusy}
+        initialValue={seedValue}
+      />
+    )
   }
 
   const filledCount = FIELD_KEYS.filter(
