@@ -139,3 +139,37 @@
 - [ ] Q2 代码待提交；R3 `EvalWorkspace.tsx` 不得混入。
 - [ ] Q3 库 + 评估迁移（AC-6）。
 - [ ] 390px 下诊断头部新增按钮的换行未复测。
+
+## 2026-11-11（Q3-Q5 收口）
+
+### Completed
+- [x] Q3 评估页：`5d771bb`。创建区双栏、KPI 衬线数字、样本对照双栏、判定按样本分组；旧 tint 全部换成 `tint-green/gold/red`；无判定时四项 KPI 均显示 `—` + 「待人工判定」（ADR-0003）。
+- [x] Q4 模板 + 设置 + 全局 chrome：`d1b86e8`。左轨 64px（可展开 208px）+ 72px 顶栏（衬线页名、日期、模型状态、⌘K）；模板异构网格（图标块 size 随场景变化、featured 顶部金边）；设置页 hero 状态条 + 成本 KPI 衬线数字；删除 `PageHeader`，内容标题降为 h2；旧 tint 别名与 `shadow-overlay` 删除。
+- [x] Q5 响应式 + 双主题 + a11y：`1bb2d69`。左轨与 MobileNav 统一在 1024px 切换；评估记录行 390px 标题独占整行；设置状态条窄屏隐藏分隔点；全局 `:focus-visible` 金色 2px 焦点环；补 1024/390 深浅截图 + 1440 焦点态。
+- [x] `chore: 30633d5` 收入 `next dev` 自动追加的 AGENTS.md 规则块。
+
+### Key Decisions
+- 左轨默认 64px、`\` 展开到 208px，主题切换放轨底 | Reason: DESIGN §3 要求 64px 图标轨，同时保留既有 `\` 快捷键与主题入口。
+- 顶栏持有唯一 h1（页面名），工作台/评估等内容标题降为 h2 | Reason: 避免重复 h1 与标题跳级，a11y 审计要求 h1 恰好 1 个。
+- `PageHeader` 导出删除，页面标题统一由 AppShell 顶栏承担 | Reason: Q4 后各页再渲染大标题会与顶栏重复。
+- 无判定判断用 `summary === null || (verdictCount === 0 && judgedSamples === 0)` | Reason: 只有样本级对比、无标准判定时也应标待人工判定。
+
+### Important Findings
+- 评估记录行在 390px 下 `flex-1` 会让标题被压缩成「面…」；改为窄屏 `w-full`、`sm:flex-1` 才正常。
+- `Intl.formatToParts` 只给数字，日期需显式补「月/日」，否则出现「2026 年 1111」。
+- 深度主题截图必须在 localhost 源上写 `localStorage`；在 `about:blank` 写会丢，导致截出浅色。
+- Q5 DOM 审计（5 页 × 1440/390）：无缺 alt、无空名称按钮、无 tabindex>0、无重复 id、无标题跳级、每页 h1=1。
+
+### Pitfalls
+- `next dev` 每次启动都会重写 AGENTS.md 的 nextjs-agent-rules 块；已单独提交，避免污染功能 diff。
+- 3100 未停就跑测试会共用 SQLite；本轮已先停 dev server 再跑 typecheck/test/contrast。
+
+### Verification
+- `pnpm run typecheck` ✓；`pnpm test` 493/493 ✓；`pnpm run check:contrast` ✓（深色最低 4.70:1）；`claude-project-harness-check.mjs .` 全 pass。
+- 浏览器实测 1440 / 1024 / 390 深浅双主题，`scrollWidth === clientWidth` 无横向溢出；1440 焦点态可见金色环。
+
+### Carry-over
+- [ ] 真实 ARK 密钥端到端验证（usage 落库、reasoning_content、错误码映射、评委 verdict 稳定性）。
+- [ ] 模板「用它开始」仍为禁用态，需接工作台预填。
+- [ ] 已知缺口：FR-6.4 盲评的位置随机化与双向交换尚未实现。
+- [ ] `.claude/harness.json`、`.claude/settings.json` 本地修改不入库。
