@@ -27,6 +27,8 @@
   --accent-hover: #6f4800;
   --accent-subtle: #f0e2c4;
   --on-accent: #fbf5e9;
+  /* 焦点外环预乘透明度，避免 color-mix 被拆成 @supports 规则覆盖组件样式 */
+  --focus-ring: rgba(138, 90, 0, 0.7);
 
   --success: #2f6b3a;
   --warning: #8a5a00;
@@ -80,6 +82,7 @@
   --accent-hover: #e0a21a;
   --accent-subtle: #3a2a12;
   --on-accent: #1a0f0a;
+  --focus-ring: rgba(202, 138, 4, 0.7);
 
   --success: #22c55e;
   --warning: #eab308;
@@ -226,8 +229,13 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
+  }
+
+  /* 跳转锚点这类 tabindex=-1 元素只接受程序化聚焦，不显示焦点外环。 */
+  :where([tabindex='-1']):focus-visible {
+    outline: none;
   }
 }
 
@@ -300,10 +308,4 @@
 /* 数字一律等宽，避免 token 数与耗时跳动 */
 @utility tnum {
   font-variant-numeric: tabular-nums;
-}
-
-/* 焦点环：所有可聚焦控件统一用金色描边，保证键盘导航可见（WCAG 2.1 AA）。 */
-:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }

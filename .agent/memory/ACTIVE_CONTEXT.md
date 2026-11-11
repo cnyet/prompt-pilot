@@ -1,13 +1,13 @@
 # Active Context
 
-> Last updated: 2026-11-11T14:45:00Z
+> Last updated: 2026-11-11T16:12:00Z
 
 ## Current Task
-- Done: DESIGN Q0-Q5 收口（`5d771bb`/`d1b86e8`/`1bb2d69`）；最近使用（`8c32e9d`）；工作台输入放大、主路径模板、品牌印记/图标/版权条、opencode 网关与成本趋势图、快捷键移除、脏数据清理（`4e5a856`）。
+- Done: DESIGN Q0-Q5 收口（`5d771bb`/`d1b86e8`/`1bb2d69`）；最近使用（`8c32e9d`）；工作台输入放大、主路径模板、品牌印记、opencode 网关、成本趋势图（`4e5a856`）；设置页「测试连接」与成本分页、移动导航/评估空样本/设置窄屏分段条（未提交）。
 - Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
-- In progress: 用户新需求未开始。设置-模型增加「测试」按钮，校验当前配置连通性；设置-成本区域改为分页显示。
-- Next step: 新会话先读 `components/settings/LlmSettingsForm.tsx`、`app/(workspace)/settings/page.tsx`、现有模型连通性/API 路由，再实现测试按钮与成本分页。
-- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。当前会话已触发压缩抖动，按规则需 PERSIST 后 `/clear` 续接。
+- In progress: 无。根目录只清理 `.DS_Store` 与 `tsconfig.tsbuildinfo`，后者被 `pnpm typecheck` 重建属正常。
+- Next step: 验收未提交改动后按需提交；连通性测试已用 mock 覆盖成功路径，真实联网需配置 ARK_API_KEY。
+- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。
 
 ## Current Constraints
 - 令牌以 `DESIGN.md` 第二节为准，代码在 `app/globals.css`；改令牌须同步文档并跑 `pnpm check:contrast`。

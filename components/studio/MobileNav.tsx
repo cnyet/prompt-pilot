@@ -23,7 +23,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="移动端主导航"
-      className="sticky top-0 z-20 flex gap-1 overflow-x-auto border-b border-line bg-sidebar px-2 py-1.5 lg:hidden"
+      className="sticky top-0 z-20 grid grid-cols-5 gap-1 border-b border-line bg-sidebar px-2 py-1.5 lg:hidden"
     >
       {NAV.map((item) => {
         const active =
@@ -34,14 +34,14 @@ export function MobileNav() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-control px-2 py-1.5 text-label transition-colors',
+              'flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1 text-caption transition-colors sm:flex-row sm:gap-1.5 sm:px-2 sm:text-label',
               active
                 ? 'bg-accent-subtle font-medium text-accent'
                 : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
             )}
           >
-            <Icon name={item.icon} size={15} />
-            {item.label}
+            <Icon name={item.icon} size={15} className="shrink-0" />
+            <span className="truncate">{item.label}</span>
           </Link>
         )
       })}

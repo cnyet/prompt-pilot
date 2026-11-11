@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 
+/** 与服务端 `lib/eval/service.ts` 的 MAX_SAMPLES 保持一致，客户端先拦一次。 */
+const MAX_SAMPLES = 5
+
 interface PromptOption {
   id: string
   title: string
@@ -125,6 +128,11 @@ export function EvalWorkspace() {
     [samplesText],
   )
 
+  const tooManySamples = samples.length > MAX_SAMPLES
+  const noPrompts = prompts.length === 0
+  const canRun =
+    !running && promptId.length > 0 && samples.length > 0 && !tooManySamples
+
   const run = async () => {
     if (promptId.length === 0) {
       setError('先选一条提示词。')
@@ -132,6 +140,10 @@ export function EvalWorkspace() {
     }
     if (samples.length === 0) {
       setError('至少填一条样本输入，每行一条。')
+      return
+    }
+    if (tooManySamples) {
+      setError(`一次最多 ${MAX_SAMPLES} 条样本。`)
       return
     }
     setRunning(true)
@@ -250,7 +262,7 @@ export function EvalWorkspace() {
                   样本输入
                 </label>
                 <span className="text-caption text-ink-faint tnum">
-                  {samples.length} 条样本
+                  {samples.length} / {MAX_SAMPLES} 条样本
                 </span>
               </div>
               <textarea
@@ -258,22 +270,41 @@ export function EvalWorkspace() {
                 value={samplesText}
                 onChange={(event) => setSamplesText(event.target.value)}
                 rows={4}
-                placeholder={'每行一条样本，最多 5 条\n帮我写个周报\n帮我写一份产品评审议程'}
-                className="min-h-24 w-full resize-y rounded-control border border-line bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+                aria-invalid={tooManySamples}
+                aria-describedby="eval-samples-hint"
+                placeholder="每行一条，例如：帮我写个周报"
+                className={cn(
+                  'min-h-24 w-full resize-y rounded-control border border-line bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none',
+                  tooManySamples && 'border-danger focus:border-danger',
+                )}
               />
-              <span className="text-caption text-ink-faint">
-                空行自动忽略，样本按行读取
+              <span id="eval-samples-hint" className="text-caption text-ink-faint">
+                空行自动忽略，超过 {MAX_SAMPLES} 条会先提示
               </span>
             </div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
-            <Button variant="primary" onClick={run} disabled={running}>
+            <Button variant="primary" onClick={run} disabled={!canRun}>
               {running ? '评估中' : '开始评估'}
             </Button>
-            <span className="text-caption text-ink-faint tnum">
-              最多 5 条 · 成功标准取自版本自身
-            </span>
+            {tooManySamples ? (
+              <span role="alert" className="text-caption text-danger tnum">
+                一次最多 {MAX_SAMPLES} 条样本，当前 {samples.length} 条。
+              </span>
+            ) : noPrompts ? (
+              <span className="text-caption text-ink-faint">
+                库里还没有提示词，先去工作台生成一条。
+              </span>
+            ) : samples.length === 0 ? (
+              <span className="text-caption text-ink-faint">
+                填 1 到 {MAX_SAMPLES} 行样本后开始
+              </span>
+            ) : (
+              <span className="text-caption text-ink-faint tnum">
+                {samples.length} 条将参与评估 · 成功标准取自版本自身
+              </span>
+            )}
             {notice ? (
               <span role="status" className="text-caption text-success">
                 {notice}

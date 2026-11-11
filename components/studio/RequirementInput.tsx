@@ -84,7 +84,7 @@ export function RequirementInput({
         </p>
       </div>
 
-      <div className="rounded-panel border border-line bg-surface p-4 shadow-sm transition-colors duration-150 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/25 sm:p-5">
+      <div className="rounded-panel border border-line bg-surface p-4 shadow-sm transition-colors duration-150 focus-within:border-accent/50 focus-within:ring-[3px] focus-within:ring-accent/25 sm:p-5">
         <label htmlFor="requirement" className="sr-only">
           需求或已有提示词
         </label>

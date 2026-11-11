@@ -11,6 +11,21 @@
     "debtMaxBytes": 131072
   },
   "maxProjectSkills": 10,
+  "projectProfile": "product-ui",
+  "requiredDocs": [
+    "README.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "PRODUCT.md",
+    "DESIGN.md",
+    "CONTEXT.md"
+  ],
+  "requiredImports": [
+    "@AGENTS.md",
+    "@PRODUCT.md",
+    "@DESIGN.md",
+    "@CONTEXT.md"
+  ],
   "requiredProjectMcpServers": [],
   "requiredProjectSkillFiles": [],
   "requiredFiles": [

@@ -9,6 +9,47 @@ import type { LlmSettingsView, SettingSource } from '@/lib/settings/store'
 
 type FieldKey = 'apiKey' | 'baseUrl' | 'modelGenerate' | 'modelEvaluate'
 
+interface ModelTestResult {
+  role: string
+  roleLabel: string
+  modelLabel: string | null
+  configured: boolean
+  ok: boolean
+  latencyMs: number | null
+  error?: string
+}
+
+interface TestResult {
+  ok: boolean
+  configured: boolean
+  checkedAt: string
+  models: ModelTestResult[]
+}
+
+function readTestResult(payload: unknown): TestResult | null {
+  if (typeof payload !== 'object' || payload === null) {
+    return null
+  }
+  const result = (payload as { result?: unknown }).result
+  if (typeof result !== 'object' || result === null) {
+    return null
+  }
+  const models = (result as { models?: unknown }).models
+  if (!Array.isArray(models)) {
+    return null
+  }
+  return result as TestResult
+}
+
+function formatLatency(latencyMs: number | null): string {
+  if (latencyMs === null) {
+    return ''
+  }
+  return latencyMs >= 1000
+    ? `${(latencyMs / 1000).toFixed(1)}s`
+    : `${latencyMs}ms`
+}
+
 const SOURCE_LABEL: Record<SettingSource, string> = {
   settings: '设置',
   env: '环境变量',
@@ -71,6 +112,9 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [testError, setTestError] = useState<string | null>(null)
 
   const markTouched = (field: FieldKey) => {
     setTouched((prev) => new Set(prev).add(field))
@@ -84,6 +128,8 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     })
     setMessage(null)
     setError(null)
+    setTestResult(null)
+    setTestError(null)
   }
 
   /** 提交前本地校验：错误贴在字段下，不等服务端往返 */
@@ -153,6 +199,8 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         modelEvaluate: next.modelEvaluate.value,
       })
       setTouched(new Set())
+      setTestResult(null)
+      setTestError(null)
       setMessage('设置已保存，立即生效。')
       refresh()
     } catch (cause) {
@@ -195,6 +243,31 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
       modelEvaluate: null,
     })
   }
+
+  /** 只测已保存的配置，避免测的和保存的不是同一份。 */
+  const onTest = async () => {
+    setTesting(true)
+    setTestError(null)
+    setTestResult(null)
+    try {
+      const response = await fetch('/api/settings/test', { method: 'POST' })
+      const body: unknown = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(readError(body, '连通性测试没有完成，请稍后重试。'))
+      }
+      const result = readTestResult(body)
+      if (!result) {
+        throw new Error('测试返回数据不完整。')
+      }
+      setTestResult(result)
+    } catch (cause) {
+      setTestError(cause instanceof Error ? cause.message : '连通性测试没有完成。')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const hasUnsavedChanges = touched.size > 0
 
   const field = (
     key: FieldKey,
@@ -239,6 +312,9 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
 
   const inputClass =
     'h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink shadow-[inset_0_1px_0_oklch(0.5_0.01_80/0.03)] transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none'
+
+  const allUnconfigured =
+    testResult !== null && testResult.models.every((model) => !model.configured)
 
   return (
     <div className="rounded-panel border border-line bg-surface">
@@ -341,6 +417,24 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         <Button variant="primary" size="md" onClick={onSave} disabled={saving}>
           {saving ? '保存中' : '保存设置'}
         </Button>
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={() => void onTest()}
+          disabled={saving || testing || hasUnsavedChanges}
+          title={
+            hasUnsavedChanges
+              ? '有未保存的改动，保存后再测试'
+              : '用已保存的配置各发一次最小请求'
+          }
+        >
+          {testing ? '测试中' : '测试连接'}
+        </Button>
+        {hasUnsavedChanges ? (
+          <span className="text-caption text-ink-faint">
+            有未保存的改动，保存后再测试
+          </span>
+        ) : null}
         {hasOverrides ? (
           <Button
             variant="ghost"
@@ -367,6 +461,61 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           </span>
         ) : null}
       </div>
+
+      {testError ? (
+        <p
+          role="alert"
+          className="border-t border-line-subtle px-4 py-3 text-caption text-danger sm:px-5"
+        >
+          {testError}
+        </p>
+      ) : null}
+
+      {testResult ? (
+        <div
+          role="status"
+          className="border-t border-line-subtle px-4 py-3 sm:px-5"
+        >
+          {allUnconfigured ? (
+            <p className="flex items-start gap-1.5 text-caption text-warning">
+              <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
+              未配置 API Key，当前是离线模板模式，无法测试真实连通性。
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {testResult.models.map((model) => (
+                <li
+                  key={model.role}
+                  className={cn(
+                    'flex items-start gap-1.5 text-caption',
+                    model.ok ? 'text-success' : 'text-danger',
+                  )}
+                >
+                  <Icon
+                    name={model.ok ? 'spark' : 'alert'}
+                    size={13}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <span>
+                    {model.roleLabel}
+                    {model.modelLabel ? ` · ${model.modelLabel}` : ''}
+                    {model.ok
+                      ? ` 连通 ${formatLatency(model.latencyMs)}`
+                      : ` 失败：${model.error ?? '未返回原因'}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-1 text-caption text-ink-faint tnum">
+            测试时间{' '}
+            {new Date(testResult.checkedAt).toLocaleTimeString('zh-CN', {
+              hour12: false,
+            })}
+            ，只验证已保存的配置。
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

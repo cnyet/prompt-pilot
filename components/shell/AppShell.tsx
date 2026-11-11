@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const width = expanded ? 208 : 64
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-bg text-ink">
+    <div className="fixed inset-0 flex overflow-hidden bg-bg text-ink">
       <aside
         className="hidden shrink-0 flex-col border-r border-line bg-sidebar lg:flex"
         style={{ width }}
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <BrandMark size={40} className="text-accent" />
           {expanded ? (
-            <span className="truncate text-label font-medium text-ink">
+            <span className="truncate font-display text-h3 font-medium text-ink">
               PromptPilot
             </span>
           ) : null}
@@ -160,8 +160,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div
           className={cn(
-            'flex flex-col gap-1.5 border-t border-line-subtle p-3',
-            !expanded && 'items-center',
+            'flex gap-1.5 border-t border-line-subtle p-3',
+            expanded
+              ? 'flex-row items-center justify-center'
+              : 'flex-col items-center',
           )}
         >
           <IconButton
@@ -186,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-[72px] shrink-0 items-center gap-6 border-b border-line bg-bg px-6 lg:px-8">
           <h1 className="font-display text-h2 font-semibold leading-tight text-ink">
             {pageLabel}
@@ -212,14 +214,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-auto">
-          <div className="flex min-h-full flex-col">
-            <div className="flex-1">{children}</div>
-            <footer className="border-t border-line-subtle px-6 py-4 text-caption text-ink-faint lg:px-8">
-              © 2026 PromptPilot · 本地优先的提示词工坊
-            </footer>
-          </div>
-        </main>
+        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <footer className="shrink-0 px-6 py-4 text-center text-caption text-ink-faint lg:px-8">
+          © 2026 PromptPilot · 本地优先的提示词工坊
+        </footer>
         <CommandPalette onToggleTheme={toggleTheme} />
       </div>
     </div>

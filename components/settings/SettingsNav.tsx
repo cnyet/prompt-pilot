@@ -46,28 +46,56 @@ export function SettingsNav() {
   }, [])
 
   return (
-    <nav
-      aria-label="设置分区"
-      className="sticky top-8 hidden w-40 shrink-0 flex-col gap-0.5 self-start lg:flex"
-    >
-      {SECTIONS.map((section) => {
-        const current = section.id === active
-        return (
-          <a
-            key={section.id}
-            href={`#${section.id}`}
-            aria-current={current ? 'true' : undefined}
-            className={cn(
-              'rounded-control px-2.5 py-1.5 text-label transition-colors duration-150',
-              current
-                ? 'bg-bg-sunken font-medium text-ink'
-                : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
-            )}
-          >
-            {section.label}
-          </a>
-        )
-      })}
-    </nav>
+    <>
+      <nav
+        aria-label="设置分区"
+        className="sticky top-8 hidden w-40 shrink-0 flex-col gap-0.5 self-start lg:flex"
+      >
+        {SECTIONS.map((section) => {
+          const current = section.id === active
+          return (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              aria-current={current ? 'true' : undefined}
+              className={cn(
+                'rounded-control px-2.5 py-1.5 text-label transition-colors duration-150',
+                current
+                  ? 'bg-bg-sunken font-medium text-ink'
+                  : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
+              )}
+            >
+              {section.label}
+            </a>
+          )
+        })}
+      </nav>
+
+      {/* 窄屏没有左栏，改为横向分段条，吸在移动端主导航下方。
+          top 与 MobileNav 实测高度对齐：堆叠布局 62px，sm 起横排 57px。 */}
+      <nav
+        aria-label="设置分区"
+        className="sticky top-[62px] z-10 -mx-6 flex gap-1 border-b border-line-subtle bg-bg px-6 py-1.5 sm:top-[57px] lg:hidden"
+      >
+        {SECTIONS.map((section) => {
+          const current = section.id === active
+          return (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              aria-current={current ? 'true' : undefined}
+              className={cn(
+                'flex min-h-10 flex-1 items-center justify-center rounded-control px-2 text-label transition-colors duration-150',
+                current
+                  ? 'bg-accent-subtle font-medium text-accent'
+                  : 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
+              )}
+            >
+              {section.label}
+            </a>
+          )
+        })}
+      </nav>
+    </>
   )
 }

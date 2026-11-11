@@ -1,3 +1,4 @@
+import { CostBucketTable } from '@/components/settings/CostBucketTable'
 import { CostTrend } from '@/components/settings/CostTrend'
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { SettingsNav } from '@/components/settings/SettingsNav'
@@ -30,43 +31,6 @@ function hasKnownCost(bucket: CostBucket): boolean {
   return bucket.calls > 0 && bucket.unknownCostCalls < bucket.calls
 }
 
-function usageCell(bucket: CostBucket, value: number): string {
-  if (!hasKnownUsage(bucket)) {
-    return '—'
-  }
-  return `${formatNumber(value)}${bucket.unknownUsageCalls > 0 ? ' *' : ''}`
-}
-
-function cachedCell(bucket: CostBucket): string {
-  if (bucket.cachedKnownCalls === 0) {
-    return '—'
-  }
-  const tokens = formatNumber(bucket.cachedTokens)
-  const rate =
-    bucket.cacheHitRate === null
-      ? ''
-      : `（${bucket.cacheHitRate.toFixed(1)}%）`
-  return `${tokens}${rate}${bucket.cachedKnownCalls < bucket.calls ? ' *' : ''}`
-}
-
-function reasoningCell(bucket: CostBucket): string {
-  if (bucket.reasoningKnownCalls === 0) {
-    return '—'
-  }
-  return `${formatNumber(bucket.reasoningTokens)}${
-    bucket.reasoningKnownCalls < bucket.calls ? ' *' : ''
-  }`
-}
-
-function costCell(bucket: CostBucket): string {
-  if (!hasKnownCost(bucket)) {
-    return '—'
-  }
-  return `¥${cnyFormatter.format(bucket.costCny)}${
-    bucket.unknownCostCalls > 0 ? ' *' : ''
-  }`
-}
-
 function statusLine(summary: CostSummary): string {
   const { total } = summary
   const parts = [
@@ -78,65 +42,6 @@ function statusLine(summary: CostSummary): string {
   return parts.join('，')
 }
 
-function BucketTable({
-  buckets,
-  firstHeader,
-}: {
-  buckets: readonly CostBucket[]
-  firstHeader: string
-}) {
-  return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full min-w-[680px] border-collapse text-label">
-        <thead>
-          <tr className="border-b border-line-subtle text-left text-caption text-ink-faint">
-            <th scope="col" className="py-2 pr-4 font-normal">
-              {firstHeader}
-            </th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">
-              调用
-            </th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">
-              输入 token
-            </th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">
-              输出 token
-            </th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">
-              缓存
-            </th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">
-              思考 token
-            </th>
-            <th scope="col" className="py-2 text-right font-normal">
-              金额
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line-subtle">
-          {buckets.map((bucket) => (
-            <tr key={bucket.key} className="tnum">
-              <td className="py-2 pr-4">{bucket.label}</td>
-              <td className="py-2 pr-4 text-right">{bucket.calls}</td>
-              <td className="py-2 pr-4 text-right">
-                {usageCell(bucket, bucket.tokensIn)}
-              </td>
-              <td className="py-2 pr-4 text-right">
-                {usageCell(bucket, bucket.tokensOut)}
-              </td>
-              <td className="py-2 pr-4 text-right">{cachedCell(bucket)}</td>
-              <td className="py-2 pr-4 text-right">
-                {reasoningCell(bucket)}
-              </td>
-              <td className="py-2 text-right">{costCell(bucket)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 export default async function SettingsPage() {
   const llmSettings = await getLlmSettingsView()
   const summary = await getCostSummary()
@@ -145,14 +50,14 @@ export default async function SettingsPage() {
   const unknownCost = total?.unknownCostCalls ?? 0
 
   return (
-    <div className="mx-auto flex w-full max-w-[1080px] gap-10 px-6 py-8 lg:px-10">
+    <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-6 py-8 lg:flex-row lg:gap-10 lg:px-10">
       <SettingsNav />
       <div className="flex min-w-0 flex-1 flex-col gap-12">
       <p className="max-w-[68ch] text-balance text-body text-ink-muted">
         模型接入、成本汇总与本机数据都在这一个页面里。
       </p>
 
-      <div id="settings-model" className="scroll-mt-8">
+      <div id="settings-model" className="scroll-mt-[7.5rem] lg:scroll-mt-8">
       <Section
         title="模型"
         description="设置页写入的值优先于环境变量。密钥只存在本机数据库，界面不显示明文，也不会回传浏览器。"
@@ -185,7 +90,7 @@ export default async function SettingsPage() {
       </Section>
       </div>
 
-      <div id="settings-cost" className="scroll-mt-8">
+      <div id="settings-cost" className="scroll-mt-[7.5rem] lg:scroll-mt-8">
       <Section
         title="成本"
         description="数据来自本机调用账本，按阶段与模型汇总 token、缓存命中与人民币金额。"
@@ -243,10 +148,10 @@ export default async function SettingsPage() {
             <CostTrend days={summary.daily} />
 
             <h3 className="mt-8 text-label font-medium text-ink">按阶段</h3>
-            <BucketTable buckets={summary.byStage} firstHeader="阶段" />
+            <CostBucketTable buckets={summary.byStage} firstHeader="阶段" />
 
             <h3 className="mt-8 text-label font-medium text-ink">按模型</h3>
-            <BucketTable buckets={summary.byModel} firstHeader="模型" />
+            <CostBucketTable buckets={summary.byModel} firstHeader="模型" />
 
             {unknownUsage > 0 || unknownCost > 0 ? (
               <p className="mt-3 text-caption text-ink-faint">
@@ -268,7 +173,7 @@ export default async function SettingsPage() {
 
       </div>
 
-      <div id="settings-data" className="scroll-mt-8">
+      <div id="settings-data" className="scroll-mt-[7.5rem] lg:scroll-mt-8">
       <Section title="数据" description="全部数据只存在本机 SQLite，不上传任何第三方。">
         <p className="text-caption text-ink-faint">
           导入、导出与从备份恢复在 M5 接入。

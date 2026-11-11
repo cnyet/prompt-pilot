@@ -91,6 +91,8 @@ export interface ProviderOverrides {
   retry?: RetryOptions
   /** 允许在没有密钥时用 MOCK_LLM_FAULT=valid 的 Mock provider（试运行 / 评估用） */
   allowValidMock?: boolean
+  /** 单次请求超时；连通性测试用它避免等满默认 120 秒 */
+  timeoutMs?: number
 }
 
 export function isEndpointId(model: string): boolean {
@@ -251,6 +253,9 @@ export function createProvider(
         : {}),
       ...(overrides.fetch ? { fetch: overrides.fetch } : {}),
       ...(overrides.retry ? { retry: overrides.retry } : {}),
+      ...(overrides.timeoutMs !== undefined
+        ? { timeoutMs: overrides.timeoutMs }
+        : {}),
     })
   }
 
@@ -270,6 +275,9 @@ export function createProvider(
         : {}),
       ...(overrides.fetch ? { fetch: overrides.fetch } : {}),
       ...(overrides.retry ? { retry: overrides.retry } : {}),
+      ...(overrides.timeoutMs !== undefined
+        ? { timeoutMs: overrides.timeoutMs }
+        : {}),
     })
   }
 

@@ -19,7 +19,7 @@ export default function WorkspaceLayout({
       <ModelStatusProvider>
         <div id="workspace-shell" className="contents">
           <AppShell>
-            <div id="workspace-main" tabIndex={-1} className="min-h-full">
+            <div id="workspace-main" tabIndex={-1}>
               <MobileNav />
               <ModelStatusBanner />
               {children}
