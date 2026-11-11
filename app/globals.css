@@ -3,98 +3,118 @@
 /* 深浅色用 class 切换，避免跟随系统时无法手动覆盖 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------- 令牌：浅色（默认） ---------- */
+/* ---------- 令牌：浅色（羊皮纸日光） ---------- */
 :root {
   color-scheme: light;
 
-  /* 暖米白纸感：参照 Open Orbit 的 #faf7f2 */
-  --bg: oklch(0.977 0.007 81);
-  --bg-sunken: oklch(0.962 0.009 81);
-  --surface: oklch(1 0 0);
-  --surface-raised: oklch(1 0 0);
-  --surface-inset: oklch(0.956 0.01 82);
-  --sidebar: oklch(0.966 0.009 80);
+  --bg: #f3ead8;
+  --bg-sunken: #eadfc8;
+  --surface: #fbf5e9;
+  --surface-raised: #fff9ee;
+  --surface-inset: #efe3ce;
+  --sidebar: #efe3ce;
 
-  --border: oklch(0.924 0.012 80);
-  --border-strong: oklch(0.878 0.014 78);
-  --border-subtle: oklch(0.949 0.009 80);
+  --border: #d8c7a8;
+  --border-strong: #b99f72;
+  --border-subtle: #e4d7bf;
 
-  --text: oklch(0.211 0.005 68);
-  --text-muted: oklch(0.513 0.011 73);
-  --text-faint: oklch(0.532 0.01 73);
+  --text: #2a1a10;
+  --text-muted: #6b4b2e;
+  --text-faint: #85643f;
 
-  /* 赤陶：亮版只做装饰，主色压到 5.1:1 以保证白字可读 */
-  --accent: oklch(0.55 0.13 40);
-  --accent-hover: oklch(0.49 0.13 40);
-  --accent-subtle: oklch(0.955 0.026 45);
-  --on-accent: oklch(0.995 0 0);
+  /* 金色只给主操作、当前步骤与关键数字 */
+  --accent: #8a5a00;
+  --accent-hover: #6f4800;
+  --accent-subtle: #f0e2c4;
+  --on-accent: #fbf5e9;
 
-  --success: oklch(0.531 0.095 162);
-  --warning: oklch(0.545 0.112 72);
-  --danger: oklch(0.545 0.155 29);
-  --info: oklch(0.5 0.07 265);
+  --success: #2f6b3a;
+  --warning: #8a5a00;
+  --danger: #8f1d14;
+  /* 危险按钮：深红底 + 浅色字，避免深棕文字压在深红上 */
+  --danger-fill: #8f1d14;
+  --on-danger-fill: #fbf5e9;
+  --info: #5b2a86;
 
-  /* 柔和分区底色，用于诊断分组、输出区与状态块 */
-  --tint-coral: oklch(0.962 0.022 30);
-  --tint-sage: oklch(0.962 0.023 155);
-  --tint-lavender: oklch(0.958 0.022 295);
-  --tint-butter: oklch(0.968 0.035 88);
+  /* 分区底色，只做背景，不做文字色 */
+  --tint-gold: #f0e2c4;
+  --tint-red: #f3dfd9;
+  --tint-green: #dfebda;
+  --tint-purple: #e8ddf0;
+  --tint-do: #e4eedf;
+  --tint-dont: #f3dfd9;
 
-  --diff-add-bg: oklch(0.965 0.028 150);
-  --diff-add-mark: oklch(0.905 0.06 150);
-  --diff-del-bg: oklch(0.965 0.024 27);
-  --diff-del-mark: oklch(0.91 0.05 27);
+  /*
+   * Q1 兼容别名：Q2-Q5 页面仍在使用旧 tint 名。
+   * 页面迁移完成后删除这四个别名，统一用 tint-gold/red/green/purple。
+   */
+  --tint-coral: var(--tint-red);
+  --tint-sage: var(--tint-green);
+  --tint-lavender: var(--tint-purple);
+  --tint-butter: var(--tint-gold);
 
-  /* 做/不做双栏底色（constraints 预览），比语义色更浅，只做背景 */
-  --tint-do: oklch(0.962 0.03 150);
-  --tint-dont: oklch(0.962 0.026 27);
+  --diff-add-bg: #e4eedf;
+  --diff-add-mark: #cbe0c2;
+  --diff-del-bg: #f3dfd9;
+  --diff-del-mark: #e8c4bb;
 
-  --shadow-overlay: 0 12px 32px -16px oklch(0.3 0.02 60 / 0.22);
+  /* 阴影与 glow：glow 只给 active / selected / focus */
+  --elevation-sm: 0 1px 3px rgba(90, 60, 20, 0.14);
+  --elevation-md: 0 2px 8px rgba(90, 60, 20, 0.18);
+  --elevation-lg: 0 8px 24px -12px rgba(90, 60, 20, 0.28);
+  --glow-gold: 0 0 0 1px #8a5a00, 0 0 16px rgba(138, 90, 0, 0.25);
+  --glow-gold-strong: 0 0 0 1px #ca8a04, 0 0 24px rgba(202, 138, 4, 0.32);
 }
 
-/* ---------- 令牌：深色 ---------- */
+/* ---------- 令牌：深色（烛光地下室） ---------- */
 .dark {
   color-scheme: dark;
 
-  --bg: oklch(0.185 0.008 70);
-  --bg-sunken: oklch(0.163 0.008 70);
-  --surface: oklch(0.218 0.008 70);
-  --surface-raised: oklch(0.248 0.008 70);
-  --surface-inset: oklch(0.158 0.008 70);
-  --sidebar: oklch(0.168 0.008 70);
+  --bg: #1a0f0a;
+  --bg-sunken: #120a06;
+  --surface: #2c1a10;
+  --surface-raised: #3d2517;
+  --surface-inset: #24140c;
+  --sidebar: #24140c;
 
-  --border: oklch(0.302 0.01 70);
-  --border-strong: oklch(0.372 0.012 70);
-  --border-subtle: oklch(0.262 0.009 70);
+  --border: #5c3d2e;
+  --border-strong: #8a6440;
+  --border-subtle: #3d2517;
 
-  --text: oklch(0.938 0.006 75);
-  --text-muted: oklch(0.72 0.008 75);
-  --text-faint: oklch(0.625 0.008 75);
+  --text: #f5e6d3;
+  --text-muted: #bfa98a;
+  --text-faint: #ab8d69;
 
-  --accent: oklch(0.72 0.12 45);
-  --accent-hover: oklch(0.78 0.115 45);
-  --accent-subtle: oklch(0.29 0.035 45);
-  --on-accent: oklch(0.18 0.01 60);
+  --accent: #ca8a04;
+  --accent-hover: #e0a21a;
+  --accent-subtle: #3a2a12;
+  --on-accent: #1a0f0a;
 
-  --success: oklch(0.72 0.1 162);
-  --warning: oklch(0.79 0.11 78);
-  --danger: oklch(0.68 0.15 29);
-  --info: oklch(0.72 0.08 265);
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #f87171;
+  /* #991B1B 只做底色，文字用羊皮纸色（6.78:1） */
+  --danger-fill: #991b1b;
+  --on-danger-fill: #f5e6d3;
+  --info: #c4a5f5;
 
-  --tint-coral: oklch(0.255 0.03 30);
-  --tint-sage: oklch(0.255 0.028 155);
-  --tint-lavender: oklch(0.255 0.028 295);
-  --tint-butter: oklch(0.262 0.032 88);
+  --tint-gold: #3a2a12;
+  --tint-red: #3a1a16;
+  --tint-green: #1e3324;
+  --tint-purple: #2e1f3a;
+  --tint-do: #1e3324;
+  --tint-dont: #3a1a16;
 
-  --diff-add-bg: oklch(0.26 0.045 150);
-  --diff-add-mark: oklch(0.32 0.07 150);
-  --diff-del-bg: oklch(0.26 0.045 27);
-  --diff-del-mark: oklch(0.32 0.07 27);
+  --diff-add-bg: #1e3324;
+  --diff-add-mark: #2e4a35;
+  --diff-del-bg: #3a1a16;
+  --diff-del-mark: #4a2420;
 
-  --tint-do: oklch(0.255 0.032 150);
-  --tint-dont: oklch(0.255 0.028 27);
-
-  --shadow-overlay: 0 12px 32px -16px oklch(0 0 0 / 0.6);
+  --elevation-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --elevation-md: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --elevation-lg: 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --glow-gold: 0 0 0 1px #ca8a04, 0 0 16px rgba(202, 138, 4, 0.28);
+  --glow-gold-strong: 0 0 0 1px #e0a21a, 0 0 24px rgba(224, 162, 26, 0.34);
 }
 
 /* ---------- 令牌映射到 Tailwind 工具类 ---------- */
@@ -104,23 +124,25 @@
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-surface-inset: var(--surface-inset);
+
+  --color-tint-gold: var(--tint-gold);
+  --color-tint-red: var(--tint-red);
+  --color-tint-green: var(--tint-green);
+  --color-tint-purple: var(--tint-purple);
+  --color-tint-do: var(--tint-do);
+  --color-tint-dont: var(--tint-dont);
+
+  /* Q1 兼容别名，随页面迁移删除 */
   --color-tint-coral: var(--tint-coral);
   --color-tint-sage: var(--tint-sage);
   --color-tint-lavender: var(--tint-lavender);
   --color-tint-butter: var(--tint-butter);
-  --color-tint-do: var(--tint-do);
-  --color-tint-dont: var(--tint-dont);
+
   --color-sidebar: var(--sidebar);
 
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-line-subtle: var(--border-subtle);
-
-  /*
-   * 全站唯一允许的阴影，只给浮层用（导出菜单、下拉、确认弹层）。
-   * 卡片不要加阴影：层级靠 surface 与 border 区分，不靠投影堆叠。
-   */
-  --shadow-overlay: 0 8px 24px -12px oklch(0.25 0.01 220 / 0.18);
 
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
@@ -134,6 +156,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-danger-fill: var(--danger-fill);
+  --color-on-danger-fill: var(--on-danger-fill);
   --color-info: var(--info);
 
   --color-diff-add: var(--diff-add-bg);
@@ -141,21 +165,27 @@
   --color-diff-del: var(--diff-del-bg);
   --color-diff-del-mark: var(--diff-del-mark);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+  /* 阴影统一走 elevation 变量，深色下换成更重的黑 */
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  /* 旧名保留，浮层继续使用 shadow-overlay */
+  --shadow-overlay: var(--elevation-lg);
+  --shadow-glow: var(--glow-gold);
+  --shadow-glow-strong: var(--glow-gold-strong);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
-    "Sarasa Mono SC", monospace;
-  /* 标题衬线：中文走宋体系，西文回落到 Georgia，衬线只用于大标题 */
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* 中文标题走系统宋体，西文衬线只做回退，零网络字体 */
   --font-serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong",
     Georgia, "Times New Roman", serif;
-  /*
-   * 数字衬线（编辑部 bento，ADR 0004）：KPI 数字与巨型序号用衬线数字。
-   * 不引中文展示字体；回退栈与 --font-serif 的西文侧一致，
-   * 本地无 Cormorant 时直接落到 Georgia，视觉降级但不缺字。
-   */
-  --font-numeral: "Cormorant", Georgia, "Times New Roman", serif;
+  --font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+    "STSong", Georgia, "Times New Roman", serif;
 
-  /* 字号阶梯：比例约 1.2，产品语域用紧凑比例 */
+  /* 字号阶梯（DESIGN.md 2.4） */
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.4;
   --text-label: 0.8125rem;
@@ -165,22 +195,25 @@
   --text-body-lg: 1rem;
   --text-body-lg--line-height: 1.75;
   --text-h3: 1.125rem;
-  --text-h3--line-height: 1.4;
+  --text-h3--line-height: 1.35;
   --text-h2: 1.625rem;
-  --text-h2--line-height: 1.28;
-  --text-display: 2.125rem;
+  --text-h2--line-height: 1.25;
+  --text-display: 2.5rem;
   --text-display--line-height: 1.12;
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 1.1;
 
-  /* 巨型衬线数字（编辑部 bento）：KPI 条与序号，只用于数字 */
   --text-numeral-hero: 3.5rem;
   --text-numeral-hero--line-height: 1.05;
   --text-numeral-mega: 5.5rem;
-  --text-numeral-mega--line-height: 1.0;
+  --text-numeral-mega--line-height: 1;
 
-  --radius-chip: 6px;
-  --radius-control: 8px;
-  --radius-panel: 16px;
-  --radius-overlay: 16px;
+  /* 圆角收紧到 2 / 4 / 6 / 8（DESIGN.md 2.6） */
+  --radius-chip: 2px;
+  --radius-control: 4px;
+  --radius-panel: 6px;
+  --radius-overlay: 8px;
+  --radius-pill: 9999px;
 
   --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 120ms;
@@ -196,20 +229,12 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
   }
 
-  /* 中文标题略微收紧字距，视觉上更整 */
-  h1,
-  h2,
-  h3 {
-    letter-spacing: -0.011em;
-  }
-
-  /* 大标题用衬线，正文与控件保持无衬线，形成参考稿那种刊物感 */
+  /* 页面级标题用衬线，正文与控件保持无衬线 */
   h1 {
-    font-family: var(--font-serif);
-    letter-spacing: -0.004em;
+    font-family: var(--font-display);
   }
 
   ::selection {
@@ -250,10 +275,7 @@
   }
 }
 
-/*
- * 时间轴 now 脉冲点（ADR 0004）：只动 opacity，与既有两类动效同一纪律。
- * reduced-motion 下静止为实心点。
- */
+/* 时间轴 now 脉冲点：只动 opacity，与既有两类动效同一纪律 */
 @keyframes pp-now-pulse {
   0%,
   100% {
@@ -273,8 +295,9 @@
     animation: pp-reveal var(--duration-base) var(--ease-out-quart) both;
   }
 
+  /* KPI 数字与巨型序号用衬线数字，禁止彩色数字 */
   .numeral {
-    font-family: var(--font-numeral);
+    font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
   }
 

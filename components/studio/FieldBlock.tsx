@@ -286,14 +286,14 @@ export function FieldBlock({
                 </p>
                 <div className="flex flex-wrap items-center gap-1">
                   <Button
-                    variant="quiet"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setShowDiff((previous) => !previous)}
                   >
                     {showDiff ? '收起差异' : '查看差异'}
                   </Button>
                   <Button
-                    variant="quiet"
+                    variant="ghost"
                     size="sm"
                     onClick={onAcceptSuggestion}
                     className="font-medium text-accent"
@@ -301,7 +301,7 @@ export function FieldBlock({
                     采纳
                   </Button>
                   <Button
-                    variant="quiet"
+                    variant="ghost"
                     size="sm"
                     onClick={onDiscardSuggestion}
                   >

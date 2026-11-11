@@ -429,7 +429,7 @@ export function RunDrawer({
                 </span>
                 {selectedRun ? (
                   <Button
-                    variant="quiet"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setSelectedRunId(null)}
                   >

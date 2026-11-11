@@ -343,7 +343,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         </Button>
         {hasOverrides ? (
           <Button
-            variant="quiet"
+            variant="ghost"
             size="md"
             onClick={onReset}
             disabled={saving}

@@ -4,30 +4,38 @@ import { cn } from '@/lib/utils'
 import { Icon, type IconName } from './Icon'
 
 /**
- * 全站按钮（ADR 0005：shadcn 工程模式 + 项目 token）。四级：
- * - primary   当前页面唯一的主操作，一屏最多一个
- * - secondary 次要操作，描边
- * - ghost     工具栏操作，无边框，hover 有底
- * - quiet     纯文字，用于行内或低优先
+ * 全站按钮（ADR 0005：shadcn 工程模式 + 项目 token；DESIGN.md 5.1）。
+ * 四级：
+ * - primary     当前页面唯一的主操作，一屏最多一个
+ * - secondary   次要操作，金色描边
+ * - ghost       工具栏操作，无边框，hover 有底
+ * - destructive 危险操作，深红底配浅色文字
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'quiet'
-export type ButtonSize = 'sm' | 'md'
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'destructive'
+export type ButtonSize = 'sm' | 'md' | 'lg'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 rounded-control font-medium whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45',
+  'inline-flex items-center justify-center gap-1.5 rounded-control border font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40',
   {
     variants: {
       variant: {
         primary:
-          'bg-accent text-on-accent hover:bg-accent-hover focus-visible:outline-accent',
+          'border-accent-hover bg-accent text-on-accent shadow-sm hover:bg-accent-hover active:bg-accent-hover focus-visible:outline-accent',
         secondary:
-          'border border-line bg-surface text-ink hover:border-line-strong hover:bg-bg-sunken',
-        ghost: 'text-ink-muted hover:bg-bg-sunken hover:text-ink',
-        quiet: 'text-ink-muted hover:text-ink',
+          'border-accent bg-transparent text-accent hover:bg-accent-subtle active:bg-accent-subtle focus-visible:outline-accent disabled:border-line-subtle',
+        ghost:
+          'border-transparent bg-transparent text-ink-muted hover:bg-surface-raised hover:text-ink active:bg-surface-inset focus-visible:outline-accent',
+        destructive:
+          'border-danger-fill bg-danger-fill text-on-danger-fill hover:bg-[#7F1D1D] active:bg-[#7F1D1D] focus-visible:outline-danger',
       },
       size: {
-        sm: 'h-7 px-2.5 text-caption',
-        md: 'h-8 px-3 text-label',
+        sm: 'h-8 px-3 text-caption',
+        md: 'h-10 px-4 text-label',
+        lg: 'h-12 px-5 text-body',
       },
     },
     defaultVariants: {
@@ -37,7 +45,7 @@ const buttonVariants = cva(
   },
 )
 
-/** 供 Link 或自定义元素复用同一套样式，避免"链接长得像按钮却不是按钮"的分叉。 */
+/** 供 Link 或自定义元素复用同一套样式，避免“链接长得像按钮却不是按钮”的分叉。 */
 export function buttonStyles({
   variant = 'secondary',
   size = 'md',
@@ -48,6 +56,12 @@ export function buttonStyles({
   className?: string
 } = {}) {
   return cn(buttonVariants({ variant, size, className }))
+}
+
+function iconSizeFor(size: ButtonSize) {
+  if (size === 'sm') return 14
+  if (size === 'lg') return 16
+  return 15
 }
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -71,6 +85,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const Comp = asChild ? Slot : 'button'
+  const iconSize = iconSizeFor(size)
   return (
     <Comp
       type={asChild ? undefined : type}
@@ -81,18 +96,16 @@ export function Button({
         children
       ) : (
         <>
-          {icon ? <Icon name={icon} size={size === 'sm' ? 14 : 15} /> : null}
+          {icon ? <Icon name={icon} size={iconSize} /> : null}
           {children}
-          {iconRight ? (
-            <Icon name={iconRight} size={size === 'sm' ? 14 : 15} />
-          ) : null}
+          {iconRight ? <Icon name={iconRight} size={iconSize} /> : null}
         </>
       )}
     </Comp>
   )
 }
 
-/** 图标按钮。必须给 aria-label，否则读屏用户只知道"按钮" */
+/** 图标按钮。必须给 aria-label，否则读屏用户只知道“按钮” */
 export function IconButton({
   icon,
   label,
@@ -107,7 +120,7 @@ export function IconButton({
   variant?: ButtonVariant
   size?: ButtonSize
 }) {
-  const box = size === 'sm' ? 'size-7' : 'size-8'
+  const box = size === 'sm' ? 'size-8' : size === 'lg' ? 'size-12' : 'size-10'
   return (
     <button
       type={type}
@@ -116,7 +129,7 @@ export function IconButton({
       className={cn(buttonVariants({ variant, size }), box, 'px-0', className)}
       {...rest}
     >
-      <Icon name={icon} size={size === 'sm' ? 14 : 15} />
+      <Icon name={icon} size={iconSizeFor(size)} />
     </button>
   )
 }

@@ -308,7 +308,7 @@ export function EvalWorkspace() {
         <div className="flex flex-col gap-4 rounded-panel border border-line-subtle bg-surface p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-h3 font-medium text-ink">{detail.name}</h2>
-            <Button variant="quiet" size="sm" onClick={() => setDetail(null)}>
+            <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>
               关闭详情
             </Button>
           </div>
