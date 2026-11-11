@@ -180,6 +180,7 @@ describe('创建基线 v0', () => {
     expect(item.versionCount).toBe(1)
     expect(item.latestVersionNo).toBe(0)
     expect(item.latestOrigin).toBe('user_input')
+    expect(item.winRate).toBeNull()
     expect(Date.parse(item.updatedAt)).toBeGreaterThan(0)
   })
 

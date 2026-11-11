@@ -109,6 +109,8 @@ export interface PromptListItem {
   latestOrigin: PromptVersionOrigin | null
   /** 最新版本正文的首行摘要，供库卡片展示；没有正文时为 null */
   preview: string | null
+  /** 最近一次已完成评估的 v0 胜率（0-1）；没有评估或未判定时为 null */
+  winRate: number | null
 }
 
 export interface PromptDetail extends PromptListItem {
@@ -349,6 +351,63 @@ function toVariableSummary(row: {
 }
 
 /** 取正文第一段有效文字作为卡片摘要 */
+/** 评估任务里的 versionIds 是 JSON 数组字符串，坏数据按空数组处理。 */
+function parseVersionIds(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 每个提示词最近一次已完成评估的 v0 胜率。
+ * 一次只取最近 200 条评估任务，列表页不为此做分页。
+ */
+async function latestWinRates(
+  prisma: PrismaClient,
+  promptIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+  if (promptIds.length === 0) {
+    return result
+  }
+  const [versions, tasks] = await Promise.all([
+    prisma.promptVersion.findMany({
+      where: { promptId: { in: promptIds } },
+      select: { id: true, promptId: true },
+    }),
+    prisma.evalTask.findMany({
+      where: { status: 'completed', winRate: { not: null } },
+      orderBy: { finishedAt: 'desc' },
+      take: 200,
+      select: { winRate: true, versionIds: true },
+    }),
+  ])
+  if (versions.length === 0 || tasks.length === 0) {
+    return result
+  }
+  const promptOfVersion = new Map(
+    versions.map((version) => [version.id, version.promptId]),
+  )
+  for (const task of tasks) {
+    if (task.winRate === null) {
+      continue
+    }
+    for (const versionId of parseVersionIds(task.versionIds)) {
+      const promptId = promptOfVersion.get(versionId)
+      // 任务按结束时间倒序，先写进结果的就是该提示词最近的一次评估。
+      if (promptId && !result.has(promptId)) {
+        result.set(promptId, task.winRate)
+      }
+    }
+  }
+  return result
+}
+
 function previewOf(text: string | undefined): string | null {
   if (!text) {
     return null
@@ -378,7 +437,7 @@ function toListItem(row: {
     origin: string
     renderedText: string
   }>
-}): PromptListItem {
+}, winRate: number | null = null): PromptListItem {
   const latest = row.versions[0]
   return {
     id: row.id,
@@ -393,6 +452,7 @@ function toListItem(row: {
     preview: previewOf(latest?.renderedText),
     latestVersionNo: latest?.versionNo ?? null,
     latestOrigin: latest ? normalizeStoredOrigin(latest.origin) : null,
+    winRate,
   }
 }
 
@@ -690,7 +750,14 @@ export async function listPrompts(
       }),
       prisma.prompt.count({ where }),
     ])
-    return { prompts: rows.map(toListItem), total }
+    const winRates = await latestWinRates(
+      prisma,
+      rows.map((row) => row.id),
+    )
+    return {
+      prompts: rows.map((row) => toListItem(row, winRates.get(row.id) ?? null)),
+      total,
+    }
   } catch (error) {
     throw toStoreError(error)
   }
@@ -722,6 +789,7 @@ export async function getPromptDetail(
     }
     const versions = row.versions.map(toVersionDetail)
     const latest = versions[versions.length - 1]
+    const winRates = await latestWinRates(prisma, [promptId])
     return {
       id: row.id,
       title: row.title,
@@ -733,8 +801,9 @@ export async function getPromptDetail(
       updatedAt: row.updatedAt.toISOString(),
       versionCount: row._count.versions,
       preview: previewOf(latest?.renderedText),
-    latestVersionNo: latest?.versionNo ?? null,
+      latestVersionNo: latest?.versionNo ?? null,
       latestOrigin: latest?.origin ?? null,
+      winRate: winRates.get(promptId) ?? null,
       currentVersionId: row.currentVersionId,
       versions,
       variables: row.variables.map(toVariableSummary),

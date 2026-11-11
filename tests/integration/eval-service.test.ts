@@ -4,6 +4,7 @@ import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
 import { createSkeletonSchema } from '@/lib/engine/schema'
 import type { ChatRequest, ChatResult, LLMProvider } from '@/lib/llm/types'
 import { EvalError, runEvaluation } from '@/lib/eval/service'
+import { listPrompts } from '@/lib/db/prompts'
 
 const createdPromptIds: string[] = []
 
@@ -35,7 +36,7 @@ function fakeProvider(
 async function seedPrompt(options: {
   criteria: string[]
   withBaseline: boolean
-}): Promise<{ promptId: string }> {
+}): Promise<{ promptId: string; title: string }> {
   const prisma = getPrisma()
   if (!prisma) {
     throw new Error('test needs database')
@@ -79,7 +80,7 @@ async function seedPrompt(options: {
       data: { currentVersionId: v0.id },
     })
   }
-  return { promptId: prompt.id }
+  return { promptId: prompt.id, title }
 }
 
 beforeAll(() => {
@@ -155,7 +156,7 @@ describe('评估执行', () => {
   })
 
   it('有基线时计算与 v0 的胜率', async () => {
-    const { promptId } = await seedPrompt({
+    const { promptId, title } = await seedPrompt({
       criteria: ['结构完整'],
       withBaseline: true,
     })
@@ -187,6 +188,10 @@ describe('评估执行', () => {
       where: { id: result.taskId },
     })
     expect(task?.mode).toBe('baseline')
+
+    // 列表页的 v0 胜率取自最近一次已完成评估。
+    const listed = await listPrompts({ query: title })
+    expect(listed.prompts[0]?.winRate).toBe(1)
   })
 
   it('没有判定模型时标为待人工判定，但仍保存输出', async () => {

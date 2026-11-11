@@ -32,6 +32,14 @@ const ORIGIN_LABELS: Record<PromptVersionOrigin, string> = {
   rollback: '回滚',
 }
 
+type SortKey = 'updated' | 'versions' | 'title'
+
+const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
+  { key: 'updated', label: '最近更新' },
+  { key: 'versions', label: '版本最多' },
+  { key: 'title', label: '标题' },
+]
+
 const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
   year: 'numeric',
@@ -130,6 +138,7 @@ function splitTags(tags: string): string[] {
 export function LibraryWorkspace() {
   const [query, setQuery] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
+  const [sort, setSort] = useState<SortKey>('updated')
   const [prompts, setPrompts] = useState<PromptListItem[]>([])
   const [total, setTotal] = useState(0)
   const [listState, setListState] = useState<LoadState>('loading')
@@ -360,10 +369,21 @@ export function LibraryWorkspace() {
     (sum, prompt) => sum + prompt.versionCount,
     0,
   )
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const recentCount = prompts.filter(
-    (prompt) => new Date(prompt.updatedAt).getTime() >= sevenDaysAgo,
-  ).length
+  const sortedPrompts = useMemo(() => {
+    const list = [...prompts]
+    if (sort === 'versions') {
+      list.sort(
+        (a, b) =>
+          b.versionCount - a.versionCount ||
+          Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      )
+    } else if (sort === 'title') {
+      list.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hans-CN'))
+    } else {
+      list.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    }
+    return list
+  }, [prompts, sort])
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-6 py-8 lg:px-10">
@@ -371,65 +391,81 @@ export function LibraryWorkspace() {
         title="提示词库"
         description="首次生成会自动保存基线 v0。基线只读，后续编辑会另存为新版本。"
         actions={
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint">
-                <Icon name="search" size={14} />
-              </span>
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape' && query.length > 0) {
-                    event.preventDefault()
-                    setQuery('')
-                  }
-                }}
-                aria-label="搜索提示词"
-                placeholder="搜索标题、描述、标签、正文"
-                className={cn(
-                  'h-8 w-full rounded-control border border-line bg-surface pl-8 text-label text-ink transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none',
-                  query.length > 0 ? 'pr-8' : 'pr-2',
-                )}
-              />
-              {query.length > 0 ? (
-                <IconButton
-                  icon="close"
-                  label="清空搜索"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-faint"
-                  onClick={() => setQuery('')}
-                />
-              ) : null}
-            </div>
-            <Button variant="primary" size="md" asChild>
-              <Link href="/studio">
-                <Icon name="plus" size={15} />
-                新建
-              </Link>
-            </Button>
-          </div>
+          <Button variant="primary" size="md" asChild>
+            <Link href="/studio">
+              <Icon name="plus" size={15} />
+              新建
+            </Link>
+          </Button>
         }
       />
 
-      <div
-        className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1 text-caption text-ink-muted tnum"
-        aria-live="polite"
-      >
-        {listState === 'ready' ? (
-          activeQuery.length > 0 ? (
-            <span>找到 {total} 条匹配「{activeQuery}」的提示词</span>
-          ) : (
-            <>
-              <span>{total} 条提示词</span>
-              <span>{versionTotal} 个版本</span>
-              <span>{recentCount} 条在最近七天更新</span>
-            </>
-          )
-        ) : listState === 'loading' ? (
-          <span>正在读取提示词库</span>
-        ) : null}
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-2">
+        <div className="relative min-w-0 flex-1 basis-60 sm:max-w-xs">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint">
+            <Icon name="search" size={14} />
+          </span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && query.length > 0) {
+                event.preventDefault()
+                setQuery('')
+              }
+            }}
+            aria-label="搜索提示词"
+            placeholder="搜索标题、描述、标签、正文"
+            className={cn(
+              'h-8 w-full rounded-control border border-line bg-surface pl-8 text-label text-ink transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none',
+              query.length > 0 ? 'pr-8' : 'pr-2',
+            )}
+          />
+          {query.length > 0 ? (
+            <IconButton
+              icon="close"
+              label="清空搜索"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-faint"
+              onClick={() => setQuery('')}
+            />
+          ) : null}
+        </div>
+        <div
+          className="flex items-center gap-1"
+          role="group"
+          aria-label="排序方式"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              aria-pressed={sort === option.key}
+              onClick={() => setSort(option.key)}
+              className={cn(
+                'rounded-control px-2 py-1 text-caption transition-colors duration-150',
+                sort === option.key
+                  ? 'bg-bg-sunken font-medium text-ink'
+                  : 'text-ink-muted hover:text-ink',
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <span
+          className="ml-auto text-caption text-ink-faint tnum"
+          aria-live="polite"
+        >
+          {listState === 'ready'
+            ? activeQuery.length > 0
+              ? `${total} 条匹配「${activeQuery}」`
+              : `${total} 条 · ${versionTotal} 个版本`
+            : listState === 'loading'
+              ? '正在读取提示词库'
+              : null}
+        </span>
       </div>
 
       <div
@@ -485,10 +521,14 @@ export function LibraryWorkspace() {
               />
             </div>
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {prompts.map((prompt) => {
+            <ul className="divide-y divide-line-subtle rounded-panel border border-line-subtle bg-surface">
+              {sortedPrompts.map((prompt) => {
                 const active = prompt.id === selectedId
                 const tags = splitTags(prompt.tags)
+                const description =
+                  prompt.description?.trim() ||
+                  prompt.preview?.replace(/^#+\s*/, '') ||
+                  ''
                 return (
                   <li key={prompt.id}>
                     <button
@@ -496,22 +536,18 @@ export function LibraryWorkspace() {
                       onClick={() => openPrompt(prompt.id)}
                       aria-current={active ? 'true' : undefined}
                       className={cn(
-                        'rise flex h-full w-full flex-col gap-2 rounded-panel border p-4 text-left transition-colors duration-150',
-                        active
-                          ? 'border-accent bg-surface'
-                          : 'border-line-subtle bg-surface hover:border-line-strong',
+                        'rise grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 px-4 py-4 text-left transition-colors duration-150 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem]',
+                        active ? 'bg-accent-subtle' : 'hover:bg-bg-sunken',
                       )}
                     >
-                      <span className="line-clamp-2 text-body-lg font-medium text-ink">
-                        {prompt.title}
-                      </span>
-                      <span className="line-clamp-2 text-caption text-ink-muted">
-                        {prompt.description?.trim() ||
-                          prompt.preview ||
-                          '暂无描述'}
-                      </span>
-                      {tags.length > 0 ? (
-                        <span className="flex flex-wrap gap-1">
+                      <span className="min-w-0">
+                        <span className="block truncate text-body-lg font-medium text-ink">
+                          {prompt.title}
+                        </span>
+                        <span className="mt-0.5 block truncate text-caption text-ink-muted">
+                          {description || '暂无描述'}
+                        </span>
+                        <span className="mt-2 flex flex-wrap items-center gap-1">
                           {tags.slice(0, 3).map((tag) => (
                             <span
                               key={tag}
@@ -520,15 +556,36 @@ export function LibraryWorkspace() {
                               {tag}
                             </span>
                           ))}
+                          <span className="ml-1 text-caption text-ink-faint tnum">
+                            最新 v{prompt.latestVersionNo ?? 0} ·{' '}
+                            {formatDateTime(prompt.updatedAt)}
+                          </span>
                         </span>
-                      ) : null}
-                      <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-caption text-ink-faint tnum">
-                        <span>
-                          {prompt.versionCount} 个版本 · 最新 v
-                          {prompt.latestVersionNo ?? 0}
+                      </span>
+                      <span className="hidden flex-col items-end sm:flex">
+                        <span className="numeral text-h2 font-semibold leading-none text-ink tnum">
+                          {prompt.versionCount}
                         </span>
-                        <span className="ml-auto">
-                          {formatDateTime(prompt.updatedAt)}
+                        <span className="mt-1 text-caption text-ink-faint">
+                          版本
+                        </span>
+                      </span>
+                      <span className="flex flex-col items-end">
+                        <span
+                          className={cn(
+                            'numeral text-h2 font-semibold leading-none tnum',
+                            prompt.winRate === null
+                              ? 'text-ink-faint'
+                              : 'text-ink',
+                          )}
+                          title="最近一次已完成评估相对基线 v0 的胜率"
+                        >
+                          {prompt.winRate === null
+                            ? '—'
+                            : `${Math.round(prompt.winRate * 100)}%`}
+                        </span>
+                        <span className="mt-1 text-caption text-ink-faint">
+                          v0 胜率
                         </span>
                       </span>
                     </button>
