@@ -5,6 +5,7 @@ import {
   deletePrompt,
   getPromptDetail,
   isPromptVersionOrigin,
+  markPromptUsed,
   updatePromptMeta,
   type PromptDetail,
   type UpdatePromptMetaInput,
@@ -33,6 +34,8 @@ const patchRequestSchema = z.object({
   description: z.string().trim().max(1_000).nullable().optional(),
   tags: z.string().trim().max(200).optional(),
   favorite: z.boolean().optional(),
+  /** 打开详情时记录最近使用；只接受 true，避免误传 false 造成空更新。 */
+  markUsed: z.literal(true).optional(),
   versionNo: z.number().int().optional(),
   version: versionPayloadSchema.optional(),
 })
@@ -200,8 +203,9 @@ export async function PATCH(
     meta.favorite = body.favorite
   }
   const hasMetaUpdate = Object.keys(meta).length > 0
+  const markUsed = body.markUsed === true
 
-  if (versionInput === undefined && !hasMetaUpdate) {
+  if (versionInput === undefined && !hasMetaUpdate && !markUsed) {
     return jsonError(400, 'INVALID_INPUT', '没有需要更新的内容。')
   }
 
@@ -209,6 +213,9 @@ export async function PATCH(
     let prompt: PromptDetail | null = null
     if (hasMetaUpdate) {
       prompt = await updatePromptMeta(id, meta)
+    }
+    if (markUsed) {
+      prompt = await markPromptUsed(id)
     }
     if (versionInput !== undefined) {
       const origin =

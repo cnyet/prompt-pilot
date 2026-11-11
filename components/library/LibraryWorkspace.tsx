@@ -33,10 +33,11 @@ const ORIGIN_LABELS: Record<PromptVersionOrigin, string> = {
   rollback: '回滚',
 }
 
-type SortKey = 'updated' | 'versions' | 'title'
+type SortKey = 'updated' | 'recent' | 'versions' | 'title'
 
 const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
   { key: 'updated', label: '最近更新' },
+  { key: 'recent', label: '最近使用' },
   { key: 'versions', label: '版本最多' },
   { key: 'title', label: '标题' },
 ]
@@ -243,6 +244,32 @@ export function LibraryWorkspace() {
             null,
         )
         setDetailState('ready')
+        // 记录最近使用；服务端 5 分钟内去重，失败不影响阅读。
+        void requestJson(`/api/prompts/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ markUsed: true }),
+        })
+          .then((touchPayload) => {
+            const touched = readDetailPayload(touchPayload)
+            if (!touched?.lastUsedAt) {
+              return
+            }
+            const usedAt = touched.lastUsedAt
+            setPrompts((list) =>
+              list.map((item) =>
+                item.id === id ? { ...item, lastUsedAt: usedAt } : item,
+              ),
+            )
+            setDetail((current) =>
+              current && current.id === id
+                ? { ...current, lastUsedAt: usedAt }
+                : current,
+            )
+          })
+          .catch(() => {
+            // 最近使用只是辅助排序，失败时静默保留原值。
+          })
       } catch (error) {
         if (detailRequestRef.current !== requestId) {
           return
@@ -575,6 +602,15 @@ export function LibraryWorkspace() {
           b.versionCount - a.versionCount ||
           Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
       )
+    } else if (sort === 'recent') {
+      // 从未打开过的排最后，同组按更新时间倒序，避免 null 被当成 0。
+      const usedAt = (value: string | null): number =>
+        value === null ? 0 : Date.parse(value)
+      list.sort(
+        (a, b) =>
+          usedAt(b.lastUsedAt) - usedAt(a.lastUsedAt) ||
+          Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+      )
     } else if (sort === 'title') {
       list.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hans-CN'))
     } else {
@@ -816,7 +852,11 @@ export function LibraryWorkspace() {
                           ))}
                           <span className="ml-1 text-caption text-ink-faint tnum">
                             最新 v{prompt.latestVersionNo ?? 0} ·{' '}
-                            {formatDateTime(prompt.updatedAt)}
+                            {sort === 'recent'
+                              ? prompt.lastUsedAt
+                                ? `最近使用 ${formatDateTime(prompt.lastUsedAt)}`
+                                : '尚未使用'
+                              : formatDateTime(prompt.updatedAt)}
                           </span>
                         </span>
                       </span>

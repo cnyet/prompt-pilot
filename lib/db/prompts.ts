@@ -102,6 +102,8 @@ export interface PromptListItem {
   tags: string
   status: string
   favorite: boolean
+  /** 最近一次打开详情的时间；从未使用过为 null，不写空字符串或 0。 */
+  lastUsedAt: string | null
   createdAt: string
   updatedAt: string
   versionCount: number
@@ -158,6 +160,7 @@ export interface ListPromptsResult {
 const MAX_TITLE_LENGTH = 80
 const MAX_CHANGE_SUMMARY_LENGTH = 200
 const VERSION_WRITE_ATTEMPTS = 6
+const PROMPT_USE_DEBOUNCE_MS = 5 * 60 * 1000
 
 function requirePrisma(): PrismaClient {
   const prisma = getPrisma()
@@ -430,6 +433,7 @@ function toListItem(row: {
   tags: string
   status: string
   favorite: boolean
+  lastUsedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: { versions: number }
@@ -447,6 +451,7 @@ function toListItem(row: {
     tags: row.tags,
     status: row.status,
     favorite: row.favorite,
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     versionCount: row._count.versions,
@@ -709,6 +714,42 @@ export async function updatePromptMeta(
   }
 }
 
+/**
+ * 记录「最近使用」。5 分钟内重复打开不重写；显式回写 updatedAt，
+ * 避免打开详情被当成编辑，污染「最近更新」排序与近七天统计。
+ */
+export async function markPromptUsed(
+  promptId: string,
+  now: Date = new Date(),
+): Promise<PromptDetail> {
+  const prisma = requirePrisma()
+  try {
+    const row = await prisma.prompt.findUnique({
+      where: { id: promptId },
+      select: { lastUsedAt: true, updatedAt: true },
+    })
+    if (!row) {
+      throw new PromptStoreError('NOT_FOUND', 404, '提示词不存在。')
+    }
+    const usedRecently =
+      row.lastUsedAt !== null &&
+      now.getTime() - row.lastUsedAt.getTime() < PROMPT_USE_DEBOUNCE_MS
+    if (!usedRecently) {
+      await prisma.prompt.update({
+        where: { id: promptId },
+        data: { lastUsedAt: now, updatedAt: row.updatedAt },
+      })
+    }
+    const detail = await getPromptDetail(promptId)
+    if (!detail) {
+      throw new PromptStoreError('NOT_FOUND', 404, '提示词不存在。')
+    }
+    return detail
+  } catch (error) {
+    throw toStoreError(error)
+  }
+}
+
 /** 缺少数据库时返回 null，由路由层转成 503。 */
 export async function listPrompts(
   input: ListPromptsInput = {},
@@ -801,6 +842,7 @@ export async function getPromptDetail(
       tags: row.tags,
       status: row.status,
       favorite: row.favorite,
+      lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       versionCount: row._count.versions,

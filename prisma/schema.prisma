@@ -21,12 +21,14 @@ model Prompt {
   status           String    @default("draft")
   favorite         Boolean   @default(false)
   currentVersionId String?
+  lastUsedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   versions         PromptVersion[]
   variables        Variable[]
 
   @@index([status, updatedAt])
+  @@index([lastUsedAt])
 }
 
 model PromptVersion {

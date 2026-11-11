@@ -411,6 +411,45 @@ describe('输入校验与不存在', () => {
   })
 })
 
+describe('最近使用', () => {
+  it('markUsed 写入 lastUsedAt，不改动 updatedAt 与版本，5 分钟内去重', async () => {
+    const title = `最近使用-${randomUUID().slice(0, 8)}`
+    const prompt = await createPrompt(title)
+    expect(prompt.lastUsedAt).toBeNull()
+
+    const first = await patchPrompt(prompt.id, { markUsed: true })
+    expect(first.status).toBe(200)
+    const firstBody = (await first.json()) as PromptResponse
+    expect(firstBody.prompt.lastUsedAt).not.toBeNull()
+    expect(firstBody.prompt.updatedAt).toBe(prompt.updatedAt)
+    expect(firstBody.prompt.versionCount).toBe(1)
+
+    const firstUsedAt = firstBody.prompt.lastUsedAt
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    const second = await patchPrompt(prompt.id, { markUsed: true })
+    const secondBody = (await second.json()) as PromptResponse
+    expect(secondBody.prompt.lastUsedAt).toBe(firstUsedAt)
+
+    const listed = await listPromptsRoute(
+      request(
+        'GET',
+        `http://localhost/api/prompts?q=${encodeURIComponent(title)}`,
+      ),
+    )
+    const listedBody = (await listed.json()) as ListResponse
+    expect(listedBody.prompts[0]?.lastUsedAt).toBe(firstUsedAt)
+  })
+
+  it('markUsed 只接受 true', async () => {
+    const title = `最近使用校验-${randomUUID().slice(0, 8)}`
+    const prompt = await createPrompt(title)
+    const response = await patchPrompt(prompt.id, { markUsed: false })
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { code: string }
+    expect(body.code).toBe('INVALID_INPUT')
+  })
+})
+
 describe('元信息编辑', () => {
   it('标题、描述与标签可更新，且不产生新版本', async () => {
     const title = `改名前-${randomUUID().slice(0, 8)}`
