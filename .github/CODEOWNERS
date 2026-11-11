@@ -1,0 +1,7 @@
+# 默认维护者；涉及契约、迁移与发布的改动必须经过 code owner 审阅
+* @cnyet
+
+# 冻结契约与发布相关文件单独标记
+/lib/engine/schema.ts @cnyet
+/lib/llm/types.ts @cnyet
+/.github/workflows/ @cnyet

@@ -27,3 +27,13 @@ data/
 coverage/
 .DS_Store
 .agent/harness/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 编辑器与本地配置备份
+.idea/
+.vscode/
+.vercel/
+*.bak-*

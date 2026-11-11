@@ -1,0 +1,52 @@
+name: Bug report
+description: 报告可复现的问题
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先确认问题来自 PromptPilot 本身，而不是模型、密钥或上游服务。
+        日志与截图请脱敏，不要贴 API key、完整提示词或数据库内容。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 实际行为与预期行为分别是什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 ...
+        2. 输入 ...
+        3. 看到 ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交
+      description: 页面版本号，或 `git rev-parse --short HEAD`
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、Node、pnpm、浏览器；是否处于离线模板模式
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图
+      description: 已脱敏的控制台输出或截图
+      render: shell

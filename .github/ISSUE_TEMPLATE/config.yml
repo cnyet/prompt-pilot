@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞
+    url: https://github.com/cnyet/prompt-pilot/security/advisories/new
+    about: 请通过私密渠道报告安全问题，不要公开提交 issue。
+  - name: 使用与架构文档
+    url: https://github.com/cnyet/prompt-pilot/blob/main/docs/HANDOVER.md
+    about: 运行方式、代码地图、已知缺口与排障先看交接说明。

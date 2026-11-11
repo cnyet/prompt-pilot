@@ -2,12 +2,26 @@
   "name": "prompt-pilot",
   "version": "0.1.0",
   "private": true,
+  "description": "PromptPilot · 提示词工坊：把一句话需求变成结构完整、可直接投产的标准提示词",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cnyet/prompt-pilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cnyet/prompt-pilot/issues"
+  },
+  "homepage": "https://github.com/cnyet/prompt-pilot#readme",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check:contrast": "node scripts/contrast-check.mjs",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

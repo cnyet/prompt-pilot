@@ -1,0 +1,17 @@
+# 统一换行，避免 macOS / Linux / Windows 之间产生无意义 diff
+* text=auto eol=lf
+
+# 二进制资源不做文本转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# 生成文件在 GitHub 上折叠
+pnpm-lock.yaml linguist-generated=true
+next-env.d.ts linguist-generated=true

@@ -1,5 +1,7 @@
 # PromptPilot · 提示词工坊
 
+[![CI](https://github.com/cnyet/prompt-pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/cnyet/prompt-pilot/actions/workflows/ci.yml)
+
 把一句话需求，变成结构完整、边界清晰、可直接投产的标准提示词，并且让用户看得见它为什么更好。
 
 **当前状态：演示版已完成。** 19 张工单全部收口，493 条测试通过，端到端主流程在真实浏览器里跑通。真实 ARK 密钥下的行为尚未验证，其余缺口见 [HANDOVER.md](docs/HANDOVER.md)。
