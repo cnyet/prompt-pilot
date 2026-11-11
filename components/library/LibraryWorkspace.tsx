@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Input, Textarea } from '@/components/ui/Input'
+import { VersionDiff } from '@/components/library/VersionDiff'
 import {
   FIELD_KEYS,
   FIELD_LABELS,
@@ -1131,6 +1132,10 @@ export function LibraryWorkspace() {
                     })}
                   </ol>
                 </div>
+
+                {detail.versions.length >= 2 ? (
+                  <VersionDiff key={detail.id} versions={detail.versions} />
+                ) : null}
 
                 {selectedVersion ? (
                   <div className="border-b border-line-subtle px-4 py-3">
