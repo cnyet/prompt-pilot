@@ -4,6 +4,8 @@
 - 无。
 
 ## Pending
+- [ ] 设置-模型增加「测试」按钮，校验当前配置连通性 | Priority: P0 | Created: 2026-11-11
+- [ ] 设置-成本区域改为分页显示 | Priority: P1 | Created: 2026-11-11
 - [ ] 真实密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）| Priority: P0 | Created: 2026-11-10
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 库的分页 | Priority: P2 | Created: 2026-11-10

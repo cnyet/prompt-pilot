@@ -5,9 +5,9 @@
 ## Current Task
 - Done: DESIGN Q0-Q5 收口（`5d771bb`/`d1b86e8`/`1bb2d69`）；最近使用（`8c32e9d`）；工作台输入放大、主路径模板、品牌印记/图标/版权条、opencode 网关与成本趋势图、快捷键移除、脏数据清理（`4e5a856`）。
 - Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
-- In progress: 无。
-- Next step: 真实网关密钥端到端验证（生成 → 试运行 usage → 评估 verdict → 成本页）；无 key 时补新模型价格表，再做列表分页。
-- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。
+- In progress: 用户新需求未开始。设置-模型增加「测试」按钮，校验当前配置连通性；设置-成本区域改为分页显示。
+- Next step: 新会话先读 `components/settings/LlmSettingsForm.tsx`、`app/(workspace)/settings/page.tsx`、现有模型连通性/API 路由，再实现测试按钮与成本分页。
+- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。当前会话已触发压缩抖动，按规则需 PERSIST 后 `/clear` 续接。
 
 ## Current Constraints
 - 令牌以 `DESIGN.md` 第二节为准，代码在 `app/globals.css`；改令牌须同步文档并跑 `pnpm check:contrast`。
