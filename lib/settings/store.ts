@@ -17,6 +17,7 @@ export const LLM_SETTING_KEYS = {
   apiKey: 'llm.apiKey',
   baseUrl: 'llm.baseUrl',
   modelGenerate: 'llm.modelGenerate',
+  modelOptimize: 'llm.modelOptimize',
   modelEvaluate: 'llm.modelEvaluate',
 } as const
 
@@ -27,6 +28,7 @@ const ENV_BY_FIELD: Record<LlmSettingField, string> = {
   apiKey: 'ARK_API_KEY',
   baseUrl: 'ARK_BASE_URL',
   modelGenerate: 'ARK_MODEL_GENERATE',
+  modelOptimize: 'ARK_MODEL_OPTIMIZE',
   modelEvaluate: 'ARK_MODEL_EVALUATE',
 }
 
@@ -54,6 +56,7 @@ export interface LlmSettingsView {
   apiKey: { configured: boolean; hint: string | null; source: SettingSource }
   baseUrl: { value: string; source: SettingSource }
   modelGenerate: { value: string; source: SettingSource }
+  modelOptimize: { value: string; source: SettingSource }
   modelEvaluate: { value: string; source: SettingSource }
 }
 
@@ -181,6 +184,9 @@ export async function getLlmSettingsView(
   const keyFromEnv = trimmed(base[ENV_BY_FIELD.apiKey])
   const key = keyOverride ?? keyFromEnv
   const baseUrl = pick('baseUrl')
+  const modelGenerate = pick('modelGenerate')
+  const modelOptimizeOverride = trimmed(rows[LLM_SETTING_KEYS.modelOptimize])
+  const modelOptimizeEnv = trimmed(base[ENV_BY_FIELD.modelOptimize])
 
   return {
     apiKey: {
@@ -189,7 +195,13 @@ export async function getLlmSettingsView(
       source: keyOverride ? 'settings' : keyFromEnv ? 'env' : 'none',
     },
     baseUrl: { ...baseUrl, value: normalizeArkBaseUrl(baseUrl.value) },
-    modelGenerate: pick('modelGenerate'),
+    modelGenerate,
+    // 未单独配置优化模型时复用生成模型（FR-8.3）
+    modelOptimize: modelOptimizeOverride
+      ? { value: modelOptimizeOverride, source: 'settings' }
+      : modelOptimizeEnv
+        ? { value: modelOptimizeEnv, source: 'env' }
+        : modelGenerate,
     modelEvaluate: pick('modelEvaluate'),
   }
 }
@@ -228,6 +240,7 @@ export interface LlmSettingsPatch {
   apiKey?: string | null
   baseUrl?: string | null
   modelGenerate?: string | null
+  modelOptimize?: string | null
   modelEvaluate?: string | null
 }
 
@@ -282,6 +295,9 @@ export async function saveLlmSettings(
   handle('modelGenerate', patch.modelGenerate, (next) =>
     assertModelId(next, '生成模型'),
   )
+  handle('modelOptimize', patch.modelOptimize, (next) =>
+    assertModelId(next, '优化模型'),
+  )
   handle('modelEvaluate', patch.modelEvaluate, (next) =>
     assertModelId(next, '评估模型'),
   )
@@ -311,5 +327,51 @@ export async function saveLlmSettings(
       503,
       '设置写入失败，请稍后重试。',
     )
+  }
+}
+
+/** 月度预算（人民币）；未设置为空字符串，读取为 null（FR-9.5/9.6）。 */
+export const BUDGET_SETTING_KEY = 'budget.monthlyCny'
+
+export async function getBudgetSetting(): Promise<number | null> {
+  const prisma = getPrisma()
+  if (!prisma) {
+    return null
+  }
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key: BUDGET_SETTING_KEY } })
+    if (!row || row.value.trim().length === 0) {
+      return null
+    }
+    const value = Number(row.value)
+    return Number.isFinite(value) && value > 0 ? value : null
+  } catch (error) {
+    console.warn('[settings] 读取预算失败：', error)
+    return null
+  }
+}
+
+export async function saveBudgetSetting(value: number | null): Promise<void> {
+  const prisma = getPrisma()
+  if (!prisma) {
+    throw new SettingsError('NO_DATABASE', 503, '数据库不可用，设置暂时无法保存。检查 DATABASE_URL 是否配置。')
+  }
+  if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+    throw new SettingsError('INVALID_BUDGET', 400, '预算必须是大于 0 的金额。')
+  }
+  try {
+    if (value === null) {
+      await prisma.appSetting.deleteMany({ where: { key: BUDGET_SETTING_KEY } })
+    } else {
+      await prisma.appSetting.upsert({
+        where: { key: BUDGET_SETTING_KEY },
+        create: { key: BUDGET_SETTING_KEY, value: String(value) },
+        update: { value: String(value) },
+      })
+    }
+    invalidateCache()
+  } catch (error) {
+    console.warn('[settings] 预算保存失败：', error)
+    throw new SettingsError('WRITE_FAILED', 503, '设置写入失败，请稍后重试。')
   }
 }
