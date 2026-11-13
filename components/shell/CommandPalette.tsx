@@ -53,13 +53,6 @@ export function CommandPalette({ onToggleTheme }: { onToggleTheme: () => void })
         run: () => router.push('/library'),
       },
       {
-        id: 'eval',
-        label: '评估',
-        icon: 'eval',
-        group: '导航',
-        run: () => router.push('/eval'),
-      },
-      {
         id: 'templates',
         label: '模板',
         icon: 'template',

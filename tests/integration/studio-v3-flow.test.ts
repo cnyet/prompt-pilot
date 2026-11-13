@@ -21,6 +21,7 @@ import {
 } from '@/app/api/templates/route'
 import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
 import { parseSseStreamV3, type SseV3Message } from '@/lib/engine/sse-v3'
+import { BUDGET_SETTING_KEY } from '@/lib/settings/store'
 
 // v3 工作台跨路由集成：生成 → 详情 → 收藏/评分 → 继续优化 → 成本 → 模板。
 // 只走 mock provider，不触网；数据在隔离的 data/test.db。
@@ -155,9 +156,13 @@ beforeAll(() => {
 
 beforeEach(async () => {
   process.env.MOCK_LLM_FAULT = 'valid'
+  await prisma!.promptIteration.deleteMany({})
   await prisma!.promptRecord.deleteMany({})
   await prisma!.template.deleteMany({})
   await prisma!.llmCall.deleteMany({})
+  await prisma!.appSetting.deleteMany({
+    where: { key: BUDGET_SETTING_KEY },
+  })
 })
 
 afterEach(() => {
