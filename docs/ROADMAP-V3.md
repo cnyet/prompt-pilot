@@ -130,7 +130,8 @@ model Template {
 
 - `ModelConfig.role` 取值改为 `generate | optimize`；旧的 evaluate / judge 行保留但停用。
 - `AppSetting` 增加 `budget.monthlyCny`，未设置为空字符串。
-- `LlmCall.stage` 增加 `optimize`，继续保留 `compose` 等历史值。
+- `LlmCall.stage` 增加 `optimize`，继续保留 `compose` 等历史值；补 `cachedHit`（Boolean?，未知为 null），对应 FR-9.1「是否命中缓存」。
+- 删除记录时置空该记录迭代关联的 `LlmCall` 外键（账本保留匿名用量，不级联删除）。
 - 用量与费用继续遵守「未知为 null，不写 0」。
 
 ### 2.2 API 与 SSE 协议
@@ -161,7 +162,7 @@ done   { recordId, iterationId }
 
 元数据协议：系统提示词要求模型先输出完整 Markdown 正文，正文结束后另起一行输出 `<<<PROMPTPILOT_META>>>`，再输出 `{"title":"...","notes":["...","..."]}`。服务端边流边切分，分隔符前的内容实时下发，分隔符后的内容缓冲并在结束时解析。解析失败时标题取输入前 24 字，说明为空，正文不受影响。
 
-幂等：客户端生成 `requestId`，`PromptIteration.requestId` 唯一约束；双击只产生一条记录。
+幂等分两层：记录层——`/api/generate` 首轮用客户端 `requestId` 做内存 LRU 去重，in-flight 与 5 分钟内结果命中即复用，双击只产生一条记录（AC-19）；迭代层——`PromptIteration.requestId` 唯一约束兜底，继续优化与修复同样适用。
 
 ### 2.3 Markdown 渲染
 
@@ -187,7 +188,7 @@ done   { recordId, iterationId }
 ### 2.6 模板与封面
 
 - 内置 12 条模板，三类各 4 条，`slug` 幂等 upsert：
-  - 文本：周报助手、小红书种草、会议纪要、数据分析结论。
+  - 文本（四条各占一风格）：周报助手（公文）、小红书种草（营销）、数据分析结论（分析）、代码评审助手（代码）。
   - 图片：电影感人像、电商产品主图、3D 等距插画、极简海报。
   - 视频：15 秒产品广告、分镜脚本、运镜描述、叙事短片。
 - 封面为程序化 SVG 或 CSS 构图，三种视觉语言分别对应文本、图片、视频，不依赖外部图片服务，不使用渐变。
@@ -223,16 +224,16 @@ done   { recordId, iterationId }
 - V3-11 `db push`、`generate`、12 条模板 seed。
 - V3-12 `lib/engine/prompts/`：生成、优化、修复提示词与元数据解析。
 - V3-13 SSE 路由：`/api/generate`、`/api/records/[id]/optimize`、`/api/records/[id]/repair`。
-- V3-14 记录 API：列表、详情、收藏、评分、重命名、删除。
+- V3-14 记录 API：列表、详情、收藏、评分（仅完成或已中断记录）、重命名、删除（置空 LlmCall 关联）。
 - V3-15 模板 API：列表、创建、删除。
 - V3-16 统计 API：本月聚合、14 天趋势、预算使用率。
-- V3-17 测试：元数据解析、SSE 集成、记录、模板、预算、幂等。
+- V3-17 测试：元数据解析、SSE 集成、记录、模板、预算、幂等（记录层与迭代层）、输入长度与格式的 Zod 校验（FR-1.2 边界）。
 
 验收：`pnpm run typecheck`、定向测试通过；用 mock 跑通一次生成与一次继续优化；数据库落库正确。
 
 ### Phase 2 工作台重写（4 人日）
 
-- V3-20 工作台外壳：模式切换、目标类型、输入区、快捷键。
+- V3-20 工作台外壳：模式切换、目标类型、输入区、快捷键；界面文案集中 `lib/i18n/zh.ts` 单一字典模块（NFR-9 决策，键名稳定，后续可加同构英文字典）。
 - V3-21 结果面板：流式、渲染/源码、复制、下载、停止、用量信息。
 - V3-22 对比原文：diff 引擎与并排/行内视图。
 - V3-23 改动说明与继续优化输入框、快捷 chip。
@@ -240,7 +241,7 @@ done   { recordId, iterationId }
 - V3-25 动作：重新生成、收藏、评分、存为模板。
 - V3-26 错误态、无密钥态、幂等与取消。
 
-验收：AC-1 到 AC-7、AC-19、AC-20。
+验收：AC-1 到 AC-7、AC-19 到 AC-24、AC-27。
 
 ### Phase 3 提示词库（2 人日）
 
@@ -249,7 +250,7 @@ done   { recordId, iterationId }
 - V3-32 详情：结果、迭代时间线、任意两轮对比、继续优化、复制导出、存为模板、删除。
 - V3-33 空态与加载态。
 
-验收：AC-8、AC-9。
+验收：AC-8、AC-9、AC-25、AC-28。
 
 ### Phase 4 模板（2 人日）
 
@@ -269,7 +270,7 @@ done   { recordId, iterationId }
 - V3-53 成本页：KPI、14 天趋势、两张表、未知值处理。
 - V3-54 80% 与 100% 提示。
 
-验收：AC-12 到 AC-14、AC-17。
+验收：AC-12 到 AC-14、AC-17、AC-26。
 
 ### Phase 6 移除旧模块与收口（2 人日）
 
@@ -280,7 +281,7 @@ done   { recordId, iterationId }
 - V3-64 截图与文档最终同步。
 - V3-65 备份后删除旧表。
 
-验收：AC-15 到 AC-20；全量命令通过。
+验收：AC-15、AC-16、AC-18；AC-1 到 AC-28 全量回归；全量命令通过。
 
 ## 4. 测试计划
 

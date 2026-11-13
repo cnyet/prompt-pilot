@@ -4,61 +4,253 @@
   "title": "Design System: PromptPilot",
   "extensions": {
     "colorMeta": {
-      "candle-gold": {
-        "role": "primary",
-        "displayName": "Candle Gold",
-        "canonical": "#8a5a00",
-        "darkValue": "#ca8a04",
-        "tonalRamp": ["#2b1a00", "#452a00", "#613d00", "#8a5a00", "#b57900", "#d49b1f", "#ecc66f", "#f8e8c6"]
-      },
       "parchment-bg": {
         "role": "neutral",
         "displayName": "Parchment Background",
         "canonical": "#f3ead8",
         "darkValue": "#1a0f0a",
-        "tonalRamp": ["#3a2c1a", "#58452a", "#78603e", "#9a8058", "#bda37a", "#d8c7a8", "#eadfc8", "#f3ead8"]
+        "tonalRamp": [
+          "#3a2c1a",
+          "#58452a",
+          "#78603e",
+          "#9a8058",
+          "#bda37a",
+          "#d8c7a8",
+          "#eadfc8",
+          "#f3ead8"
+        ]
+      },
+      "parchment-sunken": {
+        "role": "neutral",
+        "displayName": "Parchment Sunken",
+        "canonical": "#eadfc8",
+        "darkValue": "#120a06"
       },
       "paper-surface": {
         "role": "neutral",
         "displayName": "Paper Surface",
         "canonical": "#fbf5e9",
         "darkValue": "#2c1a10",
-        "tonalRamp": ["#3b2c1c", "#5a452c", "#7a6240", "#9c8058", "#bda37a", "#dcd0b8", "#f0e8d8", "#fbf5e9"]
+        "tonalRamp": [
+          "#3b2c1c",
+          "#5a452c",
+          "#7a6240",
+          "#9c8058",
+          "#bda37a",
+          "#dcd0b8",
+          "#f0e8d8",
+          "#fbf5e9"
+        ]
       },
-      "ink": {
+      "paper-raised": {
         "role": "neutral",
-        "displayName": "Ink",
-        "canonical": "#2a1a10",
-        "darkValue": "#f5e6d3",
-        "tonalRamp": ["#0f0a06", "#1a1009", "#2a1a10", "#4a3220", "#6b4b2e", "#85643f", "#a98a64", "#cbb497"]
+        "displayName": "Paper Raised",
+        "canonical": "#fff9ee",
+        "darkValue": "#3d2517"
+      },
+      "paper-inset": {
+        "role": "neutral",
+        "displayName": "Paper Inset",
+        "canonical": "#efe3ce",
+        "darkValue": "#24140c"
+      },
+      "sidebar-parchment": {
+        "role": "neutral",
+        "displayName": "Sidebar Parchment",
+        "canonical": "#efe3ce",
+        "darkValue": "#24140c"
       },
       "border-warm": {
         "role": "neutral",
         "displayName": "Border Warm",
         "canonical": "#d8c7a8",
         "darkValue": "#5c3d2e",
-        "tonalRamp": ["#2f2418", "#4a3a26", "#6a5438", "#8e7450", "#b99f72", "#d0bb98", "#e2d3b8", "#f0e6d4"]
+        "tonalRamp": [
+          "#2f2418",
+          "#4a3a26",
+          "#6a5438",
+          "#8e7450",
+          "#b99f72",
+          "#d0bb98",
+          "#e2d3b8",
+          "#f0e6d4"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Border Strong",
+        "canonical": "#b99f72",
+        "darkValue": "#8a6440"
+      },
+      "border-subtle": {
+        "role": "neutral",
+        "displayName": "Border Subtle",
+        "canonical": "#e4d7bf",
+        "darkValue": "#3d2517"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#2a1a10",
+        "darkValue": "#f5e6d3",
+        "tonalRamp": [
+          "#0f0a06",
+          "#1a1009",
+          "#2a1a10",
+          "#4a3220",
+          "#6b4b2e",
+          "#85643f",
+          "#a98a64",
+          "#cbb497"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#6b4b2e",
+        "darkValue": "#bfa98a"
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Ink Faint",
+        "canonical": "#85643f",
+        "darkValue": "#ab8d69"
+      },
+      "candle-gold": {
+        "role": "primary",
+        "displayName": "Candle Gold",
+        "canonical": "#8a5a00",
+        "darkValue": "#ca8a04",
+        "tonalRamp": [
+          "#2b1a00",
+          "#452a00",
+          "#613d00",
+          "#8a5a00",
+          "#b57900",
+          "#d49b1f",
+          "#ecc66f",
+          "#f8e8c6"
+        ]
+      },
+      "candle-gold-hover": {
+        "role": "primary",
+        "displayName": "Candle Gold Hover",
+        "canonical": "#6f4800",
+        "darkValue": "#e0a21a"
+      },
+      "candle-gold-subtle": {
+        "role": "primary",
+        "displayName": "Candle Gold Subtle",
+        "canonical": "#f0e2c4",
+        "darkValue": "#3a2a12"
+      },
+      "on-candle": {
+        "role": "on-primary",
+        "displayName": "On Candle",
+        "canonical": "#fbf5e9",
+        "darkValue": "#1a0f0a"
       },
       "success-moss": {
         "role": "tertiary",
         "displayName": "Success Moss",
         "canonical": "#2f6b3a",
         "darkValue": "#22c55e",
-        "tonalRamp": ["#0e2412", "#173a1d", "#21542a", "#2f6b3a", "#4a8a55", "#6fae79", "#9fd0a6", "#d6ecd9"]
+        "tonalRamp": [
+          "#0e2412",
+          "#173a1d",
+          "#21542a",
+          "#2f6b3a",
+          "#4a8a55",
+          "#6fae79",
+          "#9fd0a6",
+          "#d6ecd9"
+        ]
+      },
+      "warning-amber": {
+        "role": "tertiary",
+        "displayName": "Warning Amber",
+        "canonical": "#8a5a00",
+        "darkValue": "#eab308"
       },
       "danger-brick": {
         "role": "tertiary",
         "displayName": "Danger Brick",
         "canonical": "#8f1d14",
         "darkValue": "#f87171",
-        "tonalRamp": ["#2a0806", "#4a0f0a", "#6a160e", "#8f1d14", "#b33a2e", "#d46a5e", "#eaa79f", "#f7d9d4"]
+        "tonalRamp": [
+          "#2a0806",
+          "#4a0f0a",
+          "#6a160e",
+          "#8f1d14",
+          "#b33a2e",
+          "#d46a5e",
+          "#eaa79f",
+          "#f7d9d4"
+        ]
       },
       "info-violet": {
         "role": "tertiary",
         "displayName": "Info Violet",
         "canonical": "#5b2a86",
         "darkValue": "#c4a5f5",
-        "tonalRamp": ["#1c0e2a", "#2f1745", "#452263", "#5b2a86", "#7a4aa8", "#9b72c6", "#c2a3e0", "#e6d8f4"]
+        "tonalRamp": [
+          "#1c0e2a",
+          "#2f1745",
+          "#452263",
+          "#5b2a86",
+          "#7a4aa8",
+          "#9b72c6",
+          "#c2a3e0",
+          "#e6d8f4"
+        ]
+      },
+      "tint-gold": {
+        "role": "tint",
+        "displayName": "Tint Gold",
+        "canonical": "#f0e2c4",
+        "darkValue": "#3a2a12"
+      },
+      "tint-red": {
+        "role": "tint",
+        "displayName": "Tint Red",
+        "canonical": "#f3dfd9",
+        "darkValue": "#3a1a16"
+      },
+      "tint-green": {
+        "role": "tint",
+        "displayName": "Tint Green",
+        "canonical": "#dfebda",
+        "darkValue": "#1e3324"
+      },
+      "tint-purple": {
+        "role": "tint",
+        "displayName": "Tint Purple",
+        "canonical": "#e8ddf0",
+        "darkValue": "#2e1f3a"
+      },
+      "diff-add": {
+        "role": "diff",
+        "displayName": "Diff Add",
+        "canonical": "#e4eedf",
+        "darkValue": "#1e3324"
+      },
+      "diff-add-mark": {
+        "role": "diff",
+        "displayName": "Diff Add Mark",
+        "canonical": "#cbe0c2",
+        "darkValue": "#2e4a35"
+      },
+      "diff-del": {
+        "role": "diff",
+        "displayName": "Diff Del",
+        "canonical": "#f3dfd9",
+        "darkValue": "#3a1a16"
+      },
+      "diff-del-mark": {
+        "role": "diff",
+        "displayName": "Diff Del Mark",
+        "canonical": "#e8c4bb",
+        "darkValue": "#4a2420"
       }
     },
     "typographyMeta": {
@@ -192,7 +384,38 @@
         "value": "1024px",
         "purpose": "左轨隐藏，底部四项标签栏，内容单列"
       }
-    ]
+    ],
+    "tokenMapping": {
+      "comment": "DESIGN.md frontmatter 语义名 → app/globals.css 运行时变量；组件 CSS 一律用右侧变量",
+      "parchment-bg": "--bg",
+      "parchment-sunken": "--bg-sunken",
+      "paper-surface": "--surface",
+      "paper-raised": "--surface-raised",
+      "paper-inset": "--surface-inset",
+      "sidebar-parchment": "--sidebar",
+      "border-warm": "--border",
+      "border-strong": "--border-strong",
+      "border-subtle": "--border-subtle",
+      "ink": "--text",
+      "ink-muted": "--text-muted",
+      "ink-faint": "--text-faint",
+      "candle-gold": "--accent",
+      "candle-gold-hover": "--accent-hover",
+      "candle-gold-subtle": "--accent-subtle",
+      "on-candle": "--on-accent",
+      "success-moss": "--success",
+      "warning-amber": "--warning",
+      "danger-brick": "--danger",
+      "info-violet": "--info",
+      "tint-gold": "--tint-gold",
+      "tint-red": "--tint-red",
+      "tint-green": "--tint-green",
+      "tint-purple": "--tint-purple",
+      "diff-add": "--diff-add-bg",
+      "diff-add-mark": "--diff-add-mark",
+      "diff-del": "--diff-del-bg",
+      "diff-del-mark": "--diff-del-mark"
+    }
   },
   "components": [
     {
