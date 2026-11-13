@@ -1,7 +1,7 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合 | Priority: P0 | Created: 2026-11-13
+- [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合 | Priority: P0 | Created: 2026-11-13 | Task 1 完成（`aa6878d`/`f616ee4`）；下一步 Task 2 templates API + seed
 
 ## Pending
 - [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）

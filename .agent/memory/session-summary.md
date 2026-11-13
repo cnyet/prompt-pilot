@@ -451,3 +451,24 @@
 
 ### Integration
 - [x] finishing-a-development-branch：按用户指示合入 `main`（快进 fc00f4c → 5d607b1），删除 feat/v3-result-first；合并结果复跑 typecheck 0 / 582 用例 / harness 无 fail。先误建 develop 分支，用户纠正后已删除，未 push。
+
+## 2026-11-13 Batch D（records API Task 1）
+
+### Completed
+- [x] Batch D 计划落盘 `docs/superpowers/plans/2026-11-13-v3-batch-d.md`（5 任务：records API、templates API + 12 seed、stats-v3、Batch C DEFER、docs 同步），预检 clean，实现者串行因 `data/test.db` 单文件。
+- [x] Task 1 实现 `aa6878d`：`lib/db/records.ts` 加法（RecordSummary/ListRecordsQuery/RecordNotFoundError/RecordNotReadyError/listRecords/updateRecordMeta/deleteRecord）+ `GET /api/records` + `GET/PATCH/DELETE /api/records/[id]` + 16 条集成测试。
+- [x] Task 1 审查（sonnet）：Spec ✅、质量 Approved、0 Critical / 0 Important / 6 Minor；唯一确认缺陷为日期 `to` 边界。
+- [x] 修复 `f616ee4`：日期筛选改上海日历日闭区间；scoped re-review 判定 ADDRESSED、无新破坏；定向 16/16、全量 598/598、typecheck 0。
+
+### Key Decisions
+- 日期筛选契约：`from` = 上海当日零点（含），`to` = 上海当日整天（实现为次日零点不含）；查询层字段改名 `fromInclusive`/`toExclusive` 并 `gte`/`lt`。理由：`lib/llm/ledger.ts` 已按 Asia/Shanghai 切日，UTC 零点会与用户看到的日期差一天。
+- 6 条 minor 全部 deferred 至 Batch D final review：测试清理未覆盖 template/预算键；PATCH 400 含 zod 英文；500 未记错误类型；noStoreJson/notes 解析重复；DELETE 预检 TOCTOU；updatedAt 读后写窄竞态。
+
+### Pitfalls
+- harness-verify 的 typecheck 报错可能来自实现者编辑中间态（`parseUtcDay` 已改名仍报旧名）；控制器在 HEAD 复跑 typecheck 再判断。
+- 任务审查的 Minor 不进入 fix loop；只有 spec ❌、Critical/Important 或确认的 ⚠️ 才触发修复轮。
+
+### Carry-over
+- [ ] Task 2 templates API + 12 seed（BASE `f616ee4`）；随后 Task 3 stats-v3、Task 4 Batch C DEFER、Task 5 docs。
+- [ ] Batch D 整分支 final review + 6 条 deferred minor triage。
+- [ ] 计划文件与记忆文件在会话末合并提交。
