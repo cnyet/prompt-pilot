@@ -346,3 +346,26 @@
 - [ ] P0-2 FR-9.1 删「说明」阶段并定义 stage 落库值；P0-3 PromptRecord 补 copiedAt/originTemplateId 埋点。
 - [ ] P1 修复：DESIGN 4 处术语+口径矛盾+动效规则；FR-4.5 改写；NFR-9 i18n 决策（字典或降级）；AC 补缺与去重；design.json colorMeta 补全。
 - [ ] 先验收并提交工作区遗留的设置连通性测试/成本分页代码改动，再开 v3 分支 feat/v3-result-first。
+
+## 2026-11-13（Phase 0 收口：遗留改动验收 + 文档基线）
+
+### Completed
+- [x] 验收并提交工作区遗留改动（`fc00f4c`，独立于 v3）：ARK 默认端点补 `/openai/v1` + `normalizeArkBaseUrl` 旧地址自动规范化 + opencode 网关 `x-opencode-session` 头；测试改独立 `data/test.db`（`tests/global-setup.ts` + `tests/setup-env.ts`，清真实密钥），跑测试不再停 3100；流式首 token 超时 90s、内容后 15s 停顿检测；ping max_tokens=16；八字段 maxTokens 8192。验证：typecheck ✓、512/512 测试 ✓、harness 24/24 ✓。
+- [x] 建分支 `feat/v3-result-first`；开发库备份 `data/app.db.bak-20261113-1047`。
+- [x] Phase 0 文档收口（`f3a281d`）：ADR-0007 新建（结果优先重置，取代 ADR-0001/0003/0004 相关结论）；`docs/ROADMAP.md` 删除（git rm）；CONTEXT.md 词表重写（记录/迭代/检查/对比原文，v2 词标废弃）；ARCHITECTURE.md 重写为 v3 契约（数据模型含 copiedAt/originTemplateId、API 表、SSE+元数据协议、diff、R101-R108、安全/性能/幂等/迁移）；HANDOVER.md 重写（过渡态：文档已 v3、代码仍 v2）；README.md 重写；ROADMAP-V3 同步埋点字段、测试基线 512、test.db 隔离口径。
+- [x] P0-2：PRODUCT FR-9.1 删「说明」阶段，stage 落库值 generate/optimize/repair，无「说明」调用。P0-3：copiedAt/originTemplateId 埋点写入 PRODUCT 成功指标与 ROADMAP schema。P1：FR-4.5 改写（中断≠失败）；DESIGN 7 处修正（当前步骤底/字段标题/版本号→迭代序号/当前阶段删、三步统一、设置两段、glow box-shadow 唯一例外）。
+
+### Verification
+- check:contrast 浅深全过（最低深色 4.70:1）；harness 24/24 pass。
+- design-parser.mjs 脚本本机已不存在（上会话插件环境），DESIGN.md 本轮仅正文文字改动、六段结构与 frontmatter 手工核对通过——下轮改 DESIGN 结构时需先解决解析器缺失。
+
+### Key Decisions
+- ARCHITECTURE.md 采用「v3 目标契约 + 现状声明」结构：文档描述 v3，冲突以文档为准；v2 细节交给 git 历史。Reason: 评审 P0-1 禁止两套协议并存描述。
+- HANDOVER 如实写过渡态：文档已收口 v3、代码仍运行 v2，Phase 6 前旧约定（流式只写 pending 等）在 v2 代码存活期继续有效。
+- stage 枚举定为 generate/optimize/repair；「说明」不单独调用模型，随优化正文一次产出。
+
+### Carry-over
+- [ ] P1 剩余：NFR-9 i18n 决策（字典或降级）；AC 补缺（FR-1.1/1.2/1.3/2.4/6.3/8.4/10.3/11.2）与 AC-17/19/20 去重；design.json colorMeta 补全 28 色 darkValue。
+- [ ] P2 批次（11 条，见 todo-tracker）。
+- [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账（Phase 2）。
+- [ ] Phase 1 数据层与 API（3 人日）：前置已全部清空，可开工。
