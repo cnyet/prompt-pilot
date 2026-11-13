@@ -102,6 +102,21 @@ describe('继续优化', () => {
     })
   })
 
+  it('存在进行中迭代的记录同样返回 409', async () => {
+    const created = await prisma!.promptRecord.create({
+      data: {
+        title: 't',
+        mode: 'generate',
+        sourceInput: 'x',
+        status: 'completed',
+        iterations: { create: { seq: 1, kind: 'generate', status: 'running' } },
+      },
+    })
+    const response = await callOptimize(created.id, {})
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ code: 'ITERATION_IN_FLIGHT' })
+  })
+
   it('记录不存在返回 404 RECORD_NOT_FOUND', async () => {
     const response = await callOptimize('missing-id', {})
     expect(response.status).toBe(404)

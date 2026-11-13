@@ -1,6 +1,6 @@
 /**
  * POST /api/records/[id]/optimize：继续优化（SSE，追加迭代）。
- * 在记录当前结果上继续，继承目标类型；running 的记录拒绝并发。
+ * 在记录当前结果上继续，继承目标类型；有进行中迭代的记录拒绝并发。
  */
 import { z } from 'zod'
 import { appendIteration, getRecordWithIterations } from '@/lib/db/records'
@@ -48,7 +48,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   const record = await getRecordWithIterations(id)
   if (!record) return jsonError(404, 'RECORD_NOT_FOUND', '没有找到这条记录。')
-  if (record.status === 'running') {
+  if (record.status === 'running' || record.iterations.some((it) => it.status === 'running')) {
     return Response.json(
       { code: 'ITERATION_IN_FLIGHT', message: '这一条正在处理，等它完成再继续。', retryable: false },
       { status: 409 },

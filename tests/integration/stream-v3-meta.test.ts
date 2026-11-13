@@ -162,6 +162,9 @@ describe('完成落库失败', () => {
   it('completeIteration 抛错时以 error 与 done(failed) 收尾，记录不停在 running', async () => {
     state.provider = metaProvider('t', [])
     const seed = doneOf(await collect(await generate(req({ mode: 'generate', sourceInput: '写周报' }))))
+    const seedRecord = await prisma!.promptRecord.findUnique({ where: { id: seed.recordId } })
+    const seedOutput = seedRecord?.latestOutput ?? ''
+    expect(seedOutput.length).toBeGreaterThan(0)
 
     state.failComplete = true
     const ms = await collect(await optimize(req({}), ctx(seed.recordId)))
@@ -175,11 +178,12 @@ describe('完成落库失败', () => {
 
     state.failComplete = false
     const record = await prisma!.promptRecord.findUnique({ where: { id: seed.recordId } })
-    expect(record?.status).toBe('failed')
+    expect(record?.status).toBe('completed')
+    expect(record?.latestOutput).toBe(seedOutput)
     const iteration = await prisma!.promptIteration.findUnique({ where: { id: doneOf(ms).iterationId } })
     expect(iteration?.status).toBe('failed')
 
-    // 失败记录可继续优化，不会卡 409
+    // 失败轮不阻塞继续优化
     const retry = await optimize(req({}), ctx(seed.recordId))
     expect(retry.status).toBe(200)
     expect(doneOf(await collect(retry)).status).toBe('completed')

@@ -7,6 +7,7 @@ import {
   failIteration,
   findIterationByRequestId,
   getRecordWithIterations,
+  RecordInFlightError,
 } from '@/lib/db/records'
 
 // 记录与迭代写路径的契约测试。
@@ -228,12 +229,47 @@ describe('appendIteration 与 completeIteration', () => {
       targetType: 'text',
       sourceInput: '帮我写个周报',
     })
-    const second = await appendIteration({ recordId: record.id, seq: 2, kind: 'optimize' })
     const first = await appendIteration({ recordId: record.id, seq: 1, kind: 'generate' })
+    await completeIteration({
+      iterationId: first.id,
+      recordId: record.id,
+      output: '第一轮',
+      notes: [],
+      modelId: 'm-1',
+      tokensIn: 1,
+      tokensOut: 1,
+      costCny: null,
+      latencyMs: 1,
+      status: 'completed',
+    })
+    const second = await appendIteration({ recordId: record.id, seq: 2, kind: 'optimize' })
     const after = await getRecordWithIterations(record.id)
     expect(after!.iterations.map((item) => item.seq)).toEqual([1, 2])
     expect(after!.iterations.map((item) => item.id)).toEqual([first.id, second.id])
     expect(await getRecordWithIterations('nonexistent-id')).toBeNull()
+  })
+})
+
+describe('appendIteration 并发保护', () => {
+  it('已有 running 迭代时拒绝追加；同 requestId 的重放不拒绝', async () => {
+    const record = await createRecord({
+      mode: 'generate',
+      targetType: 'text',
+      sourceInput: '帮我写个周报',
+    })
+    const requestId = 'req-replay-1'
+    const first = await appendIteration({ recordId: record.id, seq: 1, kind: 'generate', requestId })
+    await expect(
+      appendIteration({ recordId: record.id, seq: 2, kind: 'optimize' }),
+    ).rejects.toBeInstanceOf(RecordInFlightError)
+    // 同 requestId：跳过在飞检查，交给唯一约束做幂等重放
+    await expect(
+      appendIteration({ recordId: record.id, seq: 2, kind: 'optimize', requestId }),
+    ).rejects.toMatchObject({ code: 'P2002' })
+    expect(await prisma!.promptIteration.count({ where: { recordId: record.id } })).toBe(1)
+    expect((await prisma!.promptIteration.findUnique({ where: { id: first.id } }))?.status).toBe(
+      'running',
+    )
   })
 })
 
@@ -260,6 +296,39 @@ describe('failIteration', () => {
     expect(failed!.status).toBe('failed')
     expect(failed!.output).toBe('')
     expect(failed!.modelId).toBe('m-1')
+  })
+
+  it('继续优化失败只标迭代：记录保持 completed，最新正文不被清空', async () => {
+    const record = await createRecord({
+      mode: 'generate',
+      targetType: 'text',
+      sourceInput: '帮我写个周报',
+    })
+    const first = await appendIteration({ recordId: record.id, seq: 1, kind: 'generate' })
+    await completeIteration({
+      iterationId: first.id,
+      recordId: record.id,
+      output: '第一轮的完整正文',
+      notes: [],
+      modelId: 'm-1',
+      tokensIn: 1,
+      tokensOut: 1,
+      costCny: null,
+      latencyMs: 1,
+      status: 'completed',
+    })
+    const second = await appendIteration({ recordId: record.id, seq: 2, kind: 'optimize' })
+    await failIteration({
+      iterationId: second.id,
+      recordId: record.id,
+      modelId: 'm-1',
+      errorCode: 'UPSTREAM_TIMEOUT',
+    })
+    const after = await getRecordWithIterations(record.id)
+    expect(after!.status).toBe('completed')
+    expect(after!.latestOutput).toBe('第一轮的完整正文')
+    expect(after!.iterationCount).toBe(1)
+    expect(after!.iterations.map((it) => it.status)).toEqual(['completed', 'failed'])
   })
 })
 
@@ -291,7 +360,24 @@ describe('唯一约束冲突', () => {
       targetType: 'text',
       sourceInput: '帮我写个周报',
     })
-    await appendIteration({ recordId: record.id, seq: 1, kind: 'generate', requestId: 'req-seq-1' })
+    const first = await appendIteration({
+      recordId: record.id,
+      seq: 1,
+      kind: 'generate',
+      requestId: 'req-seq-1',
+    })
+    await completeIteration({
+      iterationId: first.id,
+      recordId: record.id,
+      output: '第一轮',
+      notes: [],
+      modelId: 'm-1',
+      tokensIn: 1,
+      tokensOut: 1,
+      costCny: null,
+      latencyMs: 1,
+      status: 'completed',
+    })
     await expect(
       appendIteration({ recordId: record.id, seq: 1, kind: 'optimize', requestId: 'req-seq-2' }),
     ).rejects.toMatchObject({ code: 'P2002' })

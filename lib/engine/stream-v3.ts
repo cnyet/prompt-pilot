@@ -10,6 +10,7 @@ import {
   failIteration,
   findIterationByRequestId,
   getRecordWithIterations,
+  RecordInFlightError,
 } from '@/lib/db/records'
 import { getPrisma } from '@/lib/db/prisma'
 import { createIdempotencyStore, type IdempotencyStore } from '@/lib/engine/idempotency'
@@ -361,11 +362,10 @@ export function streamV3(input: StreamV3Input): Response {
         console.warn(`[${input.logTag}] 路由执行失败：`, error instanceof Error ? error.message : error)
         enqueue({
           event: 'error',
-          data: {
-            code: 'LLM_UNKNOWN',
-            message: '生成没有完成，稍后重试。',
-            retryable: true,
-          },
+          data:
+            error instanceof RecordInFlightError
+              ? { code: 'ITERATION_IN_FLIGHT', message: error.message, retryable: false }
+              : { code: 'LLM_UNKNOWN', message: '生成没有完成，稍后重试。', retryable: true },
         })
       } finally {
         request.signal.removeEventListener('abort', onAbort)

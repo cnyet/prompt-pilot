@@ -74,19 +74,37 @@ export interface AppendIterationInput {
   requestId?: string | null
 }
 
-/** 追加一轮迭代：初始 running、空正文；唯一约束冲突让 P2002 冒泡。 */
+/** 同一记录已有进行中的迭代时抛出，路由据此拒绝并发续写。 */
+export class RecordInFlightError extends Error {}
+
+/**
+ * 追加一轮迭代：初始 running、空正文。同一记录已有 running 迭代时抛 RecordInFlightError；
+ * 同 requestId 的重放不做该检查，交给唯一约束（P2002）走幂等重放。
+ */
 export async function appendIteration(
   input: AppendIterationInput,
 ): Promise<PromptIterationRow> {
   const prisma = requirePrisma()
-  return prisma.promptIteration.create({
-    data: {
-      recordId: input.recordId,
-      seq: input.seq,
-      kind: input.kind,
-      instruction: input.instruction ?? null,
-      requestId: input.requestId ?? null,
-    },
+  return prisma.$transaction(async (tx) => {
+    const replay = input.requestId
+      ? await tx.promptIteration.findUnique({ where: { requestId: input.requestId }, select: { id: true } })
+      : null
+    if (!replay) {
+      const running = await tx.promptIteration.findFirst({
+        where: { recordId: input.recordId, status: 'running' },
+        select: { id: true },
+      })
+      if (running) throw new RecordInFlightError('这一条正在处理，等它完成再继续。')
+    }
+    return tx.promptIteration.create({
+      data: {
+        recordId: input.recordId,
+        seq: input.seq,
+        kind: input.kind,
+        instruction: input.instruction ?? null,
+        requestId: input.requestId ?? null,
+      },
+    })
   })
 }
 
@@ -153,8 +171,10 @@ export async function completeIteration(
 }
 
 /**
- * 标记一轮迭代失败：迭代与记录都置 failed，正文保持空。
- * 失败轮不计入 iterationCount；errorCode 不落迭代表（由调用账本记录）。
+ * 标记一轮迭代失败：迭代置 failed，正文保持空。
+ * 首轮失败（iterationCount 为 0）时记录置 failed；继续优化失败只标迭代，记录保持原状，
+ * 最新可用结果不受影响，仍可评分与收藏。失败轮不计入 iterationCount；
+ * errorCode 不落迭代表（由调用账本记录）。
  */
 export async function failIteration(input: {
   iterationId: string
@@ -172,10 +192,16 @@ export async function failIteration(input: {
         modelId: input.modelId,
       },
     })
-    await tx.promptRecord.update({
+    const record = await tx.promptRecord.findUnique({
       where: { id: input.recordId },
-      data: { status: 'failed' },
+      select: { iterationCount: true },
     })
+    if (record?.iterationCount === 0) {
+      await tx.promptRecord.update({
+        where: { id: input.recordId },
+        data: { status: 'failed' },
+      })
+    }
   })
 }
 
