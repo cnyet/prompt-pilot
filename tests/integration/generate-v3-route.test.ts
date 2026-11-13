@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/generate/route'
 import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
 import { META_SEPARATOR } from '@/lib/engine/prompts/meta'
@@ -112,6 +112,22 @@ describe('幂等', () => {
     expect(await prisma!.promptRecord.count()).toBe(1)
     expect(await prisma!.promptIteration.count()).toBe(1)
   })
+
+  it('同 requestId 跨进程重发（LRU 已清空）：P2002 清掉新记录并重放到原迭代', async () => {
+    process.env.MOCK_LLM_FAULT = 'valid'
+    const requestId = randomUUID()
+    const body = { mode: 'generate', sourceInput: '重放清理测试', requestId }
+    const first = doneOf(await collect(await POST(makeRequest(body))))
+
+    vi.resetModules()
+    const fresh = await import('@/app/api/generate/route')
+    const second = doneOf(await collect(await fresh.POST(makeRequest(body))))
+
+    expect(second.iterationId).toBe(first.iterationId)
+    expect(second.recordId).toBe(first.recordId)
+    expect(await prisma!.promptRecord.count()).toBe(1)
+    expect(await prisma!.promptIteration.count()).toBe(1)
+  })
 })
 
 describe('故障与中断', () => {
@@ -159,6 +175,58 @@ describe('故障与中断', () => {
     expect(record?.status).toBe('canceled')
     expect(record?.iterations[0]?.status).toBe('canceled')
     expect(record?.iterations[0]?.output.length).toBeGreaterThan(0)
+  })
+
+  it('canceled 重放：不发 meta，保留已生成正文，done(canceled)', async () => {
+    process.env.MOCK_LLM_FAULT = 'valid'
+    const requestId = randomUUID()
+    const body = { mode: 'generate', sourceInput: '中断重放', requestId }
+    const controller = new AbortController()
+    const response = await POST(makeRequest(body, controller.signal))
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (!buffer.includes('event: delta')) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+    }
+    expect(buffer).toContain('event: delta')
+    controller.abort()
+    while (!(await reader.read()).done) {
+      // 排空
+    }
+
+    let record = null
+    for (let i = 0; i < 50; i += 1) {
+      record = await prisma!.promptRecord.findFirst()
+      if (record && record.status !== 'running') break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    expect(record?.status).toBe('canceled')
+
+    const replay = await collect(await POST(makeRequest(body)))
+    expect(replay.some((m) => m.event === 'meta')).toBe(false)
+    const deltaText = replay
+      .map((m) => (m.event === 'delta' ? m.data.text : ''))
+      .join('')
+    expect(deltaText.length).toBeGreaterThan(0)
+    expect(doneOf(replay).status).toBe('canceled')
+  })
+
+  it('failed 重放：不发 meta，以 done(failed) 收尾', async () => {
+    process.env.MOCK_LLM_FAULT = 'truncated'
+    const requestId = randomUUID()
+    const body = { mode: 'generate', sourceInput: '失败重放', requestId }
+    const first = doneOf(await collect(await POST(makeRequest(body))))
+    expect(first.status).toBe('failed')
+
+    const replay = await collect(await POST(makeRequest(body)))
+    expect(replay.some((m) => m.event === 'meta')).toBe(false)
+    expect(replay.some((m) => m.event === 'error')).toBe(true)
+    const last = replay[replay.length - 1]
+    expect(last?.event).toBe('done')
+    expect(doneOf(replay).status).toBe('failed')
   })
 })
 

@@ -176,6 +176,28 @@ describe('修复', () => {
   })
 })
 
+describe('空源守卫', () => {
+  it('首轮失败的记录没有可用正文：optimize 与 repair 返回 409 RECORD_HAS_NO_OUTPUT', async () => {
+    const created = await prisma!.promptRecord.create({
+      data: { title: 't', mode: 'generate', sourceInput: 'x', status: 'failed' },
+    })
+    const cases = [
+      { name: 'optimize', invoke: () => callOptimize(created.id, {}) },
+      { name: 'repair', invoke: () => callRepair(created.id, { issues: [] }) },
+    ] as const
+    for (const c of cases) {
+      const response = await c.invoke()
+      expect(response.status).toBe(409)
+      expect(await response.json()).toMatchObject({
+        code: 'RECORD_HAS_NO_OUTPUT',
+        message: '这条记录还没有可用的提示词，先重新生成一次。',
+        retryable: false,
+      })
+    }
+    expect(await prisma!.promptIteration.count({ where: { recordId: created.id } })).toBe(0)
+  })
+})
+
 describe('迭代层 P2002 兜底重放（进程内 store 已清空）', () => {
   it('optimize 与 repair 同 requestId：200、同 iterationId、迭代数不变', async () => {
     const recordId = await seedRecord()

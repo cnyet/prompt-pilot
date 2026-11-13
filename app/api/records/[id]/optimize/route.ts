@@ -49,10 +49,10 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const record = await getRecordWithIterations(id)
   if (!record) return jsonError(404, 'RECORD_NOT_FOUND', '没有找到这条记录。')
   if (record.status === 'running' || record.iterations.some((it) => it.status === 'running')) {
-    return Response.json(
-      { code: 'ITERATION_IN_FLIGHT', message: '这一条正在处理，等它完成再继续。', retryable: false },
-      { status: 409 },
-    )
+    return jsonError(409, 'ITERATION_IN_FLIGHT', '这一条正在处理，等它完成再继续。')
+  }
+  if (record.latestOutput.trim().length === 0) {
+    return jsonError(409, 'RECORD_HAS_NO_OUTPUT', '这条记录还没有可用的提示词，先重新生成一次。')
   }
 
   const env = await getEffectiveLlmEnv()

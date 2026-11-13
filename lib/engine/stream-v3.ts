@@ -65,6 +65,21 @@ function usageIsKnown(usage: TokenUsage | undefined): usage is TokenUsage {
   return usage.costCny !== undefined || usage.tokensIn > 0 || usage.tokensOut > 0
 }
 
+/** 日志只记错误类型与 code，不记 message（可能带提示词正文与密钥）。 */
+function describeError(error: unknown): string {
+  if (typeof error !== 'object' || error === null) {
+    return typeof error
+  }
+  const name = (error as { name?: unknown }).name
+  const label = typeof name === 'string' && name.length > 0 ? name : typeof error
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && code.length > 0 ? `${label}(${code})` : label
+}
+
+/**
+ * 重放已完成的调用：只有 completed 发 meta；canceled 保留已生成正文与
+ * 已知用量，failed 发 error 后以 done(failed) 收尾。
+ */
 function replayMessages(outcome: StreamOutcome): SseV3Message[] {
   const base = { recordId: outcome.recordId, iterationId: outcome.iterationId }
   const messages: SseV3Message[] = [{ event: 'start', data: base }]
@@ -76,10 +91,12 @@ function replayMessages(outcome: StreamOutcome): SseV3Message[] {
   if (outcome.output.length > 0) {
     messages.push({ event: 'delta', data: { text: outcome.output } })
   }
-  messages.push({
-    event: 'meta',
-    data: { title: outcome.meta.title, notes: outcome.meta.notes },
-  })
+  if (outcome.status === 'completed') {
+    messages.push({
+      event: 'meta',
+      data: { title: outcome.meta.title, notes: outcome.meta.notes },
+    })
+  }
   if (outcome.usage) messages.push({ event: 'usage', data: outcome.usage })
   messages.push({ event: 'done', data: { ...base, status: outcome.status } })
   return messages
@@ -255,7 +272,7 @@ export function streamV3(input: StreamV3Input): Response {
               errorCode: info.code,
             })
           } catch (error) {
-            console.warn(`[${input.logTag}] 写入失败迭代出错：`, error instanceof Error ? error.message : error)
+            console.warn(`[${input.logTag}] 写入失败迭代出错：`, describeError(error))
           }
           await recordLlmCall({
             ...ledgerBase,
@@ -307,7 +324,7 @@ export function streamV3(input: StreamV3Input): Response {
               .catch(() => undefined)
           }
         } catch (error) {
-          console.warn(`[${input.logTag}] 写入完成迭代出错：`, error instanceof Error ? error.message : error)
+          console.warn(`[${input.logTag}] 写入完成迭代出错：`, describeError(error))
           return finishFailed({
             code: 'LLM_UNKNOWN',
             message: '结果没有保存成功，请重新发起一次。',
@@ -359,7 +376,7 @@ export function streamV3(input: StreamV3Input): Response {
           for (const message of replayMessages(outcome)) enqueue(message)
         }
       } catch (error) {
-        console.warn(`[${input.logTag}] 路由执行失败：`, error instanceof Error ? error.message : error)
+        console.warn(`[${input.logTag}] 路由执行失败：`, describeError(error))
         enqueue({
           event: 'error',
           data:
