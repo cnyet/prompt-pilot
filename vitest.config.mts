@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    globalSetup: ['./tests/global-setup.ts'],
+    setupFiles: ['./tests/setup-env.ts'],
     /*
      * 测试文件串行执行。
      * 原因：集成测试共用同一个 SQLite，设置测试会写入模型与密钥覆盖，

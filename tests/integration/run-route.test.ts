@@ -110,7 +110,6 @@ async function waitForLlmCall(traceId: string): Promise<{
 }
 
 beforeAll(() => {
-  vi.stubEnv('DATABASE_URL', 'file:../data/app.db')
   prisma = getPrisma()
   expect(prisma).not.toBeNull()
 })

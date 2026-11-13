@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { ArkProvider } from './ark'
 import type { RetryOptions } from './errors'
 import {
@@ -20,8 +21,14 @@ import type { LLMProvider } from './types'
  * 有 ARK_API_KEY 时生成走方舟，没有时由路由继续走离线 heuristic composer。
  */
 
-/** 默认走 OpenAI 兼容网关；部署在火山方舟时用 ARK_BASE_URL 覆盖回方舟数据面。 */
-export const ARK_DEFAULT_BASE_URL = 'https://opencode.ai/inference/go'
+/**
+ * 默认走 OpenAI 兼容网关；部署在火山方舟时用 ARK_BASE_URL 覆盖回方舟数据面。
+ * OpenAI SDK 会在 baseURL 后拼 `/chat/completions`，所以这里必须带 `/openai/v1`。
+ */
+export const ARK_DEFAULT_BASE_URL = 'https://opencode.ai/inference/go/openai/v1'
+const OPENCODE_GATEWAY_PREFIX = 'https://opencode.ai/inference/go'
+/** opencode Go 网关要求带稳定会话标识；本机单用户，进程内复用一个即可。 */
+const OPENCODE_SESSION_ID = randomUUID()
 export const DEFAULT_GENERATE_MODEL_ID = 'deepseek-v4.1-flash'
 export const DEFAULT_EVALUATE_MODEL_ID = 'gpt-5.6-luna'
 
@@ -33,6 +40,35 @@ export const MODEL_DISPLAY_LABELS: Readonly<Record<string, string>> = {
 
 export function modelDisplayLabel(modelId: string): string {
   return MODEL_DISPLAY_LABELS[modelId] ?? modelId
+}
+
+/**
+ * 兼容早期保存的网关地址：`/inference/go` 与 `/inference/go/v1` 都指向
+ * 同一个网关，但只补 `/v1` 会让 OpenAI SDK 拼出 404 的路径。
+ * 其他自定义网关原样保留，只去掉末尾斜杠。
+ */
+export function normalizeArkBaseUrl(raw: string): string {
+  const value = raw.trim().replace(/\/+$/, '')
+  if (
+    value === OPENCODE_GATEWAY_PREFIX ||
+    value === `${OPENCODE_GATEWAY_PREFIX}/v1`
+  ) {
+    return ARK_DEFAULT_BASE_URL
+  }
+  return value
+}
+
+/** opencode Go 网关需要 `x-opencode-session`，其他兼容端点不加。 */
+export function isOpencodeGateway(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl)
+    return (
+      url.hostname === 'opencode.ai' &&
+      url.pathname.startsWith('/inference/go')
+    )
+  } catch {
+    return false
+  }
 }
 export const DEFAULT_GENERATE_MODEL_CONFIG_ID = 'ark-generate'
 export const DEFAULT_EVALUATE_MODEL_CONFIG_ID = 'ark-evaluate'
@@ -74,6 +110,8 @@ export interface ModelConfig {
   baseUrl?: string
   /** Model ID 或 ep- 接入点 ID，原样下发给 provider */
   modelId: string
+  /** 额外请求头；opencode 网关用它带 x-opencode-session */
+  headers?: Record<string, string>
   /** 只存变量名，绝不存密钥 */
   apiKeyEnvVar: string
   role: ModelRole
@@ -123,7 +161,9 @@ function presetFor(modelId: string): ModelPricing | undefined {
 
 /** 每次调用都按当前环境变量现算，便于设置页热改与单测隔离。 */
 export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] {
-  const baseUrl = envValue(env, 'ARK_BASE_URL') ?? ARK_DEFAULT_BASE_URL
+  const baseUrl = normalizeArkBaseUrl(
+    envValue(env, 'ARK_BASE_URL') ?? ARK_DEFAULT_BASE_URL,
+  )
   const generateModel = envValue(env, 'ARK_MODEL_GENERATE') ?? DEFAULT_GENERATE_MODEL_ID
   const evaluateModel = envValue(env, 'ARK_MODEL_EVALUATE') ?? DEFAULT_EVALUATE_MODEL_ID
 
@@ -140,6 +180,9 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
       label,
       provider: 'openai_compatible',
       baseUrl,
+      ...(isOpencodeGateway(baseUrl)
+        ? { headers: { 'x-opencode-session': OPENCODE_SESSION_ID } }
+        : {}),
       modelId,
       apiKeyEnvVar: 'ARK_API_KEY',
       role,
@@ -269,6 +312,7 @@ export function createProvider(
       baseURL: config.baseUrl,
       apiKey,
       model: config.modelId,
+      ...(config.headers ? { headers: config.headers } : {}),
       ...(config.pricing ? { pricing: config.pricing } : {}),
       ...(config.contextWindow !== undefined
         ? { contextWindow: config.contextWindow }

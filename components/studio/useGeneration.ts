@@ -55,6 +55,12 @@ import {
   describeNetworkFailure,
 } from './errorCopy'
 
+/**
+ * 首 token 要等模型冷启动与排队，网关实测可到 43 秒。
+ * 15 秒会在模型还没开始输出时误判超时，所以首次响应单独给更长预算；
+ * 拿到内容后仍用较短的停顿阈值识别真正的断流。
+ */
+const FIRST_TOKEN_TIMEOUT_MS = 90_000
 const STALL_TIMEOUT_MS = 15_000
 
 export type GenerationAction =
@@ -585,6 +591,7 @@ export function useGeneration(): GenerationApi {
       let sawError = false
       let timedOut = false
       let wentOffline = false
+      let sawContent = false
       let stallTimer: ReturnType<typeof setTimeout> | null = null
 
       const clearStallTimer = () => {
@@ -598,7 +605,7 @@ export function useGeneration(): GenerationApi {
         stallTimer = setTimeout(() => {
           timedOut = true
           controller.abort()
-        }, STALL_TIMEOUT_MS)
+        }, sawContent ? STALL_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS)
       }
       const handleOffline = () => {
         wentOffline = true
@@ -679,7 +686,9 @@ export function useGeneration(): GenerationApi {
             case 'delta': {
               const field = fieldFromPath(message.data.path)
               if (field) {
+                sawContent = true
                 dispatch({ type: 'delta', field, text: message.data.text })
+                armStallTimer()
               }
               break
             }
@@ -769,8 +778,8 @@ export function useGeneration(): GenerationApi {
             type: 'fail',
             error: {
               code: 'TIMEOUT',
-              message: '生成服务超过 15 秒没有返回新数据。',
-              hint: '已生成的内容会保留。检查网络或服务状态后，可以重试未生成的字段。',
+              message: '生成服务长时间没有返回新数据。',
+              hint: '模型首次响应可能较慢。已生成的内容会保留，检查网络或服务状态后可以重试未生成的字段。',
               retryable: true,
             },
           })
@@ -861,10 +870,18 @@ export function useGeneration(): GenerationApi {
       dispatch({ type: 'op-start', field, action })
 
       let timedOut = false
-      const timer = setTimeout(() => {
-        timedOut = true
-        controller.abort()
-      }, STALL_TIMEOUT_MS)
+      let sawContent = false
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const armStallTimer = () => {
+        if (timer) {
+          clearTimeout(timer)
+        }
+        timer = setTimeout(() => {
+          timedOut = true
+          controller.abort()
+        }, sawContent ? STALL_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS)
+      }
+      armStallTimer()
 
       let accumulated = ''
       let sawDone = false
@@ -916,6 +933,7 @@ export function useGeneration(): GenerationApi {
         for await (const message of parseSseStream(response.body)) {
           switch (message.event) {
             case 'delta':
+              sawContent = true
               accumulated += message.data.text
               dispatch({ type: 'op-progress', field, text: accumulated })
               break
@@ -940,6 +958,7 @@ export function useGeneration(): GenerationApi {
             case 'usage':
               break
           }
+          armStallTimer()
         }
 
         if (!sawDone || accumulated.trim().length === 0) {
@@ -964,7 +983,7 @@ export function useGeneration(): GenerationApi {
           dispatch({
             type: 'op-fail',
             field,
-            message: '重算超过 15 秒没有返回结果，已保留原内容。',
+            message: '重算长时间没有返回结果，已保留原内容。',
           })
           return
         }
@@ -987,7 +1006,9 @@ export function useGeneration(): GenerationApi {
           message: copy.line,
         })
       } finally {
-        clearTimeout(timer)
+        if (timer) {
+          clearTimeout(timer)
+        }
         if (opControllerRef.current === controller) {
           opControllerRef.current = null
           opActiveRef.current = false

@@ -3,6 +3,7 @@ import {
   ARK_DEFAULT_BASE_URL,
   DEFAULT_EVALUATE_MODEL_ID,
   DEFAULT_GENERATE_MODEL_ID,
+  normalizeArkBaseUrl,
 } from '@/lib/llm/registry'
 
 /**
@@ -142,6 +143,9 @@ export async function getEffectiveLlmEnv(
       next[ENV_BY_FIELD[field]] = override
     }
   }
+  if (next.ARK_BASE_URL) {
+    next.ARK_BASE_URL = normalizeArkBaseUrl(next.ARK_BASE_URL)
+  }
   return next
 }
 
@@ -176,6 +180,7 @@ export async function getLlmSettingsView(
   const keyOverride = trimmed(rows[LLM_SETTING_KEYS.apiKey])
   const keyFromEnv = trimmed(base[ENV_BY_FIELD.apiKey])
   const key = keyOverride ?? keyFromEnv
+  const baseUrl = pick('baseUrl')
 
   return {
     apiKey: {
@@ -183,7 +188,7 @@ export async function getLlmSettingsView(
       hint: key ? maskKey(key) : null,
       source: keyOverride ? 'settings' : keyFromEnv ? 'env' : 'none',
     },
-    baseUrl: pick('baseUrl'),
+    baseUrl: { ...baseUrl, value: normalizeArkBaseUrl(baseUrl.value) },
     modelGenerate: pick('modelGenerate'),
     modelEvaluate: pick('modelEvaluate'),
   }
@@ -197,7 +202,7 @@ function assertBaseUrl(value: string): void {
     throw new SettingsError(
       'INVALID_BASE_URL',
       400,
-      '端点必须是完整的 http(s) 地址，例如 https://opencode.ai/inference/go。',
+      '端点必须是完整的 http(s) 地址，例如 https://opencode.ai/inference/go/openai/v1。',
     )
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -249,6 +254,7 @@ export async function saveLlmSettings(
     field: LlmSettingField,
     value: string | null | undefined,
     validate?: (next: string) => void,
+    normalize?: (next: string) => string,
   ): void => {
     if (value === undefined) {
       return
@@ -260,7 +266,7 @@ export async function saveLlmSettings(
       return
     }
     validate?.(next)
-    writes.push({ key, value: next })
+    writes.push({ key, value: normalize ? normalize(next) : next })
   }
 
   handle('apiKey', patch.apiKey, (next) => {
@@ -272,7 +278,7 @@ export async function saveLlmSettings(
       )
     }
   })
-  handle('baseUrl', patch.baseUrl, assertBaseUrl)
+  handle('baseUrl', patch.baseUrl, assertBaseUrl, normalizeArkBaseUrl)
   handle('modelGenerate', patch.modelGenerate, (next) =>
     assertModelId(next, '生成模型'),
   )

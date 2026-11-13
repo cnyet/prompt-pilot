@@ -222,7 +222,8 @@ export class OpenAICompatProvider implements LLMProvider {
       await this.requestChat({
         modelConfigId: this.id,
         messages: [{ role: 'user', content: 'ping' }],
-        maxTokens: 1,
+        // 网关会把 max_tokens 映射成 max_output_tokens，部分模型要求 >=16。
+        maxTokens: 16,
         thinking: 'off',
       })
       return { ok: true, latencyMs: Date.now() - startedAt }

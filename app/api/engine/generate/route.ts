@@ -172,7 +172,9 @@ function buildModelChatRequest(input: string): ChatRequest {
       { role: 'user', content: `用户需求：\n${input}` },
     ],
     temperature: 0.7,
-    maxTokens: 4096,
+    // 八字段 JSON 在复杂需求下会超过 4096 token；4096 已被实测截断，
+    // 截断后会整轮重试，用户要等两倍时间。给足余量，避免中途 length。
+    maxTokens: 8192,
     // 提示词优化是结构化改写，不是多步推理；显式关闭思维链。
     thinking: 'off',
     jsonSchema: {

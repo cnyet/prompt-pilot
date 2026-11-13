@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { GET as getSettingsRoute, PUT as putSettingsRoute } from '@/app/api/settings/route'
+import { ARK_DEFAULT_BASE_URL } from '@/lib/llm/registry'
 import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
 import {
   LLM_SETTING_KEYS,
@@ -83,6 +84,21 @@ describe('设置写入与合并', () => {
     expect(view.apiKey.source).toBe('settings')
     expect(view.apiKey.hint).toBe('…7890')
     expect(JSON.stringify(view)).not.toContain(SECRET)
+
+    await clearOverrides()
+  })
+
+  it('旧版网关地址保存后自动补齐 /openai/v1', async () => {
+    await saveLlmSettings({ baseUrl: 'https://opencode.ai/inference/go' })
+
+    const prisma = getPrisma()
+    const row = await prisma?.appSetting.findUnique({
+      where: { key: LLM_SETTING_KEYS.baseUrl },
+    })
+    expect(row?.value).toBe(ARK_DEFAULT_BASE_URL)
+
+    const view = await getLlmSettingsView({})
+    expect(view.baseUrl.value).toBe(ARK_DEFAULT_BASE_URL)
 
     await clearOverrides()
   })

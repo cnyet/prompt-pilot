@@ -438,7 +438,7 @@ describe('ArkProvider 错误分级与重试边界', () => {
 })
 
 describe('ArkProvider ping', () => {
-  it('成功时返回耗时，并用 1 token + 关闭思维链做轻量探测', async () => {
+  it('成功时返回耗时，并用最小 token 预算 + 关闭思维链做轻量探测', async () => {
     const fake = createScriptedFetch(() => completionResponse('pong'))
     const provider = createArk(fake.fetch)
 
@@ -446,7 +446,8 @@ describe('ArkProvider ping', () => {
 
     expect(result.ok).toBe(true)
     expect(result.latencyMs).toBeGreaterThanOrEqual(0)
-    expect(fake.calls[0]?.body.max_tokens).toBe(1)
+    // 部分网关把 max_tokens 映射成 max_output_tokens 并要求 >=16。
+    expect(fake.calls[0]?.body.max_tokens).toBe(16)
     expect(fake.calls[0]?.body.thinking).toEqual({ type: 'disabled' })
     expect(fake.calls[0]?.body.stream).toBeUndefined()
   })

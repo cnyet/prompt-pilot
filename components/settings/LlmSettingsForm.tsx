@@ -146,7 +146,8 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           ok = false
         }
         if (!ok) {
-          next.baseUrl = '填完整的 http(s) 地址，例如 https://opencode.ai/inference/go。'
+          next.baseUrl =
+            '填完整的 http(s) 地址，例如 https://opencode.ai/inference/go/openai/v1。'
         }
       }
     }
@@ -345,7 +346,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         {field(
           'baseUrl',
           '数据面端点',
-          '默认走 opencode 推理网关。换成方舟、代理或自建网关时改这里，必须是 http(s) 完整地址。',
+          '默认走 opencode 推理网关，OpenAI 兼容端点以 /openai/v1 结尾。换成方舟、代理或自建网关时改这里，必须是 http(s) 完整地址。',
           view.baseUrl.source,
           <input
             id="setting-baseUrl"

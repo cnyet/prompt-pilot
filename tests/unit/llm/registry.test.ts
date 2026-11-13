@@ -8,9 +8,11 @@ import {
   getGenerateProvider,
   getModelConfig,
   isEndpointId,
+  isOpencodeGateway,
   isValidArkModel,
   listModelConfigs,
   modelDisplayLabel,
+  normalizeArkBaseUrl,
   resolveProvider,
 } from '@/lib/llm/registry'
 
@@ -38,7 +40,10 @@ describe('模型注册表与 provider 选择', () => {
       DEFAULT_EVALUATE_MODEL_ID,
     )
     expect(configs.find((config) => config.id === 'ark-generate')?.baseUrl).toBe(
-      'https://opencode.ai/inference/go',
+      'https://opencode.ai/inference/go/openai/v1',
+    )
+    expect(configs.find((config) => config.id === 'ark-generate')?.headers).toEqual(
+      { 'x-opencode-session': expect.any(String) },
     )
     expect(getDefaultModelConfig('generate', withKey)?.id).toBe('ark-generate')
     expect(getDefaultModelConfig('evaluate', withKey)?.id).toBe('ark-evaluate')
@@ -70,6 +75,39 @@ describe('模型注册表与 provider 选择', () => {
 
     const fallback = getModelConfig('ark-generate', withKey)
     expect(fallback?.baseUrl).toBe(ARK_DEFAULT_BASE_URL)
+  })
+
+  it('兼容旧版网关地址，并去掉自定义端点的末尾斜杠', () => {
+    expect(normalizeArkBaseUrl('https://opencode.ai/inference/go')).toBe(
+      ARK_DEFAULT_BASE_URL,
+    )
+    expect(normalizeArkBaseUrl('https://opencode.ai/inference/go/v1/')).toBe(
+      ARK_DEFAULT_BASE_URL,
+    )
+    expect(normalizeArkBaseUrl('https://example.test/api/v3/')).toBe(
+      'https://example.test/api/v3',
+    )
+    expect(isOpencodeGateway(ARK_DEFAULT_BASE_URL)).toBe(true)
+    expect(isOpencodeGateway('https://example.test/api/v3')).toBe(false)
+  })
+
+  it('旧版网关地址也会解析成可用的 OpenAI 兼容端点', () => {
+    const config = getModelConfig('ark-generate', {
+      ...withKey,
+      ARK_BASE_URL: 'https://opencode.ai/inference/go',
+    })
+    expect(config?.baseUrl).toBe(ARK_DEFAULT_BASE_URL)
+    expect(config?.headers).toEqual({
+      'x-opencode-session': expect.any(String),
+    })
+  })
+
+  it('自定义兼容端点不附加 opencode 会话头', () => {
+    const config = getModelConfig('ark-generate', {
+      ...withKey,
+      ARK_BASE_URL: 'https://example.test/api/v3',
+    })
+    expect(config?.headers).toBeUndefined()
   })
 
   it('ep- 接入点没有内置价格与上下文窗口，不瞎填', () => {

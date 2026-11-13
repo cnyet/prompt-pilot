@@ -102,7 +102,6 @@ function deletePrompt(id: string): Promise<Response> {
 }
 
 beforeAll(() => {
-  vi.stubEnv('DATABASE_URL', 'file:../data/app.db')
   prisma = getPrisma()
   expect(prisma).not.toBeNull()
 })
