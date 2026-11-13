@@ -1,14 +1,12 @@
 # Active Context
 
-> Last updated: 2026-11-13T12:30:00Z
+> Last updated: 2026-11-13T08:05:00Z
 
 ## Current Task
 - v3 Phase 1+2 实现（shape brief `docs/shape-studio-v3.md`）。SDD 批次：
-  - Batch A、B 已验收（见 session-summary）。
-  - Batch C 已完成 4 个任务并通过各自 review（`03a26ea`, `59eb9b6`, `66df02f`, `03e96da`, `2e67025`, `4d9af1f`）；验证 typecheck 0，53 文件 / 579 用例通过。
-- Next step: 1) Batch C 整分支 final review（范围 `6087412..HEAD`，triage ledger 中 minor/parked）；2) superpowers:finishing-a-development-branch；3) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；4) Batch E（studio-v3 UI）。
-- 计划与 ledger：`docs/superpowers/plans/2026-11-13-v3-batch-{a,b,c}.md`；`.superpowers/sdd/2026-11-13-v3-batch-c/progress.md`。
-- Phase 2 收口项：主题切换移顶栏（AppShell.tsx:169-181）。
+  - Batch A、B、C 已验收。Batch C 整分支 final review 为 APPROVE_WITH_FIXES，F1/F2 已修（`e61796d`）；收口 typecheck 0、53 文件 / 582 用例全过。
+- Next step: 1) superpowers:finishing-a-development-branch（待用户决定 merge/PR/保留）；2) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；3) Batch E（studio-v3 UI）。
+- Batch C final review triage（FIX-NOW/DEFER/DROP 全表）：`.superpowers/sdd/2026-11-13-v3-batch-c/progress.md`。
 
 ## Hard Constraints
 - `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 6 删除。v3 新代码不 import v2。
@@ -27,12 +25,14 @@
 - 模型显示名直接当 modelId（用 kebab slug + `modelDisplayLabel()`）。
 - 测试读写 data/app.db。
 - 依赖 lib/llm/mock.ts valid 画像验证 META 不泄漏（它不输出分隔符，需测试内注入）。
+- 只用 record.status 判断并发（续写路径不写 running；用 appendIteration 的在飞检查）。
 
 ## Current Decisions
 - 结果优先；导航 4 项；输出 Markdown + diff + ≤3 条改动说明；完成自动入库。
 - 失败轮 failed、output 空；中断 canceled 保留正文；`finishReason=length` 视为失败。
 - 记录标题仅生成时由 meta.title 更新。
+- 并发互斥在迭代层（running 迭代）；首轮失败才把记录置 failed，续写失败只标迭代。
 
 ## Current References
-- 历史细节：`.agent/memory/session-summary.md` 2026-11-13 Batch C 节。
+- 历史细节：`.agent/memory/session-summary.md` 2026-11-13 Batch C 与 final review 节。
 - 备份：`data/app.db.bak-20261113-1139`。

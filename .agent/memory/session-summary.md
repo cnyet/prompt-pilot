@@ -427,3 +427,24 @@
 - 踩坑：首个 Task 3 实现者 API 超时后无产出；改派全新实现者成功。
 - 待办：Batch C 整分支 final review（6087412..HEAD）；minor/parked 项 triage；finishing-a-development-branch。
 - 已记录的 minor：generate-v3-route 的 marker 断言仍空转（由 stream-v3-meta 覆盖）；optimize 对首轮失败记录无空源守卫；409 字面量重复。
+
+## 2026-11-13（续：Batch C 整分支 final review）
+
+### Completed
+- [x] Batch C 整分支 final review（`6087412..HEAD`，opus verifier，只读）：APPROVE_WITH_FIXES；typecheck 0；53 文件 / 579 用例通过；冻结契约 FROZEN_OK；测试前后 data/app.db mtime 不变。
+- [x] 修复 F1/F2（`e61796d`）：见 Key Decisions。新增并发追加、续写失败保留记录、running 迭代 409 三组测试；修正 2 处被旧行为固化的断言。收口 typecheck 0、53 文件 / 582 用例全过、harness 无 fail。
+- [x] ledger minor triage 落 `.superpowers/sdd/2026-11-13-v3-batch-c/progress.md`：FIX-NOW 2（已完成）/ DEFER 9 / DROP 7。
+
+### Key Decisions
+- 并发互斥从记录 status 移到迭代层：同记录存在 running 迭代即视为在飞；同 requestId 重放跳过该检查，仍走 P2002 幂等重放。
+- 续写失败不回滚记录状态：`failIteration` 仅在 `iterationCount===0`（首轮失败）时把记录置 failed；后续轮只标迭代，latestOutput 与 completed/canceled 状态不变，保留评分与收藏资格（FR-6.6）。
+- SSE 外层 catch 将 `RecordInFlightError` 映射为 `ITERATION_IN_FLIGHT`（retryable false），其余仍 LLM_UNKNOWN。
+
+### Pitfalls
+- 记录级 running 在续写路径从未被写入，原 409 守卫形同虚设；只查 record.status 无法防并发。
+- `appendIteration` 加在飞检查后，“连续追加两轮且都不完成”的旧测试会改抛 RecordInFlightError；测试需先 complete 或带同 requestId。
+
+### Carry-over（Batch D/E）
+- generate 路径的 P2002 清理空记录无测试；abort 重放不应多发 meta（仅 completed 发）；失败重放 errorCode 需迭代表加列。
+- 首轮失败记录的空源守卫；空 canceled 记录列表过滤；客户端把无 done 的流按 failed；日志收敛为 error.name+code；409 字面量并入 jsonError。
+- 残余风险：failIteration 自身失败时首轮记录可能停在 running，Batch D 加超时恢复。

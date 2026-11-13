@@ -1,7 +1,7 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] ROADMAP Phase 1：Batch C（ledger → lib/db/records.ts → /api/generate → optimize/repair 路由）待 Batch B 终审通过后派实现者 | Priority: P0 | Created: 2026-11-13 | 计划: docs/superpowers/plans/2026-11-13-v3-batch-c.md
+- [ ] superpowers:finishing-a-development-branch（Batch A-C 已验收，待决定 merge/PR/保留）| Priority: P0 | Created: 2026-11-13
 
 ## Pending
 - [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）
@@ -15,6 +15,7 @@
 - 无。
 
 ## Done
+- [x] Batch C：ledger 加法、lib/db/records.ts 写路径、/api/generate、optimize/repair 路由；final review 修复 F1/F2（`e61796d`），typecheck 0 / 582 用例全过 | Completed: 2026-11-13
 - [x] P1 收口：NFR-9 单一字典模块定稿、AC-21 到 AC-28 补缺、AC 分配去重、design.json colorMeta 28 色 + tokenMapping | Completed: 2026-11-13 | `6bd7233`
 - [x] P2 收口：评分限定完成记录、幂等两层、Zod 边界测试、cachedHit、模板四风格含代码、删除置空 LlmCall | Completed: 2026-11-13 | `6bd7233`
 - [x] 验收工作区遗留改动并独立提交 `fc00f4c`（typecheck ✓、512/512 测试 ✓、harness 24/24 ✓）| Completed: 2026-11-13
