@@ -12,7 +12,17 @@ import { copyText } from '@/lib/clipboard'
 import { downloadMarkdown } from '@/lib/download'
 import { t } from '@/lib/i18n/zh'
 import { markdownToPlainText } from '@/lib/markdown/plain'
-import { patchRecordMeta, postGenerate, postRegenerate } from './api'
+import {
+  patchRecordMeta,
+  postGenerate,
+  postOptimize,
+  postRegenerate,
+  postRepair,
+  type ProcessMode,
+  type TargetType,
+} from './api'
+import { BudgetNotice } from './BudgetNotice'
+import type { RepairIssueInput } from './CheckPanel'
 import {
   initialComposerState,
   validateComposer,
@@ -34,6 +44,11 @@ export interface StudioWorkspaceProps {
 function createRequestId(): string {
   const uuid = globalThis.crypto?.randomUUID?.()
   return uuid ?? `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
+}
+
+/** 记录 DTO 的目标类型是 string；未知值按文本处理，避免模板分类非法。 */
+function toTargetType(value: string): TargetType {
+  return value === 'image' || value === 'video' ? value : 'text'
 }
 
 /**
@@ -61,6 +76,11 @@ export function StudioWorkspace({
   const [favorite, setFavorite] = useState(false)
   const [rating, setRating] = useState<number | null>(null)
   const [metaBusy, setMetaBusy] = useState(false)
+  // 详情到达前用提交时的模式与目标类型兜底，避免切换 tab 后存错模板分类
+  const [submittedMeta, setSubmittedMeta] = useState<{
+    mode: ProcessMode
+    targetType: TargetType
+  } | null>(null)
   const [feedback, setFeedback] = useState<ResultFeedback | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 同步启动锁：reset 把 phase 拨回 idle 后，双击仍能靠它在同一 tick 内拦住第二次请求。
@@ -101,6 +121,19 @@ export function StudioWorkspace({
       ? streamState.draftOutput
       : streamState.committedOutput
   const latestIteration = detailRecord?.iterations.at(-1) ?? null
+  const recordMode: ProcessMode = detailRecord
+    ? detailRecord.mode === 'optimize'
+      ? 'optimize'
+      : 'generate'
+    : (submittedMeta?.mode ?? composer.mode)
+  const recordTargetType: TargetType = detailRecord
+    ? toTargetType(detailRecord.targetType)
+    : (submittedMeta?.targetType ?? composer.generate.targetType)
+  const recordSourceInput =
+    detailRecord?.sourceInput ??
+    (recordMode === 'optimize'
+      ? composer.optimize.sourceInput
+      : composer.generate.sourceInput)
   const meta: MetaValues = {
     modelId: detailRecord?.modelId ?? latestIteration?.modelId ?? null,
     latencyMs: latestIteration?.latencyMs ?? streamState.usage?.latencyMs ?? null,
@@ -112,6 +145,8 @@ export function StudioWorkspace({
   const modeUnavailable =
     composer.mode === 'generate' ? !generateAvailable : !optimizeAvailable
   const composerUnavailable = modeUnavailable || streamState.unavailable
+  // 继续优化、修复与优化输入共用同一可用性：配置缺失或运行时 503 都禁用
+  const optimizeReady = optimizeAvailable && !streamState.unavailable
   const canRate =
     recordId !== null && (phase === 'completed' || phase === 'canceled')
   const canRegenerate = recordId !== null && !active && generateAvailable
@@ -125,6 +160,10 @@ export function StudioWorkspace({
     if (!detailRecord) return
     setFavorite(detailRecord.favorite)
     setRating(detailRecord.rating)
+    setSubmittedMeta({
+      mode: detailRecord.mode === 'optimize' ? 'optimize' : 'generate',
+      targetType: toTargetType(detailRecord.targetType),
+    })
   }, [detailRecord])
 
   const startRequest = useCallback(
@@ -153,6 +192,7 @@ export function StudioWorkspace({
     const mode = composer.mode
     const draft = mode === 'generate' ? composer.generate : composer.optimize
     const requestId = createRequestId()
+    setSubmittedMeta({ mode, targetType: draft.targetType })
 
     // 全新请求先清空上一条详情，避免新流首字到达前泄漏旧结果。
     resetStream()
@@ -215,6 +255,51 @@ export function StudioWorkspace({
     cancelStream()
   }, [cancelStream])
 
+  // 继续优化与修复沿用当前记录，不 reset：旧正文在下一轮流式期间继续可见，
+  // 首个 delta 到达后才被草稿替换。请求锁与并发守卫与重新生成一致。
+  const continueOptimize = useCallback(
+    (instruction: string) => {
+      if (
+        !recordId ||
+        !optimizeReady ||
+        requestToken.current !== 0 ||
+        isRequestActive(streamState.phase)
+      ) {
+        return
+      }
+      setFeedback(null)
+      startRequest(() =>
+        postOptimize(recordId, {
+          instruction,
+          requestId: createRequestId(),
+        }),
+      )
+    },
+    [recordId, optimizeReady, startRequest, streamState.phase],
+  )
+
+  const repair = useCallback(
+    (issues: RepairIssueInput[]) => {
+      if (
+        !recordId ||
+        !optimizeReady ||
+        issues.length === 0 ||
+        requestToken.current !== 0 ||
+        isRequestActive(streamState.phase)
+      ) {
+        return
+      }
+      setFeedback(null)
+      startRequest(() =>
+        postRepair(recordId, {
+          issues,
+          requestId: createRequestId(),
+        }),
+      )
+    },
+    [recordId, optimizeReady, startRequest, streamState.phase],
+  )
+
   const copyMarkdown = useCallback(async () => {
     const copied = await copyText(source)
     flash(
@@ -276,6 +361,9 @@ export function StudioWorkspace({
 
   return (
     <PageShell variant="workbench">
+      <div className="mx-auto w-full max-w-[1440px]">
+        <BudgetNotice />
+      </div>
       <div className="mx-auto grid w-full max-w-[1440px] items-start gap-5 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] xl:gap-6">
         <PromptComposer
           state={composer}
@@ -292,6 +380,13 @@ export function StudioWorkspace({
           settling={streamState.settling}
           meta={meta}
           recordId={recordId}
+          mode={recordMode}
+          targetType={recordTargetType}
+          sourceInput={recordSourceInput}
+          iterations={detailRecord?.iterations ?? []}
+          notes={streamState.notes}
+          continueAvailable={optimizeReady}
+          repairAvailable={optimizeReady}
           canRegenerate={canRegenerate}
           showSaved={showSaved}
           favorite={favorite}
@@ -306,6 +401,8 @@ export function StudioWorkspace({
           onStop={stop}
           onFavorite={toggleFavorite}
           onRating={changeRating}
+          onContinue={continueOptimize}
+          onRepair={repair}
         />
       </div>
     </PageShell>

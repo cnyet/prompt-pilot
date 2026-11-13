@@ -8,12 +8,18 @@ import { Icon } from '@/components/ui/Icon'
 import { Rating } from '@/components/ui/Rating'
 import { t } from '@/lib/i18n/zh'
 import { cn } from '@/lib/utils'
+import type { IterationDto, ProcessMode, TargetType } from './api'
+import { ChangeNotes } from './ChangeNotes'
+import { CheckPanel, type RepairIssueInput } from './CheckPanel'
+import { ContinueBar } from './ContinueBar'
+import { IterationCompare } from './IterationCompare'
 import { MarkdownView } from './MarkdownView'
 import { MetaRow, type MetaValues } from './MetaRow'
 import { ResultActions } from './ResultActions'
+import { SaveTemplateForm } from './SaveTemplateForm'
 import { isRequestActive, type StreamPhase } from './stream-reducer'
 
-type ResultView = 'rendered' | 'source'
+type ResultView = 'rendered' | 'source' | 'original' | 'compare'
 
 export interface ResultFeedback {
   text: string
@@ -26,6 +32,14 @@ export interface ResultPanelProps {
   settling: boolean
   meta: MetaValues
   recordId: string | null
+  /** 当前记录的模式、原始输入与迭代时间线；详情未到达时由工作台兜底。 */
+  mode: ProcessMode
+  targetType: TargetType
+  sourceInput: string
+  iterations: IterationDto[]
+  notes: string[]
+  continueAvailable: boolean
+  repairAvailable: boolean
   canRegenerate: boolean
   showSaved: boolean
   favorite: boolean
@@ -40,6 +54,8 @@ export interface ResultPanelProps {
   onStop: () => void
   onFavorite: () => void
   onRating: (value: number | null) => void
+  onContinue: (instruction: string) => void
+  onRepair: (issues: RepairIssueInput[]) => void
 }
 
 function statusText(phase: StreamPhase, settling: boolean): string | null {
@@ -67,8 +83,9 @@ function statusText(phase: StreamPhase, settling: boolean): string | null {
  * 结果面（DESIGN.md Workspace Result Surface）。
  *
  * 屏幕上最亮的纸：paper-raised 底、顶部 2px 金色描边、正文 68ch。
- * 默认渲染 Markdown，可切源码；源码等宽并横向滚动。未知元信息显示「—」。
- * 收藏与评分只对完成或已中断的记录开放，进行中禁用。
+ * 视图：渲染 / 源码 / 原文 / 对比原文。原文永远保留记录 sourceInput；
+ * 对比只在优化记录且至少两轮迭代时出现。检查按需展开，正文变化即卸载。
+ * 继续优化与存模板常驻结果下方；未知元信息显示「—」。
  */
 export function ResultPanel({
   source,
@@ -76,6 +93,13 @@ export function ResultPanel({
   settling,
   meta,
   recordId,
+  mode,
+  targetType,
+  sourceInput,
+  iterations,
+  notes,
+  continueAvailable,
+  repairAvailable,
   canRegenerate,
   showSaved,
   favorite,
@@ -90,12 +114,22 @@ export function ResultPanel({
   onStop,
   onFavorite,
   onRating,
+  onContinue,
+  onRepair,
 }: ResultPanelProps): ReactElement {
   const [view, setView] = useState<ResultView>('rendered')
   const active = isRequestActive(phase)
   const hasOutput = source.length > 0
   const status = statusText(phase, settling)
   const failed = phase === 'failed'
+
+  const showOriginal = recordId !== null && sourceInput.trim().length > 0
+  const showCompare = mode === 'optimize' && iterations.length >= 2
+  const effectiveView: ResultView =
+    (view === 'original' && !showOriginal) ||
+    (view === 'compare' && !showCompare)
+      ? 'rendered'
+      : view
 
   return (
     <section
@@ -129,20 +163,40 @@ export function ResultPanel({
             <div
               role="group"
               aria-label={t('studio.result.view.label')}
-              className="flex items-center gap-1"
+              className="flex flex-wrap items-center gap-1"
             >
               <Chip
-                selected={view === 'rendered'}
+                selected={effectiveView === 'rendered'}
+                aria-pressed={effectiveView === 'rendered'}
                 onClick={() => setView('rendered')}
               >
                 {t('studio.result.view.rendered')}
               </Chip>
               <Chip
-                selected={view === 'source'}
+                selected={effectiveView === 'source'}
+                aria-pressed={effectiveView === 'source'}
                 onClick={() => setView('source')}
               >
                 {t('studio.result.view.source')}
               </Chip>
+              {showOriginal ? (
+                <Chip
+                  selected={effectiveView === 'original'}
+                  aria-pressed={effectiveView === 'original'}
+                  onClick={() => setView('original')}
+                >
+                  {t('studio.result.view.original')}
+                </Chip>
+              ) : null}
+              {showCompare ? (
+                <Chip
+                  selected={effectiveView === 'compare'}
+                  aria-pressed={effectiveView === 'compare'}
+                  onClick={() => setView('compare')}
+                >
+                  {t('studio.result.view.compare')}
+                </Chip>
+              ) : null}
             </div>
           ) : null}
           {hasOutput || recordId || active ? (
@@ -162,13 +216,31 @@ export function ResultPanel({
 
       <div className="px-5 py-5">
         {hasOutput ? (
-          view === 'source' ? (
-            <pre className="rise overflow-x-auto whitespace-pre rounded-control border border-line bg-bg-sunken p-4 font-mono text-[0.875rem] leading-6 text-ink">
-              {source}
-            </pre>
-          ) : (
-            <MarkdownView source={source} className="rise" />
-          )
+          <>
+            {effectiveView === 'rendered' ? (
+              <MarkdownView source={source} className="rise" />
+            ) : effectiveView === 'source' ? (
+              <pre className="rise overflow-x-auto whitespace-pre rounded-control border border-line bg-bg-sunken p-4 font-mono text-[0.875rem] leading-6 text-ink">
+                {source}
+              </pre>
+            ) : effectiveView === 'original' ? (
+              <div className="rise max-w-[68ch]">
+                <p className="text-caption text-ink-faint">
+                  {t('studio.result.original.caption')}
+                </p>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-control border border-line bg-bg-sunken p-4 font-mono text-[0.875rem] leading-6 text-ink">
+                  {sourceInput}
+                </pre>
+              </div>
+            ) : (
+              <IterationCompare
+                key={`${iterations.length}-${iterations.at(-1)?.id ?? 'none'}`}
+                iterations={iterations}
+                className="rise"
+              />
+            )}
+            <ChangeNotes notes={notes} />
+          </>
         ) : (
           <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-panel border border-line-subtle bg-bg-sunken px-6 py-10 text-center">
             <Icon name="studio" size={20} className="text-ink-faint" />
@@ -178,6 +250,34 @@ export function ResultPanel({
           </div>
         )}
       </div>
+
+      {hasOutput ? (
+        <CheckPanel
+          key={source}
+          source={source}
+          recordId={recordId}
+          busy={active}
+          repairAvailable={repairAvailable}
+          onRepair={onRepair}
+        />
+      ) : null}
+
+      {recordId && hasOutput ? (
+        <ContinueBar
+          busy={active}
+          available={continueAvailable}
+          onContinue={onContinue}
+        />
+      ) : null}
+
+      {recordId && hasOutput ? (
+        <SaveTemplateForm
+          source={source}
+          targetType={targetType}
+          mode={mode}
+          disabled={active}
+        />
+      ) : null}
 
       {hasOutput || recordId ? (
         <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line-subtle px-5 py-3">
