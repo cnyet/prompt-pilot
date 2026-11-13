@@ -126,6 +126,11 @@ model LlmCall {
   versionId       String?
   runId           String?
   evalTaskId      String?
+  // v3 记录关联：删除记录时置空，账本保留匿名用量（不级联删除）
+  recordId        String?
+  iterationId     String?
+  // 是否命中缓存；未知为 null，不写 false（FR-9.1）
+  cachedHit       Boolean?
   provider        String
   modelId         String
   thinking        String?
@@ -233,4 +238,74 @@ model Draft {
 model AppSetting {
   key   String @id
   value String
+}
+
+// v3 提示词记录：一次完整处理的落库结果（ROADMAP-V3 §2.1）
+model PromptRecord {
+  id             String   @id @default(cuid())
+  title          String
+  mode           String // generate | optimize
+  targetType     String   @default("text") // text | image | video
+  sourceInput    String // 生成需求或原始提示词
+  latestOutput   String   @default("")
+  status         String   @default("running") // running | completed | canceled | failed
+  favorite       Boolean  @default(false)
+  rating         Int? // 1..5，未评分为 null
+  modelId        String?
+  iterationCount Int      @default(0)
+  tokensIn       Int?
+  tokensOut      Int?
+  costCny        Float?
+  copiedAt       DateTime? // 最近一次复制时间；一次通过率埋点
+  originTemplateId String? // 从模板「用它开始」进入时写入；模板使用率埋点
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  iterations     PromptIteration[]
+
+  @@index([status, updatedAt])
+  @@index([favorite, updatedAt])
+  @@index([mode, updatedAt])
+}
+
+// v3 迭代：同一条记录内的每一轮处理（ROADMAP-V3 §2.1）
+model PromptIteration {
+  id          String   @id @default(cuid())
+  recordId    String
+  seq         Int
+  kind        String // generate | optimize | repair
+  instruction String?
+  output      String   @default("")
+  notesJson   String   @default("[]")
+  modelId     String?
+  tokensIn    Int?
+  tokensOut   Int?
+  costCny     Float?
+  latencyMs   Int?
+  status      String   @default("running")
+  requestId   String?  @unique
+  createdAt   DateTime @default(now())
+  record      PromptRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([recordId, seq])
+  @@index([recordId, createdAt])
+}
+
+// v3 模板：文本 / 图片 / 视频三类预置与自定义模板（ROADMAP-V3 §2.1）
+model Template {
+  id           String   @id @default(cuid())
+  slug         String?  @unique
+  category     String // text | image | video
+  style        String
+  title        String
+  description  String
+  body         String
+  mode         String   @default("optimize") // generate | optimize
+  exampleInput String?
+  coverKind    String   @default("programmatic")
+  featured     Boolean  @default(false)
+  builtin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category, style])
 }
