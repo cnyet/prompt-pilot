@@ -249,8 +249,10 @@ export interface ListRecordsQuery {
   q?: string
   filter?: 'all' | 'favorite' | 'rated' | 'generate' | 'optimize'
   targetType?: 'text' | 'image' | 'video'
-  from?: Date
-  to?: Date
+  /** 起始时刻，含；由路由换算为上海日历日 00:00。 */
+  fromInclusive?: Date
+  /** 结束时刻，不含；由路由换算为结束日的次日上海 00:00。 */
+  toExclusive?: Date
   limit: number
   offset: number
 }
@@ -314,10 +316,10 @@ export async function listRecords(
     where.mode = query.filter
   }
   if (query.targetType) where.targetType = query.targetType
-  if (query.from || query.to) {
+  if (query.fromInclusive || query.toExclusive) {
     where.updatedAt = {
-      ...(query.from ? { gte: query.from } : {}),
-      ...(query.to ? { lte: query.to } : {}),
+      ...(query.fromInclusive ? { gte: query.fromInclusive } : {}),
+      ...(query.toExclusive ? { lt: query.toExclusive } : {}),
     }
   }
 

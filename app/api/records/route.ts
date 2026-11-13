@@ -42,14 +42,24 @@ function parseBoundedInt(
   return value
 }
 
-/** 缺省返回 undefined；格式非法或日期不存在返回 null。 */
-function parseUtcDay(raw: string | null): Date | undefined | null {
+/** 上海相对 UTC 的固定偏移；中国无夏令时。 */
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 把 YYYY-MM-DD 解析为该上海日历日 00:00 对应的 UTC 时刻。
+ * 缺省返回 undefined；格式非法或日期不存在返回 null。
+ */
+function parseShanghaiDayStart(raw: string | null): Date | undefined | null {
   if (raw === null) return undefined
   if (!DAY_PATTERN.test(raw)) return null
-  const date = new Date(`${raw}T00:00:00.000Z`)
+  const date = new Date(`${raw}T00:00:00.000+08:00`)
   if (Number.isNaN(date.getTime())) return null
-  // Date 会把 2026-02-30 滚动到 3 月，回读日期不一致即视为非法。
-  if (date.toISOString().slice(0, 10) !== raw) return null
+  // Date 会把 2026-02-30 滚动到 3 月；回读上海本地日期不一致即视为非法。
+  const localDay = new Date(date.getTime() + SHANGHAI_OFFSET_MS)
+    .toISOString()
+    .slice(0, 10)
+  if (localDay !== raw) return null
   return date
 }
 
@@ -77,18 +87,21 @@ export async function GET(request: Request): Promise<Response> {
   const offset = parseBoundedInt(params.get('offset'), 0, Number.MAX_SAFE_INTEGER, 0)
   if (offset === null) return invalidQuery('offset 需为非负整数。')
 
-  const from = parseUtcDay(params.get('from'))
-  if (from === null) return invalidQuery('from 需为 YYYY-MM-DD 日期。')
-  const to = parseUtcDay(params.get('to'))
-  if (to === null) return invalidQuery('to 需为 YYYY-MM-DD 日期。')
+  const fromInclusive = parseShanghaiDayStart(params.get('from'))
+  if (fromInclusive === null) return invalidQuery('from 需为 YYYY-MM-DD 日期。')
+  const toDayStart = parseShanghaiDayStart(params.get('to'))
+  if (toDayStart === null) return invalidQuery('to 需为 YYYY-MM-DD 日期。')
+  // to 含整个上海日历日，上界取次日上海 00:00，查询用 < 排他比较。
+  const toExclusive =
+    toDayStart === undefined ? undefined : new Date(toDayStart.getTime() + DAY_MS)
 
   try {
     const result = await listRecords({
       ...(q !== undefined ? { q } : {}),
       filter: filterParsed.data,
       ...(targetTypeParsed ? { targetType: targetTypeParsed.data } : {}),
-      ...(from !== undefined ? { from } : {}),
-      ...(to !== undefined ? { to } : {}),
+      ...(fromInclusive !== undefined ? { fromInclusive } : {}),
+      ...(toExclusive !== undefined ? { toExclusive } : {}),
       limit,
       offset,
     })

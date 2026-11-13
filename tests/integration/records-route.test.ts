@@ -240,25 +240,39 @@ describe('GET /api/records 列表', () => {
     expect(all.total).toBe(4)
   })
 
-  it('from/to 按 UTC 日边界过滤', async () => {
-    const before = await seed({ updatedAt: new Date('2026-11-01T12:00:00.000Z') })
-    const boundary = await seed({ updatedAt: new Date('2026-11-02T00:00:00.000Z') })
-    const after = await seed({ updatedAt: new Date('2026-11-02T12:00:00.000Z') })
+  it('from/to 按上海日历日闭区间过滤', async () => {
+    // 上海为 UTC+8 且无夏令时：上海某日 00:00 = 前一日 16:00Z。
+    const beforeDay = await seed({ updatedAt: new Date('2026-11-12T15:59:00.000Z') }) // 11-12 23:59 上海
+    const dayStart = await seed({ updatedAt: new Date('2026-11-12T16:00:00.000Z') }) // 11-13 00:00 上海
+    const midday = await seed({ updatedAt: new Date('2026-11-13T10:00:00.000Z') }) // 11-13 18:00 上海
+    const dayEnd = await seed({ updatedAt: new Date('2026-11-13T15:59:00.000Z') }) // 11-13 23:59 上海
+    const nextDayStart = await seed({ updatedAt: new Date('2026-11-13T16:00:00.000Z') }) // 11-14 00:00 上海
 
-    const both = (
-      await (await listGet('?from=2026-11-02&to=2026-11-02')).json()
-    ) as ListBody
-    expect(both.records.map((record) => record.id)).toEqual([boundary])
-
-    const onlyFrom = (await (await listGet('?from=2026-11-02')).json()) as ListBody
-    expect(new Set(onlyFrom.records.map((record) => record.id))).toEqual(
-      new Set([boundary, after]),
-    )
-
-    const onlyTo = (await (await listGet('?to=2026-11-02')).json()) as ListBody
+    // to 含整日：上海 11-13 23:59 命中，次日 00:00 排除。
+    const onlyTo = (await (await listGet('?to=2026-11-13')).json()) as ListBody
     expect(new Set(onlyTo.records.map((record) => record.id))).toEqual(
-      new Set([before, boundary]),
+      new Set([beforeDay, dayStart, midday, dayEnd]),
     )
+    expect(onlyTo.records.some((record) => record.id === nextDayStart)).toBe(false)
+
+    // from 从上海当日 00:00 起：前一日 23:59 排除。
+    const onlyFrom = (await (await listGet('?from=2026-11-13')).json()) as ListBody
+    expect(new Set(onlyFrom.records.map((record) => record.id))).toEqual(
+      new Set([dayStart, midday, dayEnd, nextDayStart]),
+    )
+    expect(onlyFrom.records.some((record) => record.id === beforeDay)).toBe(false)
+
+    // 同一上海日内 from+to 为闭区间。
+    const both = (
+      await (await listGet('?from=2026-11-13&to=2026-11-13')).json()
+    ) as ListBody
+    expect(new Set(both.records.map((record) => record.id))).toEqual(
+      new Set([dayStart, midday, dayEnd]),
+    )
+
+    // 次日 00:00 归属次日。
+    const nextDay = (await (await listGet('?from=2026-11-14')).json()) as ListBody
+    expect(nextDay.records.map((record) => record.id)).toEqual([nextDayStart])
   })
 
   it('同 updatedAt 时按 id desc 兜底，分页无重复', async () => {
