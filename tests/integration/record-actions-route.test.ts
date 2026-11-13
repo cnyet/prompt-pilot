@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as generate } from '@/app/api/generate/route'
 import { POST as optimize } from '@/app/api/records/[id]/optimize/route'
 import { POST as repair } from '@/app/api/records/[id]/repair/route'
@@ -158,6 +158,32 @@ describe('修复', () => {
     const longSuggestion = await callRepair(recordId, { issues: [{ ...issue, suggestion: 'a'.repeat(201) }] })
     expect(longSuggestion.status).toBe(400)
     expect(await prisma!.promptIteration.count({ where: { recordId } })).toBe(1)
+  })
+})
+
+describe('迭代层 P2002 兜底重放（进程内 store 已清空）', () => {
+  it('optimize 与 repair 同 requestId：200、同 iterationId、迭代数不变', async () => {
+    const recordId = await seedRecord()
+    const cases = [
+      { name: 'optimize', url: 'optimize', body: {} },
+      { name: 'repair', url: 'repair', body: { issues: [] } },
+    ] as const
+    for (const c of cases) {
+      const requestId = randomUUID()
+      const call = (m: { POST: (r: Request, x: ReturnType<typeof ctx>) => Promise<Response> }) =>
+        m.POST(req(`http://localhost/api/records/${recordId}/${c.url}`, { ...c.body, requestId }), ctx(recordId))
+      const first = await call(await import(`@/app/api/records/[id]/${c.url}/route`))
+      const firstDone = doneOf(await collect(first))
+      const count = await prisma!.promptIteration.count({ where: { recordId } })
+
+      vi.resetModules()
+      const fresh = await import(`@/app/api/records/[id]/${c.url}/route`)
+      const replay = await call(fresh)
+      expect(replay.status).toBe(200)
+      const replayDone = doneOf(await collect(replay))
+      expect(replayDone.iterationId).toBe(firstDone.iterationId)
+      expect(await prisma!.promptIteration.count({ where: { recordId } })).toBe(count)
+    }
   })
 })
 

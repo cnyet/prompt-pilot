@@ -245,13 +245,13 @@ export function streamV3(input: StreamV3Input): Response {
           finishReason,
         } as const
 
-        if (failure) {
+        const finishFailed = async (info: ErrorInfo): Promise<StreamOutcome> => {
           try {
             await failIteration({
               iterationId: ids.iterationId,
               recordId: ids.recordId,
               modelId: input.modelId,
-              errorCode: failure.code,
+              errorCode: info.code,
             })
           } catch (error) {
             console.warn(`[${input.logTag}] 写入失败迭代出错：`, error instanceof Error ? error.message : error)
@@ -259,10 +259,10 @@ export function streamV3(input: StreamV3Input): Response {
           await recordLlmCall({
             ...ledgerBase,
             status: 'failed',
-            errorCode: failure.code,
+            errorCode: info.code,
             ...(usage ? { usage } : {}),
           })
-          enqueue({ event: 'error', data: failure })
+          enqueue({ event: 'error', data: info })
           enqueue({ event: 'done', data: { ...ids, status: 'failed' } })
           return {
             live: true,
@@ -271,9 +271,11 @@ export function streamV3(input: StreamV3Input): Response {
             output: '',
             meta: { title: null, notes: [] },
             usage: null,
-            error: failure,
+            error: info,
           }
         }
+
+        if (failure) return finishFailed(failure)
 
         const canceled = request.signal.aborted
         let meta: MetaResult = { title: null, notes: [] }
@@ -285,9 +287,6 @@ export function streamV3(input: StreamV3Input): Response {
         const status = canceled ? 'canceled' : 'completed'
         const knownUsage = usageIsKnown(usage) ? usage : undefined
 
-        if (!canceled) {
-          enqueue({ event: 'meta', data: { title, notes: meta.notes } })
-        }
         try {
           await completeIteration({
             iterationId: ids.iterationId,
@@ -308,6 +307,14 @@ export function streamV3(input: StreamV3Input): Response {
           }
         } catch (error) {
           console.warn(`[${input.logTag}] 写入完成迭代出错：`, error instanceof Error ? error.message : error)
+          return finishFailed({
+            code: 'LLM_UNKNOWN',
+            message: '结果没有保存成功，请重新发起一次。',
+            retryable: true,
+          })
+        }
+        if (!canceled) {
+          enqueue({ event: 'meta', data: { title, notes: meta.notes } })
         }
         await recordLlmCall({
           ...ledgerBase,
