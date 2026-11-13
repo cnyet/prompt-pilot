@@ -472,3 +472,35 @@
 - [ ] Task 2 templates API + 12 seed（BASE `f616ee4`）；随后 Task 3 stats-v3、Task 4 Batch C DEFER、Task 5 docs。
 - [ ] Batch D 整分支 final review + 6 条 deferred minor triage。
 - [ ] 计划文件与记忆文件在会话末合并提交。
+
+## 2026-11-13 Batch D（Tasks 2-5 与整批收口）
+
+### Completed
+- [x] Task 2 templates API + 12 条内置模板 seed（`121ebd3`）：`lib/db/templates.ts`、`app/api/templates` GET/POST、`[id]` DELETE、`prisma/seed.ts`（slug upsert）、`pnpm db:seed`。审查 Spec ✅ / Approved / 0 Important / 5 Minor。
+- [x] Task 3 v3 成本统计（`32ceb80`）：`lib/llm/stats-v3.ts`（`V3_STAGES`、上海月 KPI、null-vs-zero、budgetUsage）、`/api/stats` 切换 `getV3Stats` 保留 503/no-store。审查 0 Important / 5 Minor。
+- [x] Task 4 Batch C DEFER 收口（`e70db9e`）：重放仅 completed 发 meta；optimize/repair 空源 409 `RECORD_HAS_NO_OUTPUT`；409 收敛 `jsonError`；日志 `describeError` 只记 name+code。审查 0 Important / 4 Minor。
+- [x] Task 5 docs 同步（`f8b6559`）：ARCHITECTURE §4 契约、HANDOVER、README seed 命令。审查 0 Important / 6 Minor。
+- [x] 整分支 final review（`369857c..e70db9e`，fable）：With fixes，0 Critical / 1 Important（docs 真源陈旧）/ 多项 minor。
+- [x] Fix wave `274df1f`（15 文件）：docs 真源同步（v3 数据/API vs v2 UI、639/59 基线、Batch E next）；search LIKE 通配符字面过滤；PATCH running 守卫；DELETE 事务内复查；月费 round6；completed 重放 meta 与 `describeError` 测试；注释/契约补全。
+- [x] Scoped re-review（`e70db9e..274df1f`）：7/7 ADDRESSED，无新 Critical/Important。
+- [x] 控制器终验：typecheck 0；59 文件 / 639 用例通过；harness 25 pass / 0 fail；`pnpm db:seed` 两次后内置模板 4/4/4。
+
+### Key Decisions
+- `DELETE /api/templates/[id]` 二次删除返回 404 `TEMPLATE_NOT_FOUND`，覆盖 brief Step 4 的 204 幂等注释；接口契约（`DeleteTemplateResult`）为准。代价：一条路由映射与一行测试。
+- PATCH 元数据遇 running 迭代按 FR-6.6 拒绝（409），不沿用 final review 的 Minor 定级；代价是数据层与一组测试。
+- 搜索词含 `%`/`_` 时改为候选行内存字面过滤，保留 substring 语义与原有 SQL 前缀过滤；本机单用户量级可接受。
+
+### Pitfalls
+- `pnpm test -- <path>` 在 pnpm 10 不过滤，会跑全量；定向用 `pnpm exec vitest run <path>`。
+- harness-verify 的 typecheck 报错多为子代理编辑中间态；控制器在 HEAD 复跑再判断。
+- T4/T5 并行时须核对 `git show --stat`，防索引污染；本批两提交文件集互不重叠。
+- Prisma 6 的 `package.json#prisma` 与 Node MODULE_TYPELESS 警告为已知良性。
+
+### Deferred
+- 20 条任务审查 minor（6+5+5+4）已 triage：final review 采纳其中 docs/搜索/PATCH/DELETE/round6/测试缺口为 fix wave；其余为测试清理、zod 英文文案、重复 helper、常数边界、503 路径未测等，均不阻塞。
+- ARCHITECTURE:229 记录未来 UI 趋势图行为（FR-9.3）为 out-of-scope，留 Batch E。
+
+### Carry-over
+- [ ] 用户授权后 `feat/v3-batch-d` 合入 `main`（未 push）；合并后删除 `.superpowers/sdd/2026-11-13-v3-batch-d/`。
+- [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio、主题切换移顶栏）。
+- [ ] 真实网关密钥端到端验证；补 DeepSeek V4.1 Flash / GPT 5.6 Luna 价格表或在设置覆盖。

@@ -1,13 +1,12 @@
 # Active Context
 
-> Last updated: 2026-11-13T09:05:00Z
+> Last updated: 2026-11-13T10:20:00Z
 
 ## Current Task
-- v3 Phase 1+2 实现（shape brief `docs/shape-studio-v3.md`）。Batch A-C 已验收并合入 `main`（`5d607b1`）。
-- Batch D SDD 执行中（分支 `feat/v3-batch-d`，计划 `docs/superpowers/plans/2026-11-13-v3-batch-d.md`）：
-  - Task 1（records list/detail/PATCH/DELETE API）完成：`aa6878d` + 修复 `f616ee4`；re-review clean；6 条 minor 已 ledger 待 final review。
-  - Next: Task 2（templates API + 12 模板 seed），BASE `f616ee4`；实现者必须串行（`data/test.db` 单文件）。
-- Ledger（进度与裁定）：`.superpowers/sdd/2026-11-13-v3-batch-d/progress.md`。
+- v3 Phase 1+2 实现（shape brief `docs/shape-studio-v3.md`）。Batch A-C 已合入 `main`（`5d607b1`）。
+- Batch D 已完成（分支 `feat/v3-batch-d`，HEAD `274df1f`）：records API、templates API + 12 seed、stats-v3、Batch C DEFER、docs 同步。Final review 1 Important + minors 已在 fix wave `274df1f` 全部修复，scoped re-review 7/7 ADDRESSED。
+- 待用户授权：`feat/v3-batch-d` 合入 `main`（未 push）。合并后删除 SDD 工作区，随后开 Batch E。
+- 验证基线：typecheck 0；59 文件 / 639 用例通过；harness 25 pass / 0 fail。
 
 ## Hard Constraints
 - `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 6 删除。v3 新代码不 import v2。
@@ -27,6 +26,7 @@
 - 测试读写 data/app.db。
 - 依赖 lib/llm/mock.ts valid 画像验证 META 不泄漏（它不输出分隔符，需测试内注入）。
 - 只用 record.status 判断并发（续写路径不写 running；用 appendIteration 的在飞检查）。
+- `pnpm test -- <path>` 在 pnpm 10 下不过滤；定向测试用 `pnpm exec vitest run <path>`。
 
 ## Current Decisions
 - 结果优先；导航 4 项；输出 Markdown + diff + ≤3 条改动说明；完成自动入库。
@@ -34,7 +34,11 @@
 - 记录标题仅生成时由 meta.title 更新。
 - 并发互斥在迭代层（running 迭代）；首轮失败才把记录置 failed，续写失败只标迭代。
 - 记录日期筛选用 Asia/Shanghai 日历日：`from` 当日零点含，`to` 次日零点不含（`f616ee4`）。
+- PATCH 元数据遇到 running 迭代返回 409（FR-6.6，`274df1f`）；DELETE 在事务内复查 running。
+- 重放仅 completed 发 meta；空源续写 409 `RECORD_HAS_NO_OUTPUT`；二次删除模板 404 `TEMPLATE_NOT_FOUND`。
+- 搜索词含 LIKE 通配符时改用候选行内存字面过滤，保留 substring 语义。
 
 ## Current References
-- 历史细节：`.agent/memory/session-summary.md` 2026-11-13 Batch C / Batch D Task 1 节。
+- 历史细节：`.agent/memory/session-summary.md` 2026-11-13 Batch D（Tasks 2-5 收口）节。
+- SDD ledger：`.superpowers/sdd/2026-11-13-v3-batch-d/progress.md`（合并后删除）。
 - 备份：`data/app.db.bak-20261113-1139`。
