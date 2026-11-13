@@ -91,6 +91,145 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 
 约定：请求体 Zod 校验；错误统一 `{ code, message, retryable? }`，上游错误映射为可读中文；LLM 路由接受 `AbortSignal`，客户端断开即中止上游，中断保留已生成内容（状态「已中断」）。
 
+### 记录 API（Batch D）
+
+**GET `/api/records`**
+
+查询参数均可选：
+
+| 参数 | 取值 | 说明 |
+|---|---|---|
+| `q` | 1 到 200 字 | 去首尾空白，覆盖标题、原始输入与输出正文；空串非法 |
+| `filter` | `all`（默认）/ `favorite` / `rated` / `generate` / `optimize` | 收藏、已评分、按模式过滤 |
+| `targetType` | `text` / `image` / `video` | 目标类型过滤 |
+| `from`、`to` | `YYYY-MM-DD` | 按 Asia/Shanghai 日历日过滤 `updatedAt`；`from` 含当日零点，`to` 含整个日历日 |
+| `limit` | 1 到 50，默认 20 | 分页大小 |
+| `offset` | 非负整数，默认 0 | 分页偏移 |
+
+响应 200，`Cache-Control: no-store`：
+
+```json
+{ "records": [RecordSummary], "total": 12, "limit": 20, "offset": 0 }
+```
+
+`RecordSummary` 字段：`id`、`title`、`mode`、`targetType`、`sourceInput`、`status`、`favorite`、`rating`、`modelId`、`iterationCount`、`tokensIn`、`tokensOut`、`costCny`、`createdAt`、`updatedAt`。列表不含正文 `latestOutput`；只返回有正文的记录，按 `updatedAt desc, id desc` 排序。
+
+错误：400 `INVALID_QUERY`（任一参数不合法）；500 `INTERNAL`。
+
+**GET `/api/records/[id]`**
+
+响应 200：`{ "record": RecordSummary & { latestOutput, copiedAt, originTemplateId, iterations } }`。`iterations` 按 `seq` 升序，每项含 `id`、`seq`、`kind`、`instruction`、`output`、`notes`、`modelId`、`tokensIn`、`tokensOut`、`costCny`、`latencyMs`、`status`、`createdAt`；`notes` 为字符串数组，`notesJson` 解析失败时降级为 `[]`，正文不受影响。
+
+错误：404 `RECORD_NOT_FOUND`；500 `INTERNAL`。
+
+**PATCH `/api/records/[id]`**
+
+请求体为严格对象，至少修改一个字段，未知字段返回 400：
+
+| 字段 | 取值 | 说明 |
+|---|---|---|
+| `title` | 1 到 120 字 | 去首尾空白；任意状态可改 |
+| `favorite` | boolean | 收藏 |
+| `rating` | 1 到 5 的整数或 `null` | `null` 清除评分 |
+
+响应 200：`{ "record": RecordSummary }`。
+
+收藏与评分只对 `completed` / `canceled` 记录开放，其它状态返回 409 `RECORD_NOT_READY`；改名不受状态限制。服务端写回编辑前的 `updatedAt`，所以改名、收藏、评分不会改变「最近处理」排序，提示词库不会因此重排。
+
+错误：400 `INVALID_INPUT`；404 `RECORD_NOT_FOUND`；409 `RECORD_NOT_READY`；500 `INTERNAL`。
+
+**DELETE `/api/records/[id]`**
+
+成功返回 204 空响应体；记录不存在，或前置检查后被并发删除，同样返回 204（幂等）。记录或任一迭代处于 `running` 时返回 409 `ITERATION_IN_FLIGHT`。
+
+删除记录与迭代正文；`LlmCall` 账本行保留，`recordId` / `iterationId` 置空，只留匿名用量（FR-11.2）。
+
+错误：409 `ITERATION_IN_FLIGHT`；500 `INTERNAL`。
+
+**继续优化与修复**
+
+`POST /api/records/[id]/optimize`、`POST /api/records/[id]/repair` 为 SSE 路由。记录不存在返回 404 `RECORD_NOT_FOUND`；记录或任一迭代处于 `running` 时返回 409 `ITERATION_IN_FLIGHT`；记录正文为空（首轮失败）时返回 409 `RECORD_HAS_NO_OUTPUT`，提示先重新生成。请求体接受可选 `requestId`；`optimize` 另接受可选 `instruction`（最多 500 字），`repair` 另接受必填 `issues` 数组（最多 20 条，可为空）。
+
+### 模板 API（Batch D）
+
+**GET `/api/templates`**
+
+参数 `category` 可选：`text` / `image` / `video`。
+
+响应 200：`{ "templates": [TemplateDto] }`。`TemplateDto` 字段：`id`、`slug`、`category`、`style`、`title`、`description`、`body`、`mode`、`exampleInput`、`coverKind`、`featured`、`builtin`、`createdAt`、`updatedAt`。排序固定为 `category asc, builtin desc, createdAt asc, id asc`，同类内置模板排在自定义模板之前。
+
+错误：400 `INVALID_QUERY`；500 `INTERNAL`。
+
+**POST `/api/templates`**
+
+请求体为严格对象：
+
+| 字段 | 取值 | 说明 |
+|---|---|---|
+| `category` | `text` / `image` / `video` | 必填 |
+| `style` | 1 到 40 字 | 必填 |
+| `title` | 1 到 80 字 | 必填 |
+| `description` | 1 到 200 字 | 必填 |
+| `body` | 1 到 8000 字 | 必填 |
+| `mode` | `generate` / `optimize` | 可选，默认 `optimize` |
+| `exampleInput` | 最多 2000 字的字符串或 `null` | 可选，默认 `null` |
+| `featured` | boolean | 可选，默认 `false` |
+
+`builtin`、`slug`、`coverKind` 由服务端强制为 `false`、`null`、`programmatic`，请求体传入这些字段返回 400。
+
+响应 201：`{ "template": TemplateDto }`。
+
+错误：400 `INVALID_INPUT`；500 `INTERNAL`。
+
+**DELETE `/api/templates/[id]`**
+
+删除自定义模板返回 204 空响应体。模板不存在，或已删除后再次删除，返回 404 `TEMPLATE_NOT_FOUND`；内置模板返回 409 `TEMPLATE_BUILTIN`，记录保留。
+
+错误：404 `TEMPLATE_NOT_FOUND`；409 `TEMPLATE_BUILTIN`；500 `INTERNAL`。
+
+### 统计 API（Batch D）
+
+**GET `/api/stats`**
+
+响应 200，`Cache-Control: no-store`：
+
+```json
+{
+  "month": {
+    "key": "2026-11",
+    "calls": 12,
+    "knownCostCalls": 10,
+    "unknownCostCalls": 2,
+    "costCny": 3.25,
+    "averageCostCny": 0.325,
+    "budgetCny": 100,
+    "budgetUsage": 0.0325
+  },
+  "daily": [
+    {
+      "date": "2026-11-13",
+      "label": "11-13",
+      "calls": 3,
+      "knownCostCalls": 3,
+      "unknownCostCalls": 0,
+      "costCny": 0.8,
+      "tokensIn": 1200,
+      "tokensOut": 800
+    }
+  ],
+  "byModel": [CostBucket],
+  "byStage": [CostBucket],
+  "generatedAt": "2026-11-13T08:00:00.000Z"
+}
+```
+
+- 只统计 `generate` / `optimize` / `repair` 三个阶段；v2 的 `compose` 等历史行不计入。
+- `month.key` 按 Asia/Shanghai 切月。`month` 的金额与预算未知时为 `null`：全未知费用为 `null`，无已知费用时 `averageCostCny` 为 `null`，未设置预算时 `budgetCny` 与 `budgetUsage` 均为 `null`；`budgetUsage` 是费用除以预算的比例，例如 `0.04` 表示 4%。零调用是已知的 0。
+- `daily` 固定 14 天，按上海日历日升序，没有调用的日期保留、调用数为 0。
+- `byModel` / `byStage` 每项为 `CostBucket`：`key`、`label`、`calls`、`succeededCalls`、`failedCalls`、`canceledCalls`、`interruptedCalls`、`unknownUsageCalls`、`unknownCostCalls`、`tokensIn`、`tokensOut`、`cachedTokens`、`reasoningTokens`、`costCny`、`cachedKnownCalls`、`reasoningKnownCalls`、`cacheHitRate`。`costCny` 只累加已知金额，未知金额单独计入 `unknownCostCalls`；趋势图在没有任何已知金额时不画折线，不补 0（FR-9.3）。
+- 顶层没有 `total`。
+- 数据库不可用返回 503 `DATABASE_UNAVAILABLE`。
+
 ## 五、SSE 与元数据协议
 
 客户端不能用 `EventSource`（只支持 GET），用 `fetch` + `ReadableStream` 自写解析。

@@ -41,7 +41,7 @@
 
 ## 环境要求
 
-Node.js 24 与 pnpm 10（本机已具备）。首版运行时零外部依赖，除模型 API。
+Node.js >= 24 与 pnpm 10（本机已具备）。`prisma/seed.ts` 由 Node 原生类型擦除直接执行，seed 命令需要 Node >= 24。首版运行时零外部依赖，除模型 API。
 
 沙箱环境下 `~/.npm` 不可写，所以 `.npmrc` 把 store 与缓存放在工程内的 `.pnpm-store`、`.npm-cache`，两者已进 `.gitignore`。
 
@@ -52,6 +52,7 @@ pnpm install
 cp .env.example .env         # 可选。不填 ARK_API_KEY 时模型操作禁用，浏览与导出仍可用
 pnpm db:generate
 pnpm db:push
+pnpm db:seed                 # 写入 12 条内置模板，按 slug 幂等，可重复执行
 pnpm dev                     # http://localhost:3100
 ```
 
@@ -62,6 +63,7 @@ pnpm dev                     # http://localhost:3100
 | `pnpm typecheck` | 类型检查（零错误是合并门槛） |
 | `pnpm test` | 全量测试（独立测试库 `data/test.db`，不碰开发库） |
 | `pnpm db:push` | 同步 schema 到本地 SQLite |
+| `pnpm db:seed` | 写入或恢复 12 条内置模板（按 slug 幂等，可重复执行；需 Node >= 24） |
 | `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
 
 ## 接下来

@@ -8,7 +8,7 @@
 
 PromptPilot 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-产品已重置为 v3「结果优先」范式（ADR-0007）。**文档已收口到 v3，代码仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，当前处于 Phase 0 完成点，Phase 1（数据层与 API）待启动。
+产品已重置为 v3「结果优先」范式（ADR-0007）。**文档已收口到 v3，代码仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，Phase 1 数据层与 API 已由 Batch A 到 D 收口，下一步是 Batch E 工作台 UI。
 
 ---
 
@@ -20,6 +20,13 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 - `CONTEXT.md` 词表、`docs/ARCHITECTURE.md` v3 契约、本文件、`README.md`、ADR-0007 已收口；v2 的 `docs/ROADMAP.md` 已删除。
 - 分支 `feat/v3-result-first`；开发库备份 `data/app.db.bak-20261113-1047`。
 - 网关端点规范化与测试库隔离已收口（`fc00f4c`）：默认端点 `https://opencode.ai/inference/go/openai/v1`，测试用独立 `data/test.db`。
+
+### v3 数据层与 API（Batch A 到 D 已完成）
+
+- **Batch A**：`PromptRecord` / `PromptIteration` / `Template` 三个模型与 `LlmCall` 关联列；设置新增优化模型与月度预算键。
+- **Batch B**：MetaSplitter 元数据切分、SSE v3 协议（start / delta / meta / usage / error / done）与 requestId 幂等 LRU。
+- **Batch C**：`/api/generate`、`/api/records/[id]/optimize`、`/api/records/[id]/repair` 三条 SSE 路由，完成自动入库。
+- **Batch D**：`/api/records`、`/api/records/[id]`、`/api/templates`、`/api/templates/[id]`、`/api/stats` 五组 JSON 接口与契约（见 `docs/ARCHITECTURE.md` 第四节）；`prisma/seed.ts` 按 slug 幂等写入 12 条内置模板；成本统计按上海时区切月并给出预算使用率；继续优化与修复补上空源守卫（409 `RECORD_HAS_NO_OUTPUT`）与重放元数据收敛。
 
 ### v2 代码仍在运行（已验证可用）
 
@@ -38,7 +45,7 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 
 ### 环境
 
-Node 24、pnpm 10、SQLite（无需单独安装）。
+Node >= 24、pnpm 10、SQLite（无需单独安装）。`prisma/seed.ts` 由 Node 原生类型擦除直接执行，`pnpm db:seed` 需要 Node >= 24。
 
 ### 第一次运行
 
@@ -47,6 +54,7 @@ pnpm install
 cp .env.example .env
 pnpm db:generate
 pnpm db:push
+pnpm db:seed        # 写入 12 条内置模板，按 slug 幂等，可重复执行
 pnpm dev            # http://localhost:3100
 ```
 
@@ -61,6 +69,7 @@ pnpm dev            # http://localhost:3100
 | `pnpm test` | 全量测试。独立测试库 `data/test.db`（`tests/global-setup.ts` 建库、`tests/setup-env.ts` 隔离），不碰开发库，跑测试不用停 3100 |
 | `pnpm typecheck` | 类型检查 |
 | `pnpm db:push` / `pnpm db:studio` | 同步 schema / 图形化看数据 |
+| `pnpm db:seed` | 写入或恢复 12 条内置模板（按 slug 幂等，可重复执行；需 Node >= 24） |
 | `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
 | `pnpm check:contrast` | 双主题对比度校验 |
 
@@ -156,9 +165,8 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 ## 8. 下一步（按 docs/ROADMAP-V3.md）
 
-1. **Phase 1 数据层与 API（3 人日）**：PromptRecord / PromptIteration / Template 模型、`db push`、12 条模板 seed、`lib/engine/prompts/` 元数据协议、SSE 路由、记录 / 模板 / 统计 API、定向测试。验收：mock 跑通一次生成与一次继续优化，落库正确。
-2. **Phase 2 工作台重写（4 人日）**：双模式、结果面板、diff、继续优化、按需检查。验收 AC-1 到 AC-7、AC-19、AC-20。
-3. Phase 3 库 → Phase 4 模板 → Phase 5 设置与成本 → Phase 6 移除旧模块与收口。
+1. **Batch E：studio-v3 工作台 UI（下一步，对应 Phase 2）**：i18n `lib/i18n/zh.ts`、diff、R101-R108、`components/studio-v3/*`、Rating、替换 `/studio`、主题切换移到顶栏。验收 AC-1 到 AC-7、AC-19、AC-20。
+2. Phase 3 库 → Phase 4 模板 → Phase 5 设置与成本 → Phase 6 移除旧模块与收口。Phase 1 数据层与 API 已由 Batch A 到 D 完成。
 
 约束：每个 Phase 独立提交；动 UI 先读 `DESIGN.md`；产品行为以 `PRODUCT.md` 为准。
 
