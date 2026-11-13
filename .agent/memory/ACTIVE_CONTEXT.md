@@ -1,12 +1,14 @@
 # Active Context
 
-> Last updated: 2026-11-13T03:40:00Z
+> Last updated: 2026-11-13T05:20:00Z
 
 ## Current Task
-- Done（PM 评审问题全部收口，2026-11-13）：Phase 0 文档收口（`f3a281d`）+ P1/P2 剩余项（`6bd7233`）。19 条评审问题中 3 P0 / 5 P1 / P2 批次全部处理；仅存 DESIGN 主题切换位置对账（Phase 2 做）与 design-parser 脚本缺失（P2）。
-- 关键落点：NFR-9 定稿单一字典模块 `lib/i18n/zh.ts`；AC 扩到 AC-28；design.json colorMeta 28 色全 + tokenMapping 语义名→CSS 变量；幂等两层（记录 LRU + 迭代唯一约束）；LlmCall 补 cachedHit；内置模板文本类四风格各一条（含代码）。
-- In progress: 无。
-- Next step: Phase 1 数据层与 API（3 人日，ROADMAP-V3 §3；分支已建、库已备份）。
+- In progress: v3 Phase 1+2 craft 实现（shape brief 已确认，见 `docs/shape-studio-v3.md`）。SDD 批次推进中：
+  - Batch A 数据层第一批：**已验收**（reviewer approve）。提交 `8ee16b3` schema 三模型+LlmCall 列、`7e402a5` settings modelOptimize+预算键、`cd77c37` registry optimize 角色。备份 `data/app.db.bak-20261113-1139`。
+  - Batch B 引擎纯函数层：**实现完成待终审**。提交 `aec9c65` meta 切分、`bcbacf0` sse-v3、`542cde0` 幂等 LRU、`9008711` 三组系统提示词。545/545 测试。两处计划偏差有理由（提前出现降级分支；容量用例断言矛盾修正）。
+- 批次计划：`docs/superpowers/plans/2026-11-13-v3-batch-{a,b,c}.md`；B/C 已写好，C 待 B 终审通过后派实现者。
+- Next step: 1) Batch B 终审；2) Batch C（ledger 加法 → lib/db/records.ts → /api/generate → optimize/repair 路由）；3) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；4) Batch E（studio-v3 UI）。
+- Phase 2 收口项：主题切换移顶栏（DESIGN §4.1 对账，AppShell.tsx:169-181 现状）。
 
 ## Current Constraints
 - v3 四件套为事实源：PRODUCT.md、docs/ROADMAP-V3.md、DESIGN.md、.impeccable/design.json；v2 八字段/评估/版本树已废弃。
@@ -16,6 +18,8 @@
 - 界面中文；禁感叹号与 em dash；单屏 primary 1 个。
 - 测试已隔离：`tests/global-setup.ts` 建独立 `data/test.db`，跑测试不用停 3100；测试绝不读写 `data/app.db`。
 - Chrome 只用 `--user-data-dir` 与 `--password-store=basic`，绝不覆盖 HOME。
+- v3 新代码不 import v2（lib/engine/schema.ts、lib/engine/sse.ts、lib/templates.ts）；v2 存活至 Phase 6。
+- types.ts 冻结零触碰；v3 stage 在 ledger 本地扩展（LedgerStage），不改 EngineStage。
 
 ## Hard Constraints
 - `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删。
@@ -30,16 +34,19 @@
 - `about:blank` 上写 localStorage 再截图；覆盖 HOME 跑 Chrome | 原因: 历史坑。
 - 模型显示名直接当 modelId | 原因: 用 kebab slug + `modelDisplayLabel()`。
 - 测试直接读写 data/app.db | 原因: 会删用户密钥，已改独立 test.db。
+- 幂等容量驱逐测试断言「b 仍复用」 | 原因: 一致的最旧完成驱逐策略下不成立（Batch B 已修正为 c 复用）。
 
 ## Current Decisions
 - v3 方向：结果优先；导航 4 项；输出 Markdown + diff + ≤3 条改动说明；完成自动入库。
+- Shape 裁定：diff 默认行内；重新生成=追加迭代；主题切换移顶栏。
 - 数据模型 PromptRecord（含 copiedAt/originTemplateId 埋点）/ PromptIteration / Template；SSE start/delta/meta/usage/error/done；元数据 `<<<PROMPTPILOT_META>>>` 服务端剥离，失败降级输入前 24 字标题 + 空说明。
+- 失败轮落库 status failed、output 空（时间线可见可重试）；中断保留正文 status canceled（FR-4.5）。
 - 本地检查 P1（R101-R108）；模板 12 条内置（三类各 4）+ 自定义，内置删除 409。
 - 网关 provider `openai_compatible` + `x-opencode-session` 头；kebab slug + 显示名映射。
 - 成本趋势上海时区切日；未知金额不入折线、不补 0。
 - ADR-0001/0003/0004 废弃（0006/0007 依次取代）；0002/0005/0006/0007 有效。
 
 ## Current References
-- v3 四件套；PM 评审清单（session-summary 2026-11-12 节）；本轮记录（2026-11-13 节）
-- `scripts/contrast-check.mjs`、`.github/workflows/ci.yml`、`app/globals.css`
-- 备份：`data/app.db.bak-20261113-1047`（最新）
+- shape brief `docs/shape-studio-v3.md`；批次计划 `docs/superpowers/plans/2026-11-13-v3-batch-{a,b,c}.md`
+- v3 四件套；ARCHITECTURE §五/§九/§十二；ROADMAP-V3 §2
+- 备份：`data/app.db.bak-20261113-1139`（最新）

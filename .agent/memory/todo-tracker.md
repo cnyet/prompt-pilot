@@ -1,11 +1,12 @@
 # Todo Tracker
 
 ## In Progress
-- 无。
+- [ ] ROADMAP Phase 1：Batch C（ledger → lib/db/records.ts → /api/generate → optimize/repair 路由）待 Batch B 终审通过后派实现者 | Priority: P0 | Created: 2026-11-13 | 计划: docs/superpowers/plans/2026-11-13-v3-batch-c.md
 
 ## Pending
-- [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2
-- [ ] ROADMAP Phase 1：数据层与 API（3 人日，前置已全部清空可开工）| Priority: P0 | Created: 2026-11-12
+- [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）
+- [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合 | Priority: P0 | Created: 2026-11-13
+- [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio）| Priority: P0 | Created: 2026-11-13
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
