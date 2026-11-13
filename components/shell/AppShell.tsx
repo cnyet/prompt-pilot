@@ -6,29 +6,19 @@ import { BrandMark } from '@/components/brand/BrandMark'
 import { ModelStatusBadge } from '@/components/studio/modelStatus'
 import { CommandPalette } from './CommandPalette'
 import { IconButton } from '@/components/ui/Button'
-import { Icon, type IconName } from '@/components/ui/Icon'
+import { Icon } from '@/components/ui/Icon'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { t } from '@/lib/i18n/zh'
+import { WORKSPACE_NAV } from '@/lib/ui/nav'
 
-const NAV = [
-  { href: '/studio', label: '工作台', icon: 'studio' },
-  { href: '/library', label: '提示词库', icon: 'library' },
-  { href: '/eval', label: '评估', icon: 'eval' },
-  { href: '/templates', label: '模板', icon: 'template' },
-  { href: '/settings', label: '设置', icon: 'settings' },
-] as const satisfies ReadonlyArray<{
-  href: string
-  label: string
-  icon: IconName
-}>
-
+/** 顶栏 h1 取当前路由名；/eval 不在导航中，但保留页面标题。 */
 const PATH_LABEL: Record<string, string> = {
-  '/studio': '工作台',
-  '/library': '提示词库',
+  ...Object.fromEntries(
+    WORKSPACE_NAV.map((item) => [item.href, t(item.labelKey)]),
+  ),
   '/eval': '评估',
-  '/templates': '模板',
-  '/settings': '设置',
 }
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
@@ -128,15 +118,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1.5 p-3" aria-label="主导航">
-          {NAV.map((item) => {
+          {WORKSPACE_NAV.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`)
+            const label = t(item.labelKey)
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                title={expanded ? undefined : item.label}
+                title={expanded ? undefined : label}
                 className={cn(
                   'flex h-10 items-center rounded-control border transition-colors duration-150',
                   expanded ? 'gap-2.5 px-2.5' : 'w-10 justify-center',
@@ -151,33 +142,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className={active ? 'text-accent' : 'text-ink-faint'}
                 />
                 <span className={cn('truncate text-label', !expanded && 'sr-only')}>
-                  {item.label}
+                  {label}
                 </span>
               </Link>
             )
           })}
         </nav>
 
-        <div
-          className={cn(
-            'flex gap-1.5 border-t border-line-subtle p-3',
-            expanded
-              ? 'flex-row items-center justify-center'
-              : 'flex-col items-center',
-          )}
-        >
-          <IconButton
-            icon={mounted && dark ? 'sun' : 'moon'}
-            label={
-              !mounted
-                ? '切换主题'
-                : dark
-                  ? '切换到浅色主题'
-                  : '切换到深色主题'
-            }
-            onClick={toggleTheme}
-            size="sm"
-          />
+        <div className="flex items-center justify-center border-t border-line-subtle p-3">
           <IconButton
             icon="panel"
             label={expanded ? '收起导航标签' : '展开导航标签'}
@@ -200,6 +172,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ) : null}
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <IconButton
+              icon={mounted && dark ? 'sun' : 'moon'}
+              label={
+                !mounted
+                  ? '切换主题'
+                  : dark
+                    ? '切换到浅色主题'
+                    : '切换到深色主题'
+              }
+              onClick={toggleTheme}
+              size="sm"
+            />
             <ModelStatusBadge />
             <IconButton
               icon="search"

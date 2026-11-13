@@ -23,6 +23,7 @@ export default function WorkspaceLayout({
               <MobileNav />
               <ModelStatusBanner />
               {children}
+              <div className="h-16 lg:hidden" aria-hidden />
             </div>
           </AppShell>
         </div>

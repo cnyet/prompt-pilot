@@ -167,6 +167,11 @@ export const zh = {
   'studio.budget.warning': '本月费用已达到预算的 {percent}%',
   'studio.budget.over': '本月费用已超出预算，当前为 {percent}%',
   'studio.budget.link': '查看成本',
+  // 外壳导航（Task 7）
+  'nav.studio': '工作台',
+  'nav.library': '提示词库',
+  'nav.templates': '模板',
+  'nav.settings': '设置',
 } as const
 
 export type MessageKey = keyof typeof zh
