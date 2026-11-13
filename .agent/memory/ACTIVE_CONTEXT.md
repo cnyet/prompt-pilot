@@ -5,7 +5,8 @@
 ## Current Task
 - v3 Phase 1+2 实现（shape brief `docs/shape-studio-v3.md`）。SDD 批次：
   - Batch A、B、C 已验收。Batch C 整分支 final review 为 APPROVE_WITH_FIXES，F1/F2 已修（`e61796d`）；收口 typecheck 0、53 文件 / 582 用例全过。
-- Next step: 1) superpowers:finishing-a-development-branch（待用户决定 merge/PR/保留）；2) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；3) Batch E（studio-v3 UI）。
+- Batch A-C 已合入 `main`（快进至 `5d607b1`，特性分支已删；本地 main 领先 origin/main，未 push）。
+- Next step: 1) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；2) Batch E（studio-v3 UI）。
 - Batch C final review triage（FIX-NOW/DEFER/DROP 全表）：`.superpowers/sdd/2026-11-13-v3-batch-c/progress.md`。
 
 ## Hard Constraints

@@ -1,11 +1,10 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] superpowers:finishing-a-development-branch（Batch A-C 已验收，待决定 merge/PR/保留）| Priority: P0 | Created: 2026-11-13
+- [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合 | Priority: P0 | Created: 2026-11-13
 
 ## Pending
 - [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）
-- [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合 | Priority: P0 | Created: 2026-11-13
 - [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio）| Priority: P0 | Created: 2026-11-13
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
@@ -15,6 +14,7 @@
 - 无。
 
 ## Done
+- [x] finishing-a-development-branch：Batch A-C 合入 main（`5d607b1`），特性分支已删 | Completed: 2026-11-13
 - [x] Batch C：ledger 加法、lib/db/records.ts 写路径、/api/generate、optimize/repair 路由；final review 修复 F1/F2（`e61796d`），typecheck 0 / 582 用例全过 | Completed: 2026-11-13
 - [x] P1 收口：NFR-9 单一字典模块定稿、AC-21 到 AC-28 补缺、AC 分配去重、design.json colorMeta 28 色 + tokenMapping | Completed: 2026-11-13 | `6bd7233`
 - [x] P2 收口：评分限定完成记录、幂等两层、Zod 边界测试、cachedHit、模板四风格含代码、删除置空 LlmCall | Completed: 2026-11-13 | `6bd7233`

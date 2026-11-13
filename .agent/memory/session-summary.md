@@ -448,3 +448,6 @@
 - generate 路径的 P2002 清理空记录无测试；abort 重放不应多发 meta（仅 completed 发）；失败重放 errorCode 需迭代表加列。
 - 首轮失败记录的空源守卫；空 canceled 记录列表过滤；客户端把无 done 的流按 failed；日志收敛为 error.name+code；409 字面量并入 jsonError。
 - 残余风险：failIteration 自身失败时首轮记录可能停在 running，Batch D 加超时恢复。
+
+### Integration
+- [x] finishing-a-development-branch：按用户指示合入 `main`（快进 fc00f4c → 5d607b1），删除 feat/v3-result-first；合并结果复跑 typecheck 0 / 582 用例 / harness 无 fail。先误建 develop 分支，用户纠正后已删除，未 push。
