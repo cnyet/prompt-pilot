@@ -101,7 +101,7 @@ delta  { text }
 meta   { title, notes: string[] }
 usage  { tokensIn, tokensOut, costCny, latencyMs }
 error  { code, message, retryable }
-done   { recordId, iterationId }
+done   { recordId, iterationId, status: completed | canceled | failed }
 ```
 
 **元数据协议**：系统提示词要求模型先输出完整 Markdown 正文，正文结束后另起一行输出 `<<<PROMPTPILOT_META>>>`，再输出 `{"title":"...","notes":["...","..."]}`。
