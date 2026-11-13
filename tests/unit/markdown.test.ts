@@ -84,4 +84,24 @@ describe('markdownToPlainText', () => {
   it('纯文本不泄漏脚本内容', () => {
     expect(markdownToPlainText('<script>alert(1)</script>正文')).toBe('正文')
   })
+
+  it('围栏代码块内的 Markdown 字符按字面保留', () => {
+    expect(
+      markdownToPlainText('```\n[doc](https://x) 与 **bold**\n```'),
+    ).toBe('[doc](https://x) 与 **bold**')
+  })
+
+  it('波浪线围栏与未闭合围栏同样保留字面内容', () => {
+    expect(markdownToPlainText('~~~\n**bold** [doc](https://x)')).toBe(
+      '**bold** [doc](https://x)',
+    )
+  })
+
+  it('只保护围栏内内容，围栏外仍去 Markdown 标记', () => {
+    expect(
+      markdownToPlainText(
+        '# 标题\n```\n[doc](https://x) **bold**\n```\n[链接](https://x)',
+      ),
+    ).toBe('标题\n[doc](https://x) **bold**\n链接')
+  })
 })

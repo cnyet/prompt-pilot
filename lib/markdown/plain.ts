@@ -10,8 +10,10 @@ export function markdownToPlainText(source: string): string {
 
   let text = source.replace(/\r\n?/g, '\n')
 
-  // 围栏代码块只去围栏行，保留代码内容
-  text = text.replace(/^[ \t]{0,3}(?:```+|~~~+)[^\n]*$/gm, '')
+  // 围栏代码块先整体占位：只去围栏行，代码内容按字面保留，
+  // 不参与后续链接、图片与强调标记替换。
+  const fenced = extractFencedBlocks(text)
+  text = fenced.text
 
   // 图片先于链接处理，保留 alt 文字
   text = text.replace(/!\[([^\]]*)\]\((?:[^()]|\([^)]*\))*\)/g, '$1')
@@ -66,10 +68,73 @@ export function markdownToPlainText(source: string): string {
     output.push(stripInlineMarkers(line).trimEnd())
   }
 
-  return output
+  const plain = output
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+
+  return restoreFencedBlocks(plain, fenced.blocks)
+}
+
+interface ExtractedFences {
+  text: string
+  blocks: string[]
+}
+
+/**
+ * 把围栏代码块（``` / ~~~，含未闭合围栏）替换为占位符，围栏行丢弃，
+ * 内容原样留待最后恢复。
+ */
+function extractFencedBlocks(source: string): ExtractedFences {
+  const lines = source.split('\n')
+  const output: string[] = []
+  const blocks: string[] = []
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index] as string
+    const opening = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/.exec(line)
+    if (opening === null) {
+      output.push(line)
+      index += 1
+      continue
+    }
+
+    const fence = opening[1] as string
+    const marker = fence[0] as string
+    const closingPattern = new RegExp(
+      `^[ \\t]{0,3}${marker}{${fence.length},}[ \\t]*$`,
+    )
+
+    const contentLines: string[] = []
+    let cursor = index + 1
+    let closed = false
+    while (cursor < lines.length) {
+      const candidate = lines[cursor] as string
+      if (closingPattern.test(candidate)) {
+        closed = true
+        break
+      }
+      contentLines.push(candidate)
+      cursor += 1
+    }
+
+    const content = contentLines.join('\n')
+    if (content !== '') {
+      output.push(`\u0002${blocks.length}\u0002`)
+      blocks.push(content)
+    }
+    index = closed ? cursor + 1 : cursor
+  }
+
+  return { text: output.join('\n'), blocks }
+}
+
+function restoreFencedBlocks(text: string, blocks: string[]): string {
+  if (blocks.length === 0) return text
+  return text.replace(/\u0002(\d+)\u0002/g, (_match, index: string) => {
+    return blocks[Number(index)] ?? ''
+  })
 }
 
 function stripInlineMarkers(input: string): string {
