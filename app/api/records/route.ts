@@ -6,7 +6,7 @@
  */
 import { z } from 'zod'
 import { listRecords } from '@/lib/db/records'
-import { jsonError } from '@/lib/engine/stream-v3'
+import { describeError, jsonError } from '@/lib/engine/stream-v3'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -106,7 +106,8 @@ export async function GET(request: Request): Promise<Response> {
       offset,
     })
     return noStoreJson({ records: result.records, total: result.total, limit, offset })
-  } catch {
+  } catch (error) {
+    console.warn('[records] 列表读取失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '提示词库读取失败，请稍后重试。')
   }
 }

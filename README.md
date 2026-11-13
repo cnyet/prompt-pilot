@@ -4,7 +4,7 @@
 
 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-**当前状态：v3「结果优先」重置进行中。** v2（八字段结构化范式）代码仍在运行，v3 按七阶段计划重写，进度见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md)。512 条测试通过。
+**当前状态：v3「结果优先」重置进行中。** 数据与 API 层已是 v3（Batch A 到 D），工作台 UI 仍运行 v2 流程，下一步 Batch E 重写工作台。进度见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md)。639 条测试通过。
 
 ## 文档索引
 
@@ -68,8 +68,8 @@ pnpm dev                     # http://localhost:3100
 
 ## 接下来
 
-优先级最高的三件事，细节见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md)：
+按顺序推进，细节见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md) 与 [docs/HANDOVER.md](docs/HANDOVER.md)：
 
-1. Phase 1：数据层与 API（PromptRecord / PromptIteration / Template、新 SSE、元数据协议）
-2. Phase 2：工作台重写（双模式、结果面、diff、继续优化）
-3. Phase 5：设置与成本（生成 / 优化双模型槽位、月度预算与阈值提示）
+1. Batch E：工作台 UI 重写（双模式、结果面、diff、继续优化，对应 Phase 2）
+2. Phase 3 与 Phase 4：提示词库与模板 UI
+3. Phase 5 与 Phase 6：设置与成本 UI，移除 v2 模块与收口

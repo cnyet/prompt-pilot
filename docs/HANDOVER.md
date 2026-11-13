@@ -8,7 +8,7 @@
 
 PromptPilot 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-产品已重置为 v3「结果优先」范式（ADR-0007）。**文档已收口到 v3，代码仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，Phase 1 数据层与 API 已由 Batch A 到 D 收口，下一步是 Batch E 工作台 UI。
+产品已重置为 v3「结果优先」范式（ADR-0007）。**数据与 API 层已收口到 v3（Batch A 到 D），工作台 UI 仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，下一步是 Batch E 工作台 UI。
 
 ---
 
@@ -33,7 +33,7 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 - 输入一句话，流式生成八字段结构化提示词（离线启发式或真模型）
 - 字段级编辑、AI 单字段重算、假设 chip、16 条诊断 + 一键修复
 - 试运行、版本库（v0 服务端不可改删）、成本账本、设置页模型配置与连通性测试
-- 512 条测试通过（41 个文件），typecheck 零错误
+- 全量 639 条测试通过（59 个文件），typecheck 零错误
 
 ### 未验证
 
@@ -155,7 +155,7 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 ## 7. 测试与验收
 
-- 基线以实测为准：2026-11-13 实测 512 条（41 文件），typecheck 零错误。
+- 基线以实测为准：2026-11-13 实测 639 条（59 文件），typecheck 零错误。
 - 集成测试共用独立 `data/test.db`，文件串行执行（共享同一 SQLite）。
 - 测试基线数在 v3 中会先增（Phase 1 新测试）后减（Phase 6 删旧测试），不追求数量，以 ROADMAP-V3 各阶段验收为准。
 - 视觉：改样式先看 `components/ui/` 与 `DESIGN.md`；改令牌跑 `pnpm check:contrast`；改 DESIGN.md 跑 design-parser。

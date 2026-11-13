@@ -99,7 +99,8 @@ export function summarizeV3Stats(
     }
   }
 
-  const costCny = calls > 0 && knownCostCalls === 0 ? null : knownCostSum
+  const costCny =
+    calls > 0 && knownCostCalls === 0 ? null : round6(knownCostSum)
   const averageCostCny =
     knownCostCalls > 0 ? round6(knownCostSum / knownCostCalls) : null
   const budgetUsage =

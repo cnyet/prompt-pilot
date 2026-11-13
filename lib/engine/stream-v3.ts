@@ -66,7 +66,7 @@ function usageIsKnown(usage: TokenUsage | undefined): usage is TokenUsage {
 }
 
 /** 日志只记错误类型与 code，不记 message（可能带提示词正文与密钥）。 */
-function describeError(error: unknown): string {
+export function describeError(error: unknown): string {
   if (typeof error !== 'object' || error === null) {
     return typeof error
   }
@@ -77,8 +77,8 @@ function describeError(error: unknown): string {
 }
 
 /**
- * 重放已完成的调用：只有 completed 发 meta；canceled 保留已生成正文与
- * 已知用量，failed 发 error 后以 done(failed) 收尾。
+ * 重放已落库的调用（completed / canceled / failed）：completed 发 meta；
+ * canceled 保留已生成正文与已知用量；failed 发 error 后以 done(failed) 收尾。
  */
 function replayMessages(outcome: StreamOutcome): SseV3Message[] {
   const base = { recordId: outcome.recordId, iterationId: outcome.iterationId }

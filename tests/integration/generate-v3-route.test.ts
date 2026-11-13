@@ -121,12 +121,18 @@ describe('幂等', () => {
 
     vi.resetModules()
     const fresh = await import('@/app/api/generate/route')
-    const second = doneOf(await collect(await fresh.POST(makeRequest(body))))
+    const replay = await collect(await fresh.POST(makeRequest(body)))
+    const second = doneOf(replay)
 
     expect(second.iterationId).toBe(first.iterationId)
     expect(second.recordId).toBe(first.recordId)
     expect(await prisma!.promptRecord.count()).toBe(1)
     expect(await prisma!.promptIteration.count()).toBe(1)
+
+    // completed 重放要补发 meta，标题取已落库的记录标题。
+    const metaEvent = replay.find((message) => message.event === 'meta')
+    expect(metaEvent?.event === 'meta' ? metaEvent.data.title : null).toBe('重放清理测试')
+    expect(metaEvent?.event === 'meta' ? metaEvent.data.notes : null).toEqual([])
   })
 })
 

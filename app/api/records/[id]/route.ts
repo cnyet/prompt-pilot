@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import {
+  RecordInFlightError,
   RecordNotFoundError,
   RecordNotReadyError,
   deleteRecord,
@@ -12,7 +13,7 @@ import {
   toRecordSummary,
   updateRecordMeta,
 } from '@/lib/db/records'
-import { jsonError } from '@/lib/engine/stream-v3'
+import { describeError, jsonError } from '@/lib/engine/stream-v3'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -85,7 +86,8 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
         })),
       },
     })
-  } catch {
+  } catch (error) {
+    console.warn('[records:detail] 详情读取失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '记录读取失败，请稍后重试。')
   }
 }
@@ -123,6 +125,7 @@ export async function PATCH(
     if (error instanceof RecordNotReadyError) {
       return jsonError(409, 'RECORD_NOT_READY', error.message)
     }
+    console.warn('[records:detail] 修改记录失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '记录修改失败，请稍后重试。')
   }
 }
@@ -133,20 +136,15 @@ export async function DELETE(
 ): Promise<Response> {
   const { id } = await context.params
   try {
-    const record = await getRecordWithIterations(id)
-    // 幂等删除：记录不存在也返回 204。
-    if (!record) return new Response(null, { status: 204 })
-    if (
-      record.status === 'running' ||
-      record.iterations.some((iteration) => iteration.status === 'running')
-    ) {
-      return jsonError(409, 'ITERATION_IN_FLIGHT', '这一条正在处理，等它完成再继续。')
-    }
+    // 运行中守卫在 deleteRecord 的事务内完成；记录不存在时抛 P2025，按幂等 204 处理。
     await deleteRecord(id)
     return new Response(null, { status: 204 })
   } catch (error) {
-    // 前置检查与删除之间记录被并发删掉：同样按幂等成功处理。
+    if (error instanceof RecordInFlightError) {
+      return jsonError(409, 'ITERATION_IN_FLIGHT', error.message)
+    }
     if (isPrismaNotFound(error)) return new Response(null, { status: 204 })
+    console.warn('[records:detail] 删除记录失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '记录删除失败，请稍后重试。')
   }
 }

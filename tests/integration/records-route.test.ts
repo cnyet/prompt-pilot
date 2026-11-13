@@ -206,6 +206,49 @@ describe('GET /api/records 列表', () => {
     expect(padded.total).toBe(3)
   })
 
+  it('q 中的 % 与 _ 按字面匹配，不当作 SQLite LIKE 通配符', async () => {
+    const percent = await seed({
+      title: '完成度 100% 的提示词',
+      sourceInput: '输入甲',
+      output: '输出甲',
+    })
+    const underscore = await seed({
+      title: '命名 snake_case 规范',
+      sourceInput: '输入乙',
+      output: '输出乙',
+    })
+    const plain = await seed({
+      title: '普通标题 1000 字',
+      sourceInput: '输入丙',
+      output: '输出丙',
+    })
+
+    // q='%' 只命中正文里真的含 % 的记录，而不是全部记录。
+    const percentOnly = (await (await listGet('?q=%25')).json()) as ListBody
+    expect(percentOnly.records.map((record) => record.id)).toEqual([percent])
+    expect(percentOnly.total).toBe(1)
+    expect(percentOnly.records.some((record) => record.id === plain)).toBe(false)
+
+    // q='100%' 不会误命中 1000。
+    const exactPercent = (await (await listGet('?q=100%25')).json()) as ListBody
+    expect(exactPercent.records.map((record) => record.id)).toEqual([percent])
+
+    // q='_' 只命中真的含下划线的记录。
+    const underscoreOnly = (await (await listGet('?q=_')).json()) as ListBody
+    expect(underscoreOnly.records.map((record) => record.id)).toEqual([underscore])
+    expect(underscoreOnly.total).toBe(1)
+
+    // 通配符搜索同样遵守其它过滤条件与分页。
+    const filtered = (
+      await (await listGet('?q=%25&filter=optimize')).json()
+    ) as ListBody
+    expect(filtered.total).toBe(0)
+
+    const firstPage = (await (await listGet('?q=%25&limit=1&offset=0')).json()) as ListBody
+    expect(firstPage.total).toBe(1)
+    expect(firstPage.records.map((record) => record.id)).toEqual([percent])
+  })
+
   it('favorite / rated / generate / optimize 与 targetType 组合过滤', async () => {
     const favGenerate = await seed({ favorite: true })
     const ratedOptimize = await seed({ rating: 4, mode: 'optimize' })
@@ -450,6 +493,29 @@ describe('PATCH /api/records/[id] 修改', () => {
     expect(renamed.status).toBe(200)
     expect(((await renamed.json()) as { record: RecordSummary }).record.title).toBe(
       '可改的标题',
+    )
+  })
+
+  it('completed 记录存在 running 迭代时拒绝收藏评分，改名仍可用', async () => {
+    const id = await seed()
+    // 继续优化只把新迭代置 running，记录状态仍是 completed。
+    await appendIteration({ recordId: id, seq: 2, kind: 'optimize' })
+
+    const favorite = await patchReq(id, { favorite: true })
+    expect(favorite.status).toBe(409)
+    expect(await favorite.json()).toMatchObject({
+      code: 'RECORD_NOT_READY',
+      retryable: false,
+    })
+
+    const rated = await patchReq(id, { rating: 3 })
+    expect(rated.status).toBe(409)
+    expect(await rated.json()).toMatchObject({ code: 'RECORD_NOT_READY' })
+
+    const renamed = await patchReq(id, { title: '运行中改名' })
+    expect(renamed.status).toBe(200)
+    expect(((await renamed.json()) as { record: RecordSummary }).record.title).toBe(
+      '运行中改名',
     )
   })
 

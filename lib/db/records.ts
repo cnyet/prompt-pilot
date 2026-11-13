@@ -294,6 +294,46 @@ export function toRecordSummary(record: PromptRecordRow): RecordSummary {
   }
 }
 
+/** SQLite LIKE 把 % 与 _ 当通配符，反斜杠在无 ESCAPE 时也不保证安全；含这些字符改为字面匹配。 */
+const LIKE_WILDCARD_PATTERN = /[%_\\]/
+
+/** SQLite LIKE 只对 ASCII 大小写不敏感；后置过滤沿用同一口径。 */
+function asciiLower(value: string): string {
+  return value.replace(/[A-Z]/g, (character) => character.toLowerCase())
+}
+
+function containsLiteral(haystack: string, needle: string): boolean {
+  return asciiLower(haystack).includes(asciiLower(needle))
+}
+
+/**
+ * 含 LIKE 通配符的搜索词：候选集先套用其余过滤条件，再在内存里按字面匹配。
+ * 过滤不改变 Prisma 已排好的顺序，total 与分页在过滤后的结果上计算。
+ * 通配符会让匹配集合变大而不是变小，所以候选集一定是字面结果的超集。
+ */
+async function listRecordsLiteralSearch(
+  prisma: NonNullable<ReturnType<typeof getPrisma>>,
+  where: Prisma.PromptRecordWhereInput,
+  q: string,
+  limit: number,
+  offset: number,
+): Promise<{ records: RecordSummary[]; total: number }> {
+  const candidates = await prisma.promptRecord.findMany({
+    where,
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+  })
+  const matched = candidates.filter(
+    (record) =>
+      containsLiteral(record.title, q) ||
+      containsLiteral(record.sourceInput, q) ||
+      containsLiteral(record.latestOutput, q),
+  )
+  return {
+    records: matched.slice(offset, offset + limit).map(toRecordSummary),
+    total: matched.length,
+  }
+}
+
 /**
  * 提示词库列表：只收有正文的记录，按最近处理倒序，id 倒序兜底保证分页稳定。
  * 返回的摘要不含 latestOutput，正文只在详情接口返回。
@@ -303,13 +343,6 @@ export async function listRecords(
 ): Promise<{ records: RecordSummary[]; total: number }> {
   const prisma = requirePrisma()
   const where: Prisma.PromptRecordWhereInput = { latestOutput: { not: '' } }
-  if (query.q) {
-    where.OR = [
-      { title: { contains: query.q } },
-      { sourceInput: { contains: query.q } },
-      { latestOutput: { contains: query.q } },
-    ]
-  }
   if (query.filter === 'favorite') where.favorite = true
   if (query.filter === 'rated') where.rating = { not: null }
   if (query.filter === 'generate' || query.filter === 'optimize') {
@@ -321,6 +354,16 @@ export async function listRecords(
       ...(query.fromInclusive ? { gte: query.fromInclusive } : {}),
       ...(query.toExclusive ? { lt: query.toExclusive } : {}),
     }
+  }
+  if (query.q) {
+    if (LIKE_WILDCARD_PATTERN.test(query.q)) {
+      return listRecordsLiteralSearch(prisma, where, query.q, query.limit, query.offset)
+    }
+    where.OR = [
+      { title: { contains: query.q } },
+      { sourceInput: { contains: query.q } },
+      { latestOutput: { contains: query.q } },
+    ]
   }
 
   const [records, total] = await Promise.all([
@@ -362,6 +405,8 @@ export interface UpdateRecordMetaInput {
 /**
  * 改名 / 收藏 / 评分。改名任何状态都可执行；收藏与评分只对 completed / canceled
  * 开放（running 还在处理，failed 没有可用结果）。
+ * 继续优化只把迭代置 running、记录状态仍是 completed，所以评分与收藏还必须
+ * 确认没有未完成的迭代（FR-6.6：进行中的记录不可评分）。
  * updatedAt 显式写回读到的值，元数据编辑不改变「最近处理」排序。
  */
 export async function updateRecordMeta(
@@ -372,8 +417,14 @@ export async function updateRecordMeta(
   if (!record) throw new RecordNotFoundError()
 
   const wantsRatingChange = input.rating !== undefined || input.favorite !== undefined
-  if (wantsRatingChange && !['completed', 'canceled'].includes(record.status)) {
-    throw new RecordNotReadyError()
+  if (wantsRatingChange) {
+    const runningIteration = await prisma.promptIteration.findFirst({
+      where: { recordId: record.id, status: 'running' },
+      select: { id: true },
+    })
+    if (runningIteration || !['completed', 'canceled'].includes(record.status)) {
+      throw new RecordNotReadyError()
+    }
   }
 
   const data: Prisma.PromptRecordUpdateInput = {}
@@ -389,11 +440,24 @@ export async function updateRecordMeta(
 
 /**
  * 删除记录与迭代正文；调用账本只置空关联，保留匿名用量（FR-11.2）。
- * 并发下记录已被删掉时 Prisma 抛 P2025，由路由当作幂等删除处理。
+ * 并发守卫与删除在同一事务内：记录或任一迭代处于 running 时抛 RecordInFlightError，
+ * 不给「检查后、删除前又起了新一轮」的窗口。
+ * 记录已被并发删掉时 Prisma 抛 P2025，由路由当作幂等删除处理。
  */
 export async function deleteRecord(recordId: string): Promise<void> {
   const prisma = requirePrisma()
   await prisma.$transaction(async (tx) => {
+    const record = await tx.promptRecord.findUnique({
+      where: { id: recordId },
+      select: { status: true },
+    })
+    const runningIteration = await tx.promptIteration.findFirst({
+      where: { recordId, status: 'running' },
+      select: { id: true },
+    })
+    if (runningIteration || record?.status === 'running') {
+      throw new RecordInFlightError('这一条正在处理，等它完成再继续。')
+    }
     const iterations = await tx.promptIteration.findMany({
       where: { recordId },
       select: { id: true },

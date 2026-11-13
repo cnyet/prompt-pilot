@@ -3,7 +3,7 @@
  * deleted → 204；not_found → 404 TEMPLATE_NOT_FOUND；builtin → 409 TEMPLATE_BUILTIN。
  */
 import { deleteTemplate } from '@/lib/db/templates'
-import { jsonError } from '@/lib/engine/stream-v3'
+import { describeError, jsonError } from '@/lib/engine/stream-v3'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,7 +24,8 @@ export async function DELETE(
       return jsonError(404, 'TEMPLATE_NOT_FOUND', '没有找到这个模板。')
     }
     return jsonError(409, 'TEMPLATE_BUILTIN', '内置模板不可删除。')
-  } catch {
+  } catch (error) {
+    console.warn('[templates:detail] 删除模板失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '模板删除失败，请稍后重试。')
   }
 }

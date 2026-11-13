@@ -2,7 +2,7 @@
 
 > 本文档描述 v3「结果优先」的目标架构与契约，事实源是 `PRODUCT.md` 与 `docs/ROADMAP-V3.md`。
 >
-> **现状**：仓库代码仍是 v2（八字段结构化范式）。v2 引擎与本文描述的新协议并存到 Phase 6，冲突时以本文为准；v2 细节见 git 历史（ADR-0007 之前）。`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删除。
+> **现状**：数据与 API 层已是 v3（Batch A 到 D 已收口）；工作台等界面仍运行 v2（八字段结构化范式）。v2 引擎与本文描述的新协议并存到 Phase 6，冲突时以本文为准；v2 细节见 git 历史（ADR-0007 之前）。`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删除。
 
 ## 一、技术选型
 
@@ -148,7 +148,9 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 
 **继续优化与修复**
 
-`POST /api/records/[id]/optimize`、`POST /api/records/[id]/repair` 为 SSE 路由。记录不存在返回 404 `RECORD_NOT_FOUND`；记录或任一迭代处于 `running` 时返回 409 `ITERATION_IN_FLIGHT`；记录正文为空（首轮失败）时返回 409 `RECORD_HAS_NO_OUTPUT`，提示先重新生成。请求体接受可选 `requestId`；`optimize` 另接受可选 `instruction`（最多 500 字），`repair` 另接受必填 `issues` 数组（最多 20 条，可为空）。
+`POST /api/records/[id]/optimize`、`POST /api/records/[id]/repair` 为 SSE 路由。记录不存在返回 404 `RECORD_NOT_FOUND`；记录或任一迭代处于 `running` 时返回 409 `ITERATION_IN_FLIGHT`；记录正文为空（首轮失败）时返回 409 `RECORD_HAS_NO_OUTPUT`，提示先重新生成；未配置可用模型返回 503 `NO_MODEL`。请求体不是合法 JSON、字段非法或超出长度上限时返回 400 `INVALID_INPUT`。
+
+请求体接受可选 `requestId`（1 到 200 字）。`optimize` 另接受可选 `instruction`（1 到 500 字）；`repair` 另接受必填 `issues` 数组（最多 20 条，可为空），每条为 `{ id, level, message, suggestion }`：`id` 为 1 到 100 字，`level` 取 `error` / `warn` / `info`，`message` 最多 200 字，`suggestion` 为最多 200 字的字符串或 `null`。
 
 ### 模板 API（Batch D）
 
@@ -378,6 +380,6 @@ v3 主路径不再消费 `structured()`（结构化 JSON 输出），该方法�
 | 退役 | 八字段 schema、doc、paths、assumptions、字段级 lint、评估、试运行、多格式导出测试 |
 | 新增 | 元数据解析（缺分隔符 / 坏 JSON / 提前出现）、Markdown 复制一致性、diff、R101-R108、记录 API、模板 API、预算、SSE 集成、幂等 |
 
-E2E 六场景：生成入库复制下载；优化对比继续迭代对比两轮；收藏评分搜索删除；模板「用它开始」与自定义模板；设置模型与预算提示；无密钥与断网禁用。测试基线以实测为准（2026-11-13 为 512 条），旧引擎测试随模块退役，新基线以 Phase 6 结果为准。
+E2E 六场景：生成入库复制下载；优化对比继续迭代对比两轮；收藏评分搜索删除；模板「用它开始」与自定义模板；设置模型与预算提示；无密钥与断网禁用。测试基线以实测为准（2026-11-13 为 639 条），旧引擎测试随模块退役，新基线以 Phase 6 结果为准。
 
 验证门槛：`pnpm run typecheck`、`pnpm test`、`pnpm build`、`pnpm check:contrast`、`node ~/.claude/scripts/claude-project-harness-check.mjs .` 全绿。

@@ -64,6 +64,16 @@ describe('summarizeV3Stats', () => {
     expect(stats.month.averageCostCny).toBe(0.375)
   })
 
+  it('月费求和按 round6 归一：0.1 + 0.2 为 0.3', () => {
+    const stats = summarizeV3Stats(
+      [row({ costCny: 0.1 }), row({ costCny: 0.2 })],
+      null,
+      NOW,
+    )
+
+    expect(stats.month.costCny).toBe(0.3)
+  })
+
   it('全部成本未知时 costCny 与 averageCostCny 为 null', () => {
     const stats = summarizeV3Stats(
       [row({ costCny: null }), row({ costCny: null })],

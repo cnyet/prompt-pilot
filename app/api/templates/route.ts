@@ -7,7 +7,7 @@
  */
 import { z } from 'zod'
 import { createCustomTemplate, listTemplates } from '@/lib/db/templates'
-import { jsonError } from '@/lib/engine/stream-v3'
+import { describeError, jsonError } from '@/lib/engine/stream-v3'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,7 +44,8 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const templates = await listTemplates(category)
     return noStoreJson({ templates })
-  } catch {
+  } catch (error) {
+    console.warn('[templates] 列表读取失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '模板读取失败，请稍后重试。')
   }
 }
@@ -71,7 +72,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const template = await createCustomTemplate(parsed.data)
     return noStoreJson({ template }, 201)
-  } catch {
+  } catch (error) {
+    console.warn('[templates] 保存模板失败：', describeError(error))
     return jsonError(500, 'INTERNAL', '模板保存失败，请稍后重试。')
   }
 }
