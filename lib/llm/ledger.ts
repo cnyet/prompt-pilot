@@ -20,6 +20,9 @@ import type {
   TokenUsage,
 } from './types'
 
+/** 账本 stage：v2 引擎阶段之外追加 v3 的生成 / 优化 / 修复。 */
+export type LedgerStage = EngineStage | 'generate' | 'optimize' | 'repair'
+
 /**
  * 调用账本。
  *
@@ -280,7 +283,7 @@ export type LlmCallStatus = 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 
 export interface LlmCallInput {
   traceId?: string | null
-  stage: EngineStage
+  stage: LedgerStage
   provider: string
   modelId: string
   thinking?: string | null
@@ -296,6 +299,9 @@ export interface LlmCallInput {
   versionId?: string | null
   runId?: string | null
   evalTaskId?: string | null
+  /** v3 记录关联；缺省为 null。 */
+  recordId?: string | null
+  iterationId?: string | null
 }
 
 export interface LlmCallWrite {
@@ -305,6 +311,8 @@ export interface LlmCallWrite {
   versionId: string | null
   runId: string | null
   evalTaskId: string | null
+  recordId: string | null
+  iterationId: string | null
   provider: string
   modelId: string
   thinking: string | null
@@ -365,6 +373,8 @@ function buildWrite(
     versionId: optionalString(input.versionId),
     runId: optionalString(input.runId),
     evalTaskId: optionalString(input.evalTaskId),
+    recordId: optionalString(input.recordId),
+    iterationId: optionalString(input.iterationId),
     provider: input.provider,
     modelId: input.modelId,
     thinking: optionalString(input.thinking),
@@ -673,6 +683,9 @@ export const STAGE_LABELS: Readonly<Record<string, string>> = {
   refine: '优化',
   run: '试运行',
   judge: '盲评',
+  generate: '生成',
+  optimize: '优化',
+  repair: '修复',
 }
 
 export function stageLabel(stage: string): string {
