@@ -5,6 +5,10 @@ import { Chip } from '@/components/ui/Chip'
 import { Select } from '@/components/ui/Input'
 import { diffPromptLines } from '@/lib/engine/diff'
 import { t, type MessageKey } from '@/lib/i18n/zh'
+import {
+  defaultCompareSelection,
+  ORIGINAL_COMPARE_ID,
+} from '@/lib/ui/compare'
 import { cn } from '@/lib/utils'
 import type { IterationDto } from './api'
 import { DiffView } from './DiffView'
@@ -19,6 +23,8 @@ type CompareView = 'inline' | 'side-by-side'
 
 export interface IterationCompareProps {
   iterations: readonly IterationDto[]
+  /** 优化记录的原始输入；提供时 FROM 增加「原文」伪轮次。 */
+  original?: string
   className?: string
 }
 
@@ -29,49 +35,68 @@ function optionLabel(iteration: IterationDto): string {
 }
 
 /**
- * 任意两轮迭代对比（FR-4.3 / FR-6.7）。
+ * 迭代与原文对比（FR-4.3 / FR-6.7）。
  *
- * 两个 select 选择轮次，默认上一轮 vs 当前轮；少于 2 轮不渲染。
- * diff 由 `diffPromptLines` 计算，视图默认行内，可切并排。
+ * 两个 select 选择起点与终点：TO 只列迭代；FROM 在优化记录带原文时额外
+ * 提供「原文」伪轮次。默认：单轮优化看原文 vs 该轮，两轮及以上看上一轮
+ * vs 当前轮。少于两轮且没有原文时不渲染。视图默认行内，可切并排。
  */
 export function IterationCompare({
   iterations,
+  original,
   className,
 }: IterationCompareProps): ReactElement | null {
-  if (iterations.length < 2) return null
+  const hasOriginal =
+    typeof original === 'string' && original.trim().length > 0
+  if (iterations.length === 0 && !hasOriginal) return null
   return (
-    <IterationCompareBody iterations={iterations} className={className} />
+    <IterationCompareBody
+      iterations={iterations}
+      original={hasOriginal ? original : undefined}
+      className={className}
+    />
   )
 }
 
 function IterationCompareBody({
   iterations,
+  original,
   className,
 }: {
   iterations: readonly IterationDto[]
+  original?: string
   className?: string
 }): ReactElement {
   const fromSelectId = useId()
   const toSelectId = useId()
-  const [fromId, setFromId] = useState(
-    () => iterations[iterations.length - 2]?.id ?? '',
+  const hasOriginal = original !== undefined
+  const initial = defaultCompareSelection(
+    iterations.map((iteration) => iteration.id),
+    hasOriginal,
   )
-  const [toId, setToId] = useState(
-    () => iterations[iterations.length - 1]?.id ?? '',
-  )
+  const [fromId, setFromId] = useState(initial.fromId)
+  const [toId, setToId] = useState(initial.toId)
   const [view, setView] = useState<CompareView>('inline')
 
   // 迭代列表变化时（例如继续优化后）把失效的选择回落到最近两轮
-  const from =
+  const fromIteration =
     iterations.find((iteration) => iteration.id === fromId) ??
     iterations[iterations.length - 2]
   const to =
     iterations.find((iteration) => iteration.id === toId) ??
     iterations[iterations.length - 1]
+  const fromValue =
+    fromId === ORIGINAL_COMPARE_ID && hasOriginal
+      ? ORIGINAL_COMPARE_ID
+      : (fromIteration?.id ?? '')
+  const fromOutput =
+    fromId === ORIGINAL_COMPARE_ID && hasOriginal
+      ? original
+      : (fromIteration?.output ?? '')
 
   const result = useMemo(
-    () => diffPromptLines(from?.output ?? '', to?.output ?? ''),
-    [from?.output, to?.output],
+    () => diffPromptLines(fromOutput, to?.output ?? ''),
+    [fromOutput, to?.output],
   )
 
   return (
@@ -87,10 +112,15 @@ function IterationCompareBody({
             </label>
             <Select
               id={fromSelectId}
-              value={from?.id ?? ''}
+              value={fromValue}
               onChange={(event) => setFromId(event.target.value)}
               className="mt-1"
             >
+              {hasOriginal ? (
+                <option value={ORIGINAL_COMPARE_ID}>
+                  {t('studio.compare.original')}
+                </option>
+              ) : null}
               {iterations.map((iteration) => (
                 <option key={iteration.id} value={iteration.id}>
                   {optionLabel(iteration)}

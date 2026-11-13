@@ -103,6 +103,7 @@ export const zh = {
   // 工作台扩展（Task 6）
   'studio.result.view.original': '原文',
   'studio.result.view.compare': '对比原文',
+  'studio.result.view.compareIterations': '对比',
   'studio.result.original.caption': '这条记录保存的原始输入，优化不会覆盖它。',
   'studio.notes.label': '改动说明',
   'studio.continue.label': '继续优化',
@@ -116,6 +117,7 @@ export const zh = {
   'studio.continue.unavailable': '未配置可用的优化模型，先到设置页接入模型',
   'studio.compare.label': '迭代对比',
   'studio.compare.from': '起始轮次',
+  'studio.compare.original': '原文',
   'studio.compare.to': '目标轮次',
   'studio.compare.iteration': '第 {seq} 轮',
   'studio.compare.view.label': '对比视图',

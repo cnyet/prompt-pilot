@@ -256,13 +256,15 @@ export function StudioWorkspace({
   }, [cancelStream])
 
   // 继续优化与修复沿用当前记录，不 reset：旧正文在下一轮流式期间继续可见，
-  // 首个 delta 到达后才被草稿替换。请求锁与并发守卫与重新生成一致。
+  // 首个 delta 到达后才被草稿替换。请求锁与并发守卫与重新生成一致；
+  // settling 期间 hook 仍持有 controller，必须与 active 一样拒绝新请求。
   const continueOptimize = useCallback(
     (instruction: string) => {
       if (
         !recordId ||
         !optimizeReady ||
         requestToken.current !== 0 ||
+        streamState.settling ||
         isRequestActive(streamState.phase)
       ) {
         return
@@ -275,7 +277,13 @@ export function StudioWorkspace({
         }),
       )
     },
-    [recordId, optimizeReady, startRequest, streamState.phase],
+    [
+      recordId,
+      optimizeReady,
+      startRequest,
+      streamState.phase,
+      streamState.settling,
+    ],
   )
 
   const repair = useCallback(
@@ -285,6 +293,7 @@ export function StudioWorkspace({
         !optimizeReady ||
         issues.length === 0 ||
         requestToken.current !== 0 ||
+        streamState.settling ||
         isRequestActive(streamState.phase)
       ) {
         return
@@ -297,7 +306,13 @@ export function StudioWorkspace({
         }),
       )
     },
-    [recordId, optimizeReady, startRequest, streamState.phase],
+    [
+      recordId,
+      optimizeReady,
+      startRequest,
+      streamState.phase,
+      streamState.settling,
+    ],
   )
 
   const copyMarkdown = useCallback(async () => {

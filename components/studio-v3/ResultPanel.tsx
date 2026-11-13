@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { Rating } from '@/components/ui/Rating'
 import { t } from '@/lib/i18n/zh'
+import { isOriginalCompareAvailable, showCompareView } from '@/lib/ui/compare'
 import { cn } from '@/lib/utils'
 import type { IterationDto, ProcessMode, TargetType } from './api'
 import { ChangeNotes } from './ChangeNotes'
@@ -123,8 +124,19 @@ export function ResultPanel({
   const status = statusText(phase, settling)
   const failed = phase === 'failed'
 
+  // 新的记录到达后回到结果视图，避免沿用上一条记录的原文/对比选择
+  useEffect(() => {
+    setView('rendered')
+  }, [recordId])
+
   const showOriginal = recordId !== null && sourceInput.trim().length > 0
-  const showCompare = mode === 'optimize' && iterations.length >= 2
+  const originalForCompare = isOriginalCompareAvailable(mode, sourceInput)
+    ? sourceInput
+    : undefined
+  const showCompare = showCompareView(mode, sourceInput, iterations.length)
+  const compareLabelKey = originalForCompare
+    ? 'studio.result.view.compare'
+    : 'studio.result.view.compareIterations'
   const effectiveView: ResultView =
     (view === 'original' && !showOriginal) ||
     (view === 'compare' && !showCompare)
@@ -194,7 +206,7 @@ export function ResultPanel({
                   aria-pressed={effectiveView === 'compare'}
                   onClick={() => setView('compare')}
                 >
-                  {t('studio.result.view.compare')}
+                  {t(compareLabelKey)}
                 </Chip>
               ) : null}
             </div>
@@ -234,8 +246,11 @@ export function ResultPanel({
               </div>
             ) : (
               <IterationCompare
-                key={`${iterations.length}-${iterations.at(-1)?.id ?? 'none'}`}
+                key={`${iterations.length}-${iterations.at(-1)?.id ?? 'none'}-${
+                  originalForCompare ? 'original' : 'iterations'
+                }`}
                 iterations={iterations}
+                original={originalForCompare}
                 className="rise"
               />
             )}
@@ -256,7 +271,7 @@ export function ResultPanel({
           key={source}
           source={source}
           recordId={recordId}
-          busy={active}
+          busy={active || settling}
           repairAvailable={repairAvailable}
           onRepair={onRepair}
         />
@@ -264,7 +279,7 @@ export function ResultPanel({
 
       {recordId && hasOutput ? (
         <ContinueBar
-          busy={active}
+          busy={active || settling}
           available={continueAvailable}
           onContinue={onContinue}
         />
@@ -275,7 +290,7 @@ export function ResultPanel({
           source={source}
           targetType={targetType}
           mode={mode}
-          disabled={active}
+          disabled={active || settling}
         />
       ) : null}
 
