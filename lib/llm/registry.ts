@@ -8,11 +8,15 @@ import {
   isMockFaultProfile,
   type MockFaultProfile,
 } from './mock'
+import { MODEL_DISPLAY_LABELS, modelDisplayLabel } from './model-labels'
 import {
   OpenAICompatProvider,
   type ModelPricingCny,
 } from './openai-compat'
 import type { LLMProvider } from './types'
+
+// 旧调用方从 registry 导入显示名，继续 re-export 保持兼容。
+export { MODEL_DISPLAY_LABELS, modelDisplayLabel }
 
 /**
  * 模型注册表：把 ChatRequest.modelConfigId 解析成具体 provider 与 model。
@@ -31,16 +35,6 @@ const OPENCODE_GATEWAY_PREFIX = 'https://opencode.ai/inference/go'
 const OPENCODE_SESSION_ID = randomUUID()
 export const DEFAULT_GENERATE_MODEL_ID = 'deepseek-v4.1-flash'
 export const DEFAULT_EVALUATE_MODEL_ID = 'gpt-5.6-luna'
-
-/** 模型 ID 到界面显示名的映射；未知 ID 原样显示。 */
-export const MODEL_DISPLAY_LABELS: Readonly<Record<string, string>> = {
-  'deepseek-v4.1-flash': 'DeepSeek V4.1 Flash',
-  'gpt-5.6-luna': 'GPT 5.6 Luna',
-}
-
-export function modelDisplayLabel(modelId: string): string {
-  return MODEL_DISPLAY_LABELS[modelId] ?? modelId
-}
 
 /**
  * 兼容早期保存的网关地址：`/inference/go` 与 `/inference/go/v1` 都指向

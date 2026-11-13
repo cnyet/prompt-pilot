@@ -30,6 +30,9 @@ export type IconName =
   | 'terminal'
   | 'sun'
   | 'moon'
+  | 'star'
+  | 'check'
+  | 'refresh'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   studio: (
@@ -145,6 +148,16 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   moon: <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />,
+  star: (
+    <path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L3.3 9.8l6.5-.9Z" />
+  ),
+  check: <path d="m5 12.5 4.5 4.5L19 6.5" />,
+  refresh: (
+    <>
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
+    </>
+  ),
 }
 
 export function Icon({
