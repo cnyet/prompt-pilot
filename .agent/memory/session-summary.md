@@ -414,3 +414,16 @@
 - [ ] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合。
 - [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio、主题切换移顶栏）。
 - [ ] 会话末记账提交：docs/shape-studio-v3.md + docs/superpowers/plans/* + 记忆文件。
+
+## 2026-11-13 Batch C（SSE 路由与账本关联）
+
+- 提交链：`03a26ea` ledger 加法（LedgerStage、recordId/iterationId）→ `59eb9b6` lib/db/records.ts 写路径 → `66df02f` /api/generate 首轮 SSE → `03e96da` 共享流收敛到 lib/engine/stream-v3.ts（refactor）→ `2e67025` optimize/repair 路由 → `4d9af1f` 修复（completeIteration 失败收敛为 failed；META 泄漏测试改注入 provider；P2002 重放测试）。
+- 验证：typecheck 0；全量 53 文件 / 579 用例通过；harness 唯一 fail 为 ACTIVE_CONTEXT 超 4KB 预算。
+- 关键裁定（ledger 有全文）：
+  - 记录 status 跟随迭代 status（canceled 时记录 canceled，用量排除在 completed 聚合外）。
+  - finishReason `length` 视为 invalid_output 失败、不保留正文（代价：撞 8192 上限丢正文）。
+  - record.title 仅 /api/generate 按 meta.title 更新，optimize/repair 不改标题（FR-6.3）。
+- 踩坑：valid mock（lib/llm/mock.ts）不输出 META 分隔符，早期 META 泄漏断言空转；已改为测试内注入带 marker 的 provider。
+- 踩坑：首个 Task 3 实现者 API 超时后无产出；改派全新实现者成功。
+- 待办：Batch C 整分支 final review（6087412..HEAD）；minor/parked 项 triage；finishing-a-development-branch。
+- 已记录的 minor：generate-v3-route 的 marker 断言仍空转（由 stream-v3-meta 覆盖）；optimize 对首轮失败记录无空源守卫；409 字面量重复。
