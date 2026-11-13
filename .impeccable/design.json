@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T14:57:26Z",
+  "title": "Design System: PromptPilot",
+  "extensions": {
+    "colorMeta": {
+      "candle-gold": {
+        "role": "primary",
+        "displayName": "Candle Gold",
+        "canonical": "#8a5a00",
+        "darkValue": "#ca8a04",
+        "tonalRamp": ["#2b1a00", "#452a00", "#613d00", "#8a5a00", "#b57900", "#d49b1f", "#ecc66f", "#f8e8c6"]
+      },
+      "parchment-bg": {
+        "role": "neutral",
+        "displayName": "Parchment Background",
+        "canonical": "#f3ead8",
+        "darkValue": "#1a0f0a",
+        "tonalRamp": ["#3a2c1a", "#58452a", "#78603e", "#9a8058", "#bda37a", "#d8c7a8", "#eadfc8", "#f3ead8"]
+      },
+      "paper-surface": {
+        "role": "neutral",
+        "displayName": "Paper Surface",
+        "canonical": "#fbf5e9",
+        "darkValue": "#2c1a10",
+        "tonalRamp": ["#3b2c1c", "#5a452c", "#7a6240", "#9c8058", "#bda37a", "#dcd0b8", "#f0e8d8", "#fbf5e9"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#2a1a10",
+        "darkValue": "#f5e6d3",
+        "tonalRamp": ["#0f0a06", "#1a1009", "#2a1a10", "#4a3220", "#6b4b2e", "#85643f", "#a98a64", "#cbb497"]
+      },
+      "border-warm": {
+        "role": "neutral",
+        "displayName": "Border Warm",
+        "canonical": "#d8c7a8",
+        "darkValue": "#5c3d2e",
+        "tonalRamp": ["#2f2418", "#4a3a26", "#6a5438", "#8e7450", "#b99f72", "#d0bb98", "#e2d3b8", "#f0e6d4"]
+      },
+      "success-moss": {
+        "role": "tertiary",
+        "displayName": "Success Moss",
+        "canonical": "#2f6b3a",
+        "darkValue": "#22c55e",
+        "tonalRamp": ["#0e2412", "#173a1d", "#21542a", "#2f6b3a", "#4a8a55", "#6fae79", "#9fd0a6", "#d6ecd9"]
+      },
+      "danger-brick": {
+        "role": "tertiary",
+        "displayName": "Danger Brick",
+        "canonical": "#8f1d14",
+        "darkValue": "#f87171",
+        "tonalRamp": ["#2a0806", "#4a0f0a", "#6a160e", "#8f1d14", "#b33a2e", "#d46a5e", "#eaa79f", "#f7d9d4"]
+      },
+      "info-violet": {
+        "role": "tertiary",
+        "displayName": "Info Violet",
+        "canonical": "#5b2a86",
+        "darkValue": "#c4a5f5",
+        "tonalRamp": ["#1c0e2a", "#2f1745", "#452263", "#5b2a86", "#7a4aa8", "#9b72c6", "#c2a3e0", "#e6d8f4"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "页面标题、空态大标题、KPI 数字",
+        "fontFamily": "Songti SC, Noto Serif SC, Source Han Serif SC, STSong, Georgia, serif",
+        "fontSize": "2.5rem",
+        "fontWeight": 600,
+        "lineHeight": 1.12
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "区块标题",
+        "fontFamily": "Songti SC, Noto Serif SC, Source Han Serif SC, STSong, Georgia, serif",
+        "fontSize": "1.625rem",
+        "fontWeight": 600,
+        "lineHeight": 1.25
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "面板、卡片、字段标题",
+        "fontFamily": "Songti SC, Noto Serif SC, Source Han Serif SC, STSong, Georgia, serif",
+        "fontSize": "1.125rem",
+        "fontWeight": 600,
+        "lineHeight": 1.35
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "默认正文与表单辅助文字",
+        "fontFamily": "system-ui, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
+        "fontSize": "0.9375rem",
+        "fontWeight": 400,
+        "lineHeight": 1.7
+      },
+      "body-lg": {
+        "displayName": "Body Large",
+        "purpose": "渲染后的 Markdown 提示词正文",
+        "fontFamily": "system-ui, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
+        "fontSize": "1rem",
+        "fontWeight": 400,
+        "lineHeight": 1.75
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "按钮、导航、表单标签",
+        "fontFamily": "system-ui, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
+        "fontSize": "0.8125rem",
+        "fontWeight": 500,
+        "lineHeight": 1.4
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "元信息、状态、时间、费用",
+        "fontFamily": "system-ui, PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
+        "fontSize": "0.75rem",
+        "fontWeight": 400,
+        "lineHeight": 1.4
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "源码视图、token、模型 ID、费用",
+        "fontFamily": "ui-monospace, SF Mono, Menlo, Consolas, monospace",
+        "fontSize": "0.875rem",
+        "fontWeight": 400,
+        "lineHeight": 1.6
+      }
+    },
+    "shadows": [
+      {
+        "name": "Elevation Small",
+        "value": "0 1px 3px rgba(90,60,20,.14)",
+        "purpose": "默认卡片与面板的静止阴影"
+      },
+      {
+        "name": "Elevation Medium",
+        "value": "0 2px 8px rgba(90,60,20,.18)",
+        "purpose": "抬升卡片、下拉、悬停浮层"
+      },
+      {
+        "name": "Elevation Large",
+        "value": "0 8px 24px -12px rgba(90,60,20,.28)",
+        "purpose": "弹层、抽屉、命令面板"
+      },
+      {
+        "name": "Glow Gold",
+        "value": "0 0 0 1px #8a5a00, 0 0 16px rgba(138,90,0,.25)",
+        "purpose": "当前导航、选中项、结果面聚焦"
+      },
+      {
+        "name": "Glow Gold Strong",
+        "value": "0 0 0 1px #ca8a04, 0 0 24px rgba(202,138,4,.32)",
+        "purpose": "主操作按下、当前阶段"
+      }
+    ],
+    "motion": [
+      {
+        "name": "Rise",
+        "value": "opacity + translateY 120ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "内容首次出现"
+      },
+      {
+        "name": "Reveal",
+        "value": "opacity + scale 180ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "容器展开、抽屉打开"
+      },
+      {
+        "name": "Glow In",
+        "value": "box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "active / selected 的 glow 淡入"
+      },
+      {
+        "name": "Reduced Motion",
+        "value": "prefers-reduced-motion: reduce -> 全部归零",
+        "purpose": "尊重系统减少动效偏好"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "Desktop",
+        "value": "1440px",
+        "purpose": "设计基准，左轨可展开，12 栏内容区"
+      },
+      {
+        "name": "Compact",
+        "value": "1280px",
+        "purpose": "左轨可展开，内容区收窄"
+      },
+      {
+        "name": "Single Column",
+        "value": "1024px",
+        "purpose": "左轨隐藏，底部四项标签栏，内容单列"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "description": "单屏唯一主操作，金色底配深色文字，最多出现一次。",
+      "html": "<button class=\"pp-btn pp-btn--primary\" type=\"button\">生成提示词</button>",
+      "css": ".pp-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  height: 40px;\n  padding: 0 16px;\n  border-radius: 4px;\n  font-family: var(--font-body);\n  font-size: 13px;\n  font-weight: 500;\n  line-height: 1.4;\n  cursor: pointer;\n  transition: background-color 120ms var(--ease-out-quart), box-shadow 120ms var(--ease-out-quart);\n}\n.pp-btn--primary {\n  color: var(--on-accent);\n  background: var(--accent);\n  border: 1px solid var(--accent-hover);\n  box-shadow: var(--elevation-sm);\n}\n.pp-btn--primary:hover { background: var(--accent-hover); }\n.pp-btn--primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: var(--glow-gold); }\n.pp-btn--primary:active { background: var(--accent-hover); box-shadow: var(--glow-gold-strong); }\n.pp-btn--primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; border-color: var(--border-subtle); }"
+    },
+    {
+      "name": "Secondary Button",
+      "description": "次要动作，透明底、金色文字与边框，不与主操作争夺注意力。",
+      "html": "<button class=\"pp-btn pp-btn--secondary\" type=\"button\">对比原文</button>",
+      "css": ".pp-btn--secondary {\n  color: var(--accent);\n  background: transparent;\n  border: 1px solid var(--accent);\n}\n.pp-btn--secondary:hover { background: var(--accent-subtle); }\n.pp-btn--secondary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n.pp-btn--secondary:active { background: var(--accent-subtle); }\n.pp-btn--secondary:disabled { opacity: .4; cursor: not-allowed; border-color: var(--border-subtle); color: var(--text-faint); }"
+    },
+    {
+      "name": "Text Field",
+      "description": "40px 输入框与多行文本域，焦点用金色边框加 25% 外环，错误用危险色双编码。",
+      "html": "<label class=\"pp-field\">\n  <span class=\"pp-field__label\">优化要求</span>\n  <textarea class=\"pp-field__input\" rows=\"4\" placeholder=\"更严格，保留原有结构\"></textarea>\n</label>",
+      "css": ".pp-field { display: grid; gap: 6px; }\n.pp-field__label { font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--text); }\n.pp-field__input {\n  width: 100%;\n  min-height: 96px;\n  padding: 10px 12px;\n  border: 1px solid var(--border);\n  border-radius: 4px;\n  background: var(--surface);\n  color: var(--text);\n  font-family: var(--font-body);\n  font-size: 13px;\n  line-height: 1.4;\n  resize: vertical;\n  transition: border-color 120ms var(--ease-out-quart), box-shadow 120ms var(--ease-out-quart);\n}\n.pp-field__input:hover { border-color: var(--border-strong); }\n.pp-field__input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }\n.pp-field__input:disabled { background: var(--bg-sunken); color: var(--text-faint); cursor: not-allowed; }"
+    },
+    {
+      "name": "Status Chip",
+      "description": "2px 圆角、12px 文字的状态标签。语义色必须同时带圆点与文字，不能只靠颜色。",
+      "html": "<span class=\"pp-chip pp-chip--success\"><span class=\"pp-chip__dot\"></span>已完成</span>",
+      "css": ".pp-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  min-height: 24px;\n  padding: 0 10px;\n  border: 1px solid var(--border);\n  border-radius: 2px;\n  background: var(--surface);\n  color: var(--text-muted);\n  font-family: var(--font-body);\n  font-size: 12px;\n  line-height: 1.4;\n  white-space: nowrap;\n}\n.pp-chip__dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }\n.pp-chip--success { background: var(--tint-green); border-color: transparent; color: var(--success); }\n.pp-chip--error { background: var(--tint-red); border-color: transparent; color: var(--danger); }\n.pp-chip--info { background: var(--tint-purple); border-color: transparent; color: var(--info); }"
+    },
+    {
+      "name": "Card",
+      "description": "6px 圆角、1px 暖边框、轻阴影。禁止卡片套卡片；同一屏最多两个发光元素。",
+      "html": "<article class=\"pp-card\">\n  <h3 class=\"pp-card__title\">优化后的提示词</h3>\n  <p class=\"pp-card__body\">补全角色、上下文与输出格式，删去无法验证的形容词。</p>\n</article>",
+      "css": ".pp-card {\n  padding: 20px;\n  border: 1px solid var(--border);\n  border-radius: 6px;\n  background: var(--surface);\n  box-shadow: var(--elevation-sm);\n}\n.pp-card__title { margin: 0 0 8px; font-family: var(--font-display); font-size: 18px; font-weight: 600; line-height: 1.35; color: var(--text); }\n.pp-card__body { margin: 0; max-width: 68ch; font-family: var(--font-body); font-size: 15px; line-height: 1.7; color: var(--text-muted); }"
+    },
+    {
+      "name": "Navigation Item",
+      "description": "左轨 40px 导航项，active 用金色底、金色文字与 glow。四项：工作台、提示词库、模板、设置。",
+      "html": "<a class=\"pp-nav-item pp-nav-item--active\" href=\"/studio\" aria-current=\"page\">\n  <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-hidden=\"true\"><path d=\"M4 5h16v14H4z\"/><path d=\"M8 9h8M8 13h5\"/></svg>\n  <span>工作台</span>\n</a>",
+      "css": ".pp-nav-item {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  height: 40px;\n  padding: 0 10px;\n  border: 1px solid transparent;\n  border-radius: 4px;\n  color: var(--text-muted);\n  font-family: var(--font-body);\n  font-size: 13px;\n  font-weight: 500;\n  text-decoration: none;\n  transition: background-color 120ms var(--ease-out-quart), color 120ms var(--ease-out-quart);\n}\n.pp-nav-item:hover { background: var(--surface-raised); color: var(--text); }\n.pp-nav-item--active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); box-shadow: var(--glow-gold); }\n.pp-nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Rating Stars",
+      "description": "1 到 5 星评分，金色填充，未评分为描边；键盘方向键可调，选中状态同时有文字标签。",
+      "html": "<div class=\"pp-rating\">\n  <div class=\"pp-rating__stars\" role=\"radiogroup\" aria-label=\"评分\">\n    <button class=\"pp-rating__star is-on\" type=\"button\" role=\"radio\" aria-checked=\"true\" aria-label=\"1 星\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z\"/></svg></button>\n    <button class=\"pp-rating__star is-on\" type=\"button\" role=\"radio\" aria-checked=\"true\" aria-label=\"2 星\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z\"/></svg></button>\n    <button class=\"pp-rating__star\" type=\"button\" role=\"radio\" aria-checked=\"false\" aria-label=\"3 星\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z\"/></svg></button>\n  </div>\n  <span class=\"pp-rating__label\">已评分 2 星</span>\n</div>",
+      "css": ".pp-rating { display: inline-flex; align-items: center; gap: 8px; }\n.pp-rating__stars { display: inline-flex; gap: 2px; }\n.pp-rating__star { display: inline-flex; padding: 2px; border: 0; background: transparent; color: var(--border-strong); cursor: pointer; }\n.pp-rating__star svg { width: 18px; height: 18px; }\n.pp-rating__star.is-on { color: var(--accent); }\n.pp-rating__star:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }\n.pp-rating__label { font-family: var(--font-body); font-size: 12px; color: var(--text-faint); }"
+    },
+    {
+      "name": "Template Card",
+      "description": "三类模板的异构卡片，程序化封面按文本、图片、视频使用不同构图，不使用渐变与外部图片。",
+      "html": "<article class=\"pp-template\">\n  <div class=\"pp-template__cover\" aria-hidden=\"true\">\n    <span class=\"pp-template__word\">REPORT</span>\n    <span class=\"pp-template__index\">01</span>\n  </div>\n  <div class=\"pp-template__body\">\n    <h3 class=\"pp-template__title\">周报助手</h3>\n    <p class=\"pp-template__desc\">把零散进展整理成结构清晰的周报。</p>\n    <div class=\"pp-template__meta\"><span class=\"pp-chip\">文本</span><span class=\"pp-chip\">公文</span></div>\n    <button class=\"pp-btn pp-btn--secondary\" type=\"button\">用它开始</button>\n  </div>\n</article>",
+      "css": ".pp-template {\n  display: grid;\n  gap: 0;\n  overflow: hidden;\n  border: 1px solid var(--border);\n  border-radius: 6px;\n  background: var(--surface);\n  box-shadow: var(--elevation-sm);\n}\n.pp-template__cover {\n  display: flex;\n  align-items: flex-end;\n  justify-content: space-between;\n  min-height: 140px;\n  padding: 16px;\n  background: var(--bg-sunken);\n  color: var(--text-faint);\n  font-family: var(--font-mono);\n}\n.pp-template__word { font-size: 12px; letter-spacing: .12em; }\n.pp-template__index { font-family: var(--font-display); font-size: 48px; line-height: 1; color: var(--accent); }\n.pp-template__body { display: grid; gap: 8px; padding: 20px; }\n.pp-template__title { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text); }\n.pp-template__desc { margin: 0; font-family: var(--font-body); font-size: 14px; line-height: 1.6; color: var(--text-muted); }\n.pp-template__meta { display: flex; gap: 6px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "烛光落在纸面上",
+    "overview": "PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到结果。用户不需要看系统怎么想，只需要看写出来的提示词好不好用。结果面是屏幕上最亮、最大、最安静的一块纸；左轨、顶栏、输入区都退到更暗的羊皮纸层里。默认路径只有两步：给出需求或原文，读结果。材质沿用深棕分层、金色主操作、衬线标题、细描边与克制的金色 glow，但删掉多阶段时间轴、八字段 bento、假设 chip 墙、评估仪表盘这类流程表演。深色是主场景，像夜里的一盏烛光落在深棕桌面上；浅色是白天办公室的羊皮纸变体，不是深色的简单反相。",
+    "keyCharacteristics": [
+      "结果面是屏幕上唯一的亮纸，chrome 退到 sunken 与 sidebar 层。",
+      "金色是稀缺资源：主操作、当前导航、焦点、一个 KPI，合计不超过单屏 10%。",
+      "双主题一套材质，深色是烛光变体，浅色是日光羊皮纸。",
+      "中文宋体只给页面标题、大陈述句与 KPI 数字；正文、按钮、标签、数据一律无衬线。",
+      "动效只动 opacity 与 transform，120 到 180ms；glow 只给 active / selected / focus，同屏不超过 2 个。",
+      "工具密度与阅读留白并存：chrome 紧凑，结果正文 68ch 上限。"
+    ],
+    "rules": [
+      "The One Candle Rule：金色在任意单屏不超过 10% 面积。",
+      "The Parchment Layering Rule：层次先靠 tonal surface 与 1px 边框建立，阴影是辅助。",
+      "The Semantic Pair Rule：任何语义色必须同时有文字或图标。",
+      "The Result Is the Light Rule：屏幕上最亮的纸永远是用户正在读的提示词。",
+      "The Two-Voice Rule：衬线只给页面级标题、大陈述句与 KPI 数字。",
+      "The 12px Floor Rule：中文最小 12px，不做大写变形。",
+      "The Two Glows Rule：同屏同时发光的元素不超过 2 个。"
+    ],
+    "dos": [
+      "Do 让结果面成为屏幕上最亮的纸，chrome 用 sunken 与 sidebar 层退后。",
+      "Do 把金色限制在单屏 10% 以内：主操作、当前导航、焦点、一个 KPI。",
+      "Do 每屏只给一个 primary 按钮，其余用 secondary 或 ghost。",
+      "Do 让语义色同时带文字或图标，状态永远有第二重编码。",
+      "Do 未知值显示「—」，未评分显示「未评分」，未设置预算显示「未设置」，不写 0。",
+      "Do 所有数字用 tabular-nums，所有中文不小于 12px。",
+      "Do 结果正文用 16px / 1.75、68ch 上限；源码视图用等宽，可横向滚动。",
+      "Do 优化必须给 diff 与最多 3 条改动说明，原文永久保留。",
+      "Do 完成即自动入库，用户不需要额外保存。",
+      "Do 全流程键盘可达，焦点环 2px 金色，offset 2px。",
+      "Do 双主题同时维护，深色是烛光变体，不是反相。",
+      "Do 用 tonal surface 与 1px 边框分层，阴影只做辅助。",
+      "Do 空态给一句说明与一个动作，不写「暂无数据」。"
+    ],
+    "donts": [
+      "Don't 展示结构化字段、假设 chip、JSON 视图、评估仪表盘或多阶段时间轴。",
+      "Don't 使用紫色渐变、玻璃拟态、发光边框、「AI 驱动」角标。",
+      "Don't 使用大而空的欢迎页，或把每个结果都塞进层层卡片。",
+      "Don't 给所有卡片加金色顶部描边再加 glow；同屏发光元素最多 2 个。",
+      "Don't 使用纯黑正文或纯黑页面底。",
+      "Don't 在按钮、标签、表格、数据上使用衬线。",
+      "Don't 使用 11px 中文、cheap 大写变形或 text-transform: uppercase。",
+      "Don't 只靠颜色表达状态。",
+      "Don't 使用大于 1px 的彩色侧条。",
+      "Don't 使用 background-clip: text 的渐变文字。",
+      "Don't 使用 emoji 图标。",
+      "Don't 使用感叹号、em dash 或「强大」「智能」这类空词。",
+      "Don't 把模态框当第一选择。",
+      "Don't 交付缺少 disabled / loading / error 状态的交互组件。",
+      "Don't 用背景模糊做遮罩。",
+      "Don't 用 0 代替未知，用 0 星代替未评分，用 0% 代替未设置预算。"
+    ]
+  }
+}

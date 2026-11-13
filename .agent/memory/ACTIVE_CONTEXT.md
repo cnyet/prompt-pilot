@@ -1,50 +1,44 @@
 # Active Context
 
-> Last updated: 2026-11-11T16:12:00Z
+> Last updated: 2026-11-13T01:52:26Z
 
 ## Current Task
-- Done: DESIGN Q0-Q5 收口（`5d771bb`/`d1b86e8`/`1bb2d69`）；最近使用（`8c32e9d`）；工作台输入放大、主路径模板、品牌印记、opencode 网关、成本趋势图（`4e5a856`）；设置页「测试连接」与成本分页、移动导航/评估空样本/设置窄屏分段条（未提交）。
-- Goal: 维持「烛光羊皮纸」视觉与 DESIGN.md 一致；后续只做功能性欠账与真机验证。
-- In progress: 无。根目录只清理 `.DS_Store` 与 `tsconfig.tsbuildinfo`，后者被 `pnpm typecheck` 重建属正常。
-- Next step: 验收未提交改动后按需提交；连通性测试已用 mock 覆盖成功路径，真实联网需配置 ARK_API_KEY。
-- Blockers: 环境无 ARK_API_KEY；DeepSeek V4.1 Flash / GPT 5.6 Luna 暂无价格，真实成本显示未知。
+- Done（v3 重置文档轮，2026-11-12）：PRODUCT.md 重写 v3「结果优先」；新建 docs/ROADMAP-V3.md（7 阶段 16 人日）；DESIGN.md 重写六段 Stitch 格式；新建 .impeccable/design.json。验证：design-parser 覆盖 ✓、harness 24/24 ✓、check:contrast 全过 ✓。
+- Done：独立 PM 评审（只读）。「有条件通过，暂不进 Phase 1」，19 条问题（3 P0 / 5 P1 / 11 P2），清单见 session-summary 2026-11-12 节。
+- In progress: 无（persist 收口换新会话）。
+- Next step（按序）：① P0-1 文档收口：CONTEXT.md、ARCHITECTURE.md、HANDOVER.md、README.md、ADR-0007、废弃 docs/ROADMAP.md；② P0-2 FR-9.1 删「说明」阶段并定 stage 落库值；③ P0-3 PromptRecord 补 copiedAt/originTemplateId 埋点；④ P1 修 DESIGN.md 4 处 v2 术语与口径矛盾。修完进 Phase 1。
+- Blockers: 工作区遗留未提交代码改动（设置连通性测试/成本分页，`f3e8448` + 工作区），须先验收提交，勿与 v3 混提交。
 
 ## Current Constraints
-- 令牌以 `DESIGN.md` 第二节为准，代码在 `app/globals.css`；改令牌须同步文档并跑 `pnpm check:contrast`。
-- 全部文字组合 ≥4.5:1（深色最低 4.70:1）；中文标题系统宋体、零网络字体；金色只给主操作/当前步骤/关键数字；glow 只给 active/selected/focus，同屏 ≤2。
-- 每页只有一个 h1（AppShell 顶栏页面名），内容标题用 h2；全局 `:focus-visible` 金色 2px。
-- 左轨与 MobileNav 在 1024px 切换；玻璃拟态、渐变、emoji 图标禁止。
-- 组件走 cva + Radix Slot；不引动效库、图标库、CSS-in-JS、图表库、状态库。
-- 界面中文；禁止感叹号与 em dash；单屏 primary 按钮 1 个。
-- 跑测试前停 3100；Chrome 隔离只用 `--user-data-dir` 与 `--password-store=basic`，绝不覆盖 HOME。
+- v3 四件套为事实源：PRODUCT.md、docs/ROADMAP-V3.md、DESIGN.md、.impeccable/design.json；v2 八字段/评估/版本树已废弃。
+- DESIGN.md 为六段固定结构 + YAML frontmatter，改后跑 design-parser；改令牌同步 app/globals.css 双主题并跑 `pnpm check:contrast`。
+- 文字 ≥4.5:1；中文最小 12px 禁大写变形；金色单屏 ≤10%；glow 只给 active/selected/focus 且同屏 ≤2。
+- 组件走 cva + Radix Slot；不引动效/图标/CSS-in-JS/图表/状态库；动效只动 opacity 与 transform（glow 的 box-shadow 例外待澄清）。
+- 界面中文；禁感叹号与 em dash；单屏 primary 1 个。
+- 跑测试前停 3100；Chrome 只用 `--user-data-dir` 与 `--password-store=basic`，绝不覆盖 HOME。
 
 ## Hard Constraints
-- `lib/engine/schema.ts` 与 `lib/llm/types.ts` 是冻结契约。
-- 未知一律 null，不写 0；无判定显示「—」+ 待人工判定。
+- `lib/llm/types.ts` 仍冻结；`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删（HANDOVER 表述需同步修订）。
+- 未知一律 null 不写 0；未评分显示「未评分」；未设置预算显示「未设置」。
 - 密钥只存本机 SQLite，接口只回末四位。
-- 冻结契约与 CI 工作流改动须 code owner 审阅（`.github/CODEOWNERS`）。
+- 无 prisma/migrations/，用 `pnpm exec prisma db push` + `prisma generate`；v3 迁移只增不删，Phase 6 删表前再备份。
 
 ## Do Not Retry
-- 直接照搬 QuestUI 原稿 | 原因: 无中文、仅深色、11px 大写、语义色对比度不达标。
-- 用 `readonly:` 变体 | 原因: Tailwind v4 无此变体，必须用 `read-only:`。
-- 工作台加右栏版本/对比/质量/导出 | 原因: DESIGN §4.1 + ADR-0004 不采用右栏诊断布局。
-- 在 `about:blank` 上写 localStorage 再截图 | 原因: 源不同，主题不生效。
-- 组件 JSX 当 null 判断 / 预览组件用 useMemo / 无条件启用 valid mock / 覆盖 HOME 跑 Chrome | 原因: 历史坑。
-- 模型显示名直接当 modelId | 原因: 含空格无法过校验，用 kebab slug + `modelDisplayLabel()`。
+- 在 Phase 0 文档收口前开 Phase 1 | 原因: 现存两套 SSE 协议与数据模型（评审 P0-1）。
+- 照搬 QuestUI 原稿 | 原因: 无中文、仅深色、11px、对比度不达标。
+- 用 `readonly:` 变体 | 原因: Tailwind v4 必须用 `read-only:`。
+- `about:blank` 上写 localStorage 再截图；覆盖 HOME 跑 Chrome | 原因: 历史坑。
+- 模型显示名直接当 modelId | 原因: 用 kebab slug + `modelDisplayLabel()`。
 
 ## Current Decisions
-- 默认网关 `https://opencode.ai/inference/go`，provider 用 `openai_compatible`，避免发送方舟专属参数。
-- 生成 `deepseek-v4.1-flash`、评估 `gpt-5.6-luna`；显示名只走映射表。
-- 成本趋势图按上海时区切日；未知金额不入折线、不补 0；图为 `role="img"` + sr-only 表。
-- 左轨 64px 默认、`\` 展开 208px；顶栏持有唯一 h1。
-- 对比度脚本解析 `globals.css` 变量，不硬编码。
-- 项目无 `prisma/migrations/`，改 schema 用 `pnpm exec prisma db push` + `prisma generate`。
-- CI 顺序：contrast → `next typegen` → typecheck → test → build。
-- ADR-0001/0004 视觉结论被 ADR-0006 取代；ADR-0002/0003/0005 继续有效。
+- v3 方向：结果优先；导航 4 项（工作台/提示词库/模板/设置）；工作台只做生成+优化，输出 Markdown + diff + ≤3 条改动说明；完成自动入库，收藏/评分/存模板为事后动作。
+- 数据模型 PromptRecord / PromptIteration / Template；SSE start/delta/meta/usage/error/done；元数据用 `<<<PROMPTPILOT_META>>>` 分隔符服务端剥离，失败降级为输入前 24 字标题 + 空说明。
+- 本地检查 P1（R101-R108）；模板 12 条内置（文本/图片/视频各 4）+ 自定义，内置删除 409。
+- 网关 `https://opencode.ai/inference/go`，provider `openai_compatible`；kebab slug + 显示名映射。
+- 成本趋势上海时区切日；未知金额不入折线、不补 0；`role="img"` + sr-only 表。
+- ADR-0001/0004 被 0006 取代；0002/0003/0005 有效；v3 须补 ADR-0007（未建）。
 
 ## Current References
-- `DESIGN.md`、`docs/adr/0006-questui-parchment-direction.md`
-- `scripts/contrast-check.mjs`、`.github/workflows/ci.yml`
-- 截图：`docs/assets/design-v2/`、`docs/assets/bento-r2/`、`docs/assets/bento-r3/`、`docs/assets/bento-q4/`、`docs/assets/q5/`
-- `PRODUCT.md`、`CONTEXT.md`、`docs/HANDOVER.md`
-- 数据库备份：`data/app.db.bak-20261111-1430`
+- v3 四件套；PM 评审清单（session-summary 2026-11-12 节）
+- `scripts/contrast-check.mjs`、`.github/workflows/ci.yml`、`app/globals.css`
+- 备份：`data/app.db.bak-20261111-1430`（Phase 0 开工前再备份）
