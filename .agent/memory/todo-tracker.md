@@ -4,7 +4,6 @@
 - 无。
 
 ## Pending
-- [ ] `feat/v3-batch-d` 合入 `main`（待用户授权；合并后删除 SDD 工作区）| Priority: P0 | Created: 2026-11-13
 - [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）
 - [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio）| Priority: P0 | Created: 2026-11-13
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
@@ -15,6 +14,7 @@
 - 无。
 
 ## Done
+- [x] Batch D 合入 main（快进 `369857c` → `1563ada`），特性分支与 SDD 工作区已删；merged main typecheck 0 / 639 用例 / harness 24 pass / 0 fail | Completed: 2026-11-13
 - [x] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合；final review 后 fix wave `274df1f`，scoped re-review 7/7 ADDRESSED；typecheck 0 / 639 用例 / harness 25 pass | Completed: 2026-11-13
 - [x] finishing-a-development-branch：Batch A-C 合入 main（`5d607b1`），特性分支已删 | Completed: 2026-11-13
 - [x] Batch C：ledger 加法、lib/db/records.ts 写路径、/api/generate、optimize/repair 路由；final review 修复 F1/F2（`e61796d`），typecheck 0 / 582 用例全过 | Completed: 2026-11-13

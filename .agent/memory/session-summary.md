@@ -501,6 +501,6 @@
 - ARCHITECTURE:229 记录未来 UI 趋势图行为（FR-9.3）为 out-of-scope，留 Batch E。
 
 ### Carry-over
-- [ ] 用户授权后 `feat/v3-batch-d` 合入 `main`（未 push）；合并后删除 `.superpowers/sdd/2026-11-13-v3-batch-d/`。
+- [x] 用户授权后 `feat/v3-batch-d` 合入 `main`：快进 `369857c` → `1563ada`，特性分支与 `.superpowers/sdd/2026-11-13-v3-batch-d/` 已删；merged main typecheck 0 / 59 文件 639 用例 / harness 24 pass 0 fail；未 push。
 - [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio、主题切换移顶栏）。
 - [ ] 真实网关密钥端到端验证；补 DeepSeek V4.1 Flash / GPT 5.6 Luna 价格表或在设置覆盖。

@@ -4,9 +4,9 @@
 
 ## Current Task
 - v3 Phase 1+2 实现（shape brief `docs/shape-studio-v3.md`）。Batch A-C 已合入 `main`（`5d607b1`）。
-- Batch D 已完成（分支 `feat/v3-batch-d`，HEAD `274df1f`）：records API、templates API + 12 seed、stats-v3、Batch C DEFER、docs 同步。Final review 1 Important + minors 已在 fix wave `274df1f` 全部修复，scoped re-review 7/7 ADDRESSED。
-- 待用户授权：`feat/v3-batch-d` 合入 `main`（未 push）。合并后删除 SDD 工作区，随后开 Batch E。
-- 验证基线：typecheck 0；59 文件 / 639 用例通过；harness 25 pass / 0 fail。
+- Batch D 已完成并合入 `main`（快进 `369857c` → `1563ada`，代码 HEAD `274df1f`）：records API、templates API + 12 seed、stats-v3、Batch C DEFER、docs 同步。Final review 1 Important + minors 已在 fix wave `274df1f` 修复，scoped re-review 7/7 ADDRESSED。特性分支与 SDD 工作区已删；本地 main 领先 origin/main，未 push。
+- Next: Batch E（studio-v3 UI：i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio、主题切换移顶栏）。
+- 验证基线（merged main）：typecheck 0；59 文件 / 639 用例通过；harness 24 pass / 0 fail。
 
 ## Hard Constraints
 - `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 6 删除。v3 新代码不 import v2。
