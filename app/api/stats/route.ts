@@ -1,4 +1,4 @@
-import { getCostSummary } from '@/lib/llm/ledger'
+import { getV3Stats } from '@/lib/llm/stats-v3'
 
 /**
  * 成本聚合接口。
@@ -10,8 +10,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(): Promise<Response> {
-  const summary = await getCostSummary()
-  if (!summary) {
+  const stats = await getV3Stats()
+  if (!stats) {
     return new Response(
       JSON.stringify({
         code: 'DATABASE_UNAVAILABLE',
@@ -27,7 +27,7 @@ export async function GET(): Promise<Response> {
     )
   }
 
-  return new Response(JSON.stringify(summary), {
+  return new Response(JSON.stringify(stats), {
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
