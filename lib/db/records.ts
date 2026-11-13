@@ -131,11 +131,16 @@ function sumOrNull(value: number | null): number | null {
  *
  * 记录上的 tokens / cost 取该记录全部已完成迭代之和（聚合查询）；
  * costCny 先 toFixed(6) 再回 Number，规避 Float 累加精度漂移。
+ * 已中断且正文为空时保留上一轮的 latestOutput（C1：空取消轮不擦掉可用正文）。
  */
 export async function completeIteration(
   input: CompleteIterationInput,
 ): Promise<void> {
   const prisma = requirePrisma()
+  // 已中断且正文为空（停止发生在首个 delta 之前）：不覆盖上一轮的可用正文，
+  // 否则提示词库会因 latestOutput 为空而把整条记录藏掉。
+  const overwriteLatest =
+    input.status !== 'canceled' || input.output.trim().length > 0
   await prisma.$transaction(async (tx) => {
     await tx.promptIteration.update({
       where: { id: input.iterationId },
@@ -158,7 +163,7 @@ export async function completeIteration(
     await tx.promptRecord.update({
       where: { id: input.recordId },
       data: {
-        latestOutput: input.output,
+        ...(overwriteLatest ? { latestOutput: input.output } : {}),
         status: input.status,
         iterationCount: { increment: 1 },
         modelId: input.modelId,

@@ -16,6 +16,17 @@ describe('safeMarkdownFilename', () => {
     expect(safeMarkdownFilename('x'.repeat(120))).toHaveLength(83)
   })
 
+  it('截断按 code point 而不是 UTF-16 单元，边界处的代理对不被切碎', () => {
+    // 😀 是代理对（两个 UTF-16 单元）：79 个 x 加一个 😀 共 81 个单元，
+    // 按单元切会切出半个字符；按 code point 切应保留完整的 😀。
+    const emoji = '😀'
+    const filename = safeMarkdownFilename('x'.repeat(79) + emoji)
+    const base = filename.slice(0, -'.md'.length)
+    expect(Array.from(base)).toHaveLength(80)
+    expect(base.endsWith(emoji)).toBe(true)
+    expect(base).not.toContain('�')
+  })
+
   it('去掉首尾的连字符与点', () => {
     expect(safeMarkdownFilename('...周报---')).toBe('周报.md')
   })

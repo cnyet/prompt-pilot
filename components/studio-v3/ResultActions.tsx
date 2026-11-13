@@ -10,6 +10,8 @@ export interface ResultActionsProps {
   phase: StreamPhase
   hasOutput: boolean
   canRegenerate: boolean
+  /** 重新生成被禁用时的说明（例如优化记录），悬停可见。 */
+  regenerateHint?: string
   onCopy: () => void
   onCopyPlain: () => void
   onDownload: () => void
@@ -26,6 +28,7 @@ export function ResultActions({
   phase,
   hasOutput,
   canRegenerate,
+  regenerateHint,
   onCopy,
   onCopyPlain,
   onDownload,
@@ -73,6 +76,7 @@ export function ResultActions({
           icon="refresh"
           onClick={onRegenerate}
           disabled={!canRegenerate}
+          title={canRegenerate ? undefined : regenerateHint}
         >
           {t('studio.actions.regenerate')}
         </Button>

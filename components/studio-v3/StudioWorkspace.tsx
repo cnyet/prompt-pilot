@@ -13,6 +13,11 @@ import { downloadMarkdown } from '@/lib/download'
 import { t } from '@/lib/i18n/zh'
 import { markdownToPlainText } from '@/lib/markdown/plain'
 import {
+  patchAgainstConfirmed,
+  queueMetaPatch,
+  type MetaPatch,
+} from '@/lib/ui/meta-coalesce'
+import {
   patchRecordMeta,
   postGenerate,
   postOptimize,
@@ -30,6 +35,7 @@ import {
 } from './composer'
 import type { MetaValues } from './MetaRow'
 import { PromptComposer } from './PromptComposer'
+import { canRegenerateRecord } from './regenerate-guard'
 import { ResultPanel, type ResultFeedback } from './ResultPanel'
 import { isRequestActive } from './stream-reducer'
 import { usePromptStream } from './usePromptStream'
@@ -57,7 +63,7 @@ function toTargetType(value: string): TargetType {
  * 输入区与结果面左右分栏；首次提交按当前模式走 `postGenerate`（生成或优化），
  * 结果区展示 `draftOutput || committedOutput`。流式进行中可停止并保留正文；
  * 详情到达后用 `detail.record` 驱动元信息、收藏与评分；重新生成追加迭代。
- * 收藏与评分乐观更新，请求失败时回滚并提示。
+ * 收藏与评分乐观更新并合并补发（I1），请求失败时按已确认值回滚并提示。
  */
 export function StudioWorkspace({
   initialGenerateInput = '',
@@ -75,7 +81,16 @@ export function StudioWorkspace({
   } = usePromptStream()
   const [favorite, setFavorite] = useState(false)
   const [rating, setRating] = useState<number | null>(null)
-  const [metaBusy, setMetaBusy] = useState(false)
+  // 收藏/评分乐观写合并（I1）：PATCH 在途时不原生禁用控件，避免焦点被弹到 BODY。
+  // 队列记住每个字段的最新请求值，当前 PATCH 落定后如有差异补发一次；
+  // confirmed 记录服务器已确认值，失败时按它回滚。
+  const metaFlightRef = useRef(false)
+  const metaQueueRef = useRef<MetaPatch | null>(null)
+  const metaConfirmedRef = useRef<{ favorite: boolean; rating: number | null }>({
+    favorite: false,
+    rating: null,
+  })
+  const recordIdRef = useRef<string | null>(null)
   // 详情到达前用提交时的模式与目标类型兜底，避免切换 tab 后存错模板分类
   const [submittedMeta, setSubmittedMeta] = useState<{
     mode: ProcessMode
@@ -116,6 +131,7 @@ export function StudioWorkspace({
   const active = isRequestActive(phase)
   const detailRecord = detail?.record ?? null
   const recordId = streamState.recordId ?? detailRecord?.id ?? null
+  recordIdRef.current = recordId
   const source =
     streamState.draftOutput.length > 0
       ? streamState.draftOutput
@@ -149,7 +165,14 @@ export function StudioWorkspace({
   const optimizeReady = optimizeAvailable && !streamState.unavailable
   const canRate =
     recordId !== null && (phase === 'completed' || phase === 'canceled')
-  const canRegenerate = recordId !== null && !active && generateAvailable
+  // 重新生成只属于生成模式记录（I3），结算期间同样禁用（M11）
+  const canRegenerate = canRegenerateRecord({
+    recordId,
+    active,
+    settling: streamState.settling,
+    generateAvailable,
+    mode: recordMode,
+  })
   const showSaved =
     recordId !== null &&
     source.trim().length > 0 &&
@@ -160,6 +183,10 @@ export function StudioWorkspace({
     if (!detailRecord) return
     setFavorite(detailRecord.favorite)
     setRating(detailRecord.rating)
+    metaConfirmedRef.current = {
+      favorite: detailRecord.favorite,
+      rating: detailRecord.rating,
+    }
     setSubmittedMeta({
       mode: detailRecord.mode === 'optimize' ? 'optimize' : 'generate',
       targetType: toTargetType(detailRecord.targetType),
@@ -199,6 +226,9 @@ export function StudioWorkspace({
     setFavorite(false)
     setRating(null)
     setFeedback(null)
+    // 丢弃上一记录的元数据写队列与已确认值
+    metaQueueRef.current = null
+    metaConfirmedRef.current = { favorite: false, rating: null }
 
     if (mode === 'generate') {
       startRequest(() =>
@@ -236,8 +266,10 @@ export function StudioWorkspace({
     if (
       !recordId ||
       requestToken.current !== 0 ||
+      streamState.settling ||
       isRequestActive(streamState.phase) ||
-      !generateAvailable
+      !generateAvailable ||
+      recordMode !== 'generate'
     ) {
       return
     }
@@ -246,9 +278,11 @@ export function StudioWorkspace({
     )
   }, [
     recordId,
+    recordMode,
     generateAvailable,
     startRequest,
     streamState.phase,
+    streamState.settling,
   ])
 
   const stop = useCallback(() => {
@@ -340,38 +374,64 @@ export function StudioWorkspace({
     }
   }, [source, detailRecord, flash])
 
-  const toggleFavorite = useCallback(async () => {
-    if (!recordId || !canRate || metaBusy) return
-    const previous = favorite
-    const next = !previous
-    setFavorite(next)
-    setMetaBusy(true)
+  /**
+   * 串行补发元数据 PATCH（I1）。单飞：一次只允许一个 PATCH 在途；
+   * 队列里与已确认值相同的字段跳过；失败按已确认值回滚并清队列。
+   */
+  const flushMetaQueue = useCallback(async () => {
+    if (metaFlightRef.current) return
+    metaFlightRef.current = true
     try {
-      await patchRecordMeta(recordId, { favorite: next })
-    } catch {
-      setFavorite(previous)
-      flash(t('studio.meta.saveFailed'), 'error')
+      while (metaQueueRef.current) {
+        const targetId = recordIdRef.current
+        if (!targetId) {
+          metaQueueRef.current = null
+          break
+        }
+        const queued = metaQueueRef.current
+        metaQueueRef.current = null
+        const patch = patchAgainstConfirmed(queued, metaConfirmedRef.current)
+        if (!patch) continue
+        try {
+          const result = await patchRecordMeta(targetId, patch)
+          if (recordIdRef.current === targetId) {
+            metaConfirmedRef.current = {
+              favorite: result.record.favorite,
+              rating: result.record.rating,
+            }
+          }
+        } catch {
+          // 回滚到最后一次服务器确认的值；PATCH 失败的错误提示由反馈区呈现
+          metaQueueRef.current = null
+          if (recordIdRef.current === targetId) {
+            setFavorite(metaConfirmedRef.current.favorite)
+            setRating(metaConfirmedRef.current.rating)
+            flash(t('studio.meta.saveFailed'), 'error')
+          }
+          break
+        }
+      }
     } finally {
-      setMetaBusy(false)
+      metaFlightRef.current = false
     }
-  }, [recordId, canRate, metaBusy, favorite, flash])
+  }, [flash])
+
+  const toggleFavorite = useCallback(() => {
+    if (!recordId || !canRate) return
+    const next = !favorite
+    setFavorite(next)
+    metaQueueRef.current = queueMetaPatch(metaQueueRef.current, { favorite: next })
+    void flushMetaQueue()
+  }, [recordId, canRate, favorite, flushMetaQueue])
 
   const changeRating = useCallback(
-    async (next: number | null) => {
-      if (!recordId || !canRate || metaBusy) return
-      const previous = rating
+    (next: number | null) => {
+      if (!recordId || !canRate) return
       setRating(next)
-      setMetaBusy(true)
-      try {
-        await patchRecordMeta(recordId, { rating: next })
-      } catch {
-        setRating(previous)
-        flash(t('studio.meta.saveFailed'), 'error')
-      } finally {
-        setMetaBusy(false)
-      }
+      metaQueueRef.current = queueMetaPatch(metaQueueRef.current, { rating: next })
+      void flushMetaQueue()
     },
-    [recordId, canRate, metaBusy, rating, flash],
+    [recordId, canRate, flushMetaQueue],
   )
 
   return (
@@ -393,6 +453,7 @@ export function StudioWorkspace({
           source={source}
           phase={phase}
           settling={streamState.settling}
+          settleFailed={streamState.settleFailed}
           meta={meta}
           recordId={recordId}
           mode={recordMode}
@@ -407,7 +468,6 @@ export function StudioWorkspace({
           favorite={favorite}
           rating={rating}
           canRate={canRate}
-          metaBusy={metaBusy}
           feedback={feedback}
           onCopy={copyMarkdown}
           onCopyPlain={copyPlain}

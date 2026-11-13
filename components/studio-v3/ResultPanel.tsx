@@ -31,6 +31,8 @@ export interface ResultPanelProps {
   source: string
   phase: StreamPhase
   settling: boolean
+  /** 结算拉详情彻底失败：用量与详情不可用，操作已恢复（I2）。 */
+  settleFailed: boolean
   meta: MetaValues
   recordId: string | null
   /** 当前记录的模式、原始输入与迭代时间线；详情未到达时由工作台兜底。 */
@@ -46,7 +48,6 @@ export interface ResultPanelProps {
   favorite: boolean
   rating: number | null
   canRate: boolean
-  metaBusy: boolean
   feedback: ResultFeedback | null
   onCopy: () => void
   onCopyPlain: () => void
@@ -65,6 +66,7 @@ function statusText(phase: StreamPhase, settling: boolean): string | null {
   }
   switch (phase) {
     case 'starting':
+      return t('studio.result.status.starting')
     case 'streaming':
       return t('studio.result.status.streaming')
     case 'canceling':
@@ -92,6 +94,7 @@ export function ResultPanel({
   source,
   phase,
   settling,
+  settleFailed,
   meta,
   recordId,
   mode,
@@ -106,7 +109,6 @@ export function ResultPanel({
   favorite,
   rating,
   canRate,
-  metaBusy,
   feedback,
   onCopy,
   onCopyPlain,
@@ -142,6 +144,11 @@ export function ResultPanel({
     (view === 'compare' && !showCompare)
       ? 'rendered'
       : view
+  // 重新生成只属于生成模式记录（I3）：优化记录禁用按钮并给出说明
+  const regenerateHint =
+    mode === 'optimize' ? t('studio.actions.regenerateOptimizeHint') : undefined
+  const showSettleFailed =
+    settleFailed && (phase === 'completed' || phase === 'canceled')
 
   return (
     <section
@@ -166,6 +173,11 @@ export function ResultPanel({
               )}
             >
               {status}
+            </p>
+          ) : null}
+          {showSettleFailed ? (
+            <p className="text-caption text-ink-faint">
+              {t('studio.result.status.settleFailed')}
             </p>
           ) : null}
         </div>
@@ -216,6 +228,7 @@ export function ResultPanel({
               phase={phase}
               hasOutput={hasOutput}
               canRegenerate={canRegenerate}
+              regenerateHint={regenerateHint}
               onCopy={onCopy}
               onCopyPlain={onCopyPlain}
               onDownload={onDownload}
@@ -314,7 +327,7 @@ export function ResultPanel({
               size="sm"
               icon="bookmark"
               aria-pressed={favorite}
-              disabled={!canRate || metaBusy}
+              disabled={!canRate}
               onClick={onFavorite}
               className={favorite ? 'text-accent' : undefined}
             >
@@ -325,7 +338,7 @@ export function ResultPanel({
             <Rating
               value={rating}
               onChange={onRating}
-              disabled={!canRate || metaBusy}
+              disabled={!canRate}
             />
           </div>
         </footer>

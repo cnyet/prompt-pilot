@@ -3,6 +3,7 @@ import type { IterationDto, RecordDetailDto } from '@/components/studio-v3/api'
 import {
   initialStreamState,
   isRequestActive,
+  recoverTransportError,
   shouldFinalizeStreamClosed,
   streamReducer,
   type StreamPhase,
@@ -358,6 +359,118 @@ describe('settled 语义', () => {
       detail: makeDetail([makeIteration({ notes: ['兜底说明'] })]),
     })
     expect(state.notes).toEqual(['兜底说明'])
+  })
+
+  it('canceled 且 detail 正文为空时不覆盖上一轮非空正文（C1 防御纵深）', () => {
+    let state = apply(
+      initialStreamState,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-1' },
+      { type: 'delta', text: 'ab' },
+      { type: 'done', status: 'completed' },
+    )
+    state = apply(
+      state,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-2' },
+      { type: 'abort' },
+      { type: 'done', status: 'canceled' },
+    )
+    expect(state.committedOutput).toBe('ab')
+
+    // 服务端还在写库时拉到的旧详情：latestOutput 为空，迭代最新轮 output 为空
+    state = streamReducer(state, {
+      type: 'settled',
+      detail: makeDetail(
+        [
+          makeIteration({ id: 'it-1', output: 'ab' }),
+          makeIteration({ id: 'it-2', seq: 2, output: '', status: 'canceled' }),
+        ],
+        '',
+      ),
+    })
+    expect(state.phase).toBe('canceled')
+    expect(state.committedOutput).toBe('ab')
+    expect(state.settling).toBe(false)
+  })
+
+  it('canceled 但 detail 有正文时仍以 detail 为准', () => {
+    let state = apply(
+      initialStreamState,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-1' },
+      { type: 'delta', text: '半' },
+      { type: 'abort' },
+      { type: 'done', status: 'canceled' },
+    )
+    state = streamReducer(state, {
+      type: 'settled',
+      detail: makeDetail([makeIteration({ output: '半', status: 'canceled' })], '半'),
+    })
+    expect(state.committedOutput).toBe('半')
+  })
+})
+
+describe('settle-failed 语义', () => {
+  it('清掉 settling、标记 settleFailed，保留正文与流内用量', () => {
+    let state = apply(
+      initialStreamState,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-1' },
+      { type: 'delta', text: 'ab' },
+      { type: 'usage', usage: { tokensIn: 3, tokensOut: 4 } },
+      { type: 'done', status: 'completed' },
+    )
+    state = streamReducer(state, { type: 'settle-failed' })
+    expect(state.phase).toBe('completed')
+    expect(state.settling).toBe(false)
+    expect(state.settleFailed).toBe(true)
+    expect(state.committedOutput).toBe('ab')
+    expect(state.usage).toEqual({ tokensIn: 3, tokensOut: 4 })
+  })
+
+  it('settled 或新 start 清除 settleFailed', () => {
+    let state = apply(
+      initialStreamState,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-1' },
+      { type: 'delta', text: 'ab' },
+      { type: 'done', status: 'completed' },
+      { type: 'settle-failed' },
+    )
+    expect(state.settleFailed).toBe(true)
+
+    state = streamReducer(state, {
+      type: 'settled',
+      detail: makeDetail([makeIteration({ output: 'ab' })], 'ab'),
+    })
+    expect(state.settleFailed).toBe(false)
+
+    state = streamReducer(state, { type: 'settle-failed' })
+    expect(state.settleFailed).toBe(true)
+    state = streamReducer(state, { type: 'start', recordId: 'rec-1', iterationId: 'it-2' })
+    expect(state.settleFailed).toBe(false)
+  })
+})
+
+describe('recoverTransportError', () => {
+  it('已收到 done 时传输错误不再发任何终态（M7）', () => {
+    expect(recoverTransportError({ sawDone: true, draftLength: 10, aborted: false })).toEqual({
+      kind: 'none',
+    })
+    expect(recoverTransportError({ sawDone: true, draftLength: 0, aborted: false })).toEqual({
+      kind: 'none',
+    })
+  })
+
+  it('主动中断时保持 canceling 交给收尾', () => {
+    expect(recoverTransportError({ sawDone: false, draftLength: 10, aborted: true })).toEqual({
+      kind: 'none',
+    })
+  })
+
+  it('未完成：有草稿按取消收尾，无草稿按 stream-closed 收尾', () => {
+    expect(recoverTransportError({ sawDone: false, draftLength: 10, aborted: false })).toEqual({
+      kind: 'done-canceled',
+    })
+    expect(recoverTransportError({ sawDone: false, draftLength: 0, aborted: false })).toEqual({
+      kind: 'stream-closed',
+    })
   })
 })
 

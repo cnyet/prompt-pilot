@@ -16,6 +16,7 @@ const REQUIRED_KEYS = [
   'download.defaultTitle',
   'error.network',
   'error.requestFailed',
+  'error.requestFailedStatus',
   'error.noModel',
   'error.inFlight',
   'error.notReady',
@@ -39,6 +40,15 @@ describe('i18n 字典', () => {
     expect(t('rating.starAria', { value: 3 })).toBe('3 星')
     expect(t('rating.starAria')).toBe('{value} 星')
     expect(t('rating.starAria', { other: 'x' })).toBe('{value} 星')
+    expect(t('error.requestFailedStatus', { status: 500 })).toBe('请求失败（500）')
+  })
+
+  it('工作台文案不使用已废弃的「版本」词汇（M9）', () => {
+    for (const [key, value] of Object.entries(zh)) {
+      if (key.startsWith('studio.')) {
+        expect(value, key).not.toContain('版本')
+      }
+    }
   })
 
   it('中文文案不含感叹号与 emoji，em dash 只用于未知值', () => {

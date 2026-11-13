@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, type KeyboardEvent, type ReactElement } from 'react'
+import { useEffect, useId, type KeyboardEvent, type ReactElement } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -67,7 +67,8 @@ export function PromptComposer({
   const instructionOver =
     state.mode === 'optimize' &&
     validation.counts.instruction > OPTIMIZE_INSTRUCTION_LIMIT
-  const submitDisabled = !validation.valid || active
+  const invalid = !validation.valid
+  const submitDisabled = invalid || active
 
   function updateDraft(patch: Partial<ComposerDraft>) {
     if (state.mode === 'generate') {
@@ -97,12 +98,27 @@ export function PromptComposer({
       event.preventDefault()
       // 与主按钮同一守卫：不可用、空值、超限或进行中都不发请求。
       if (!submitDisabled) onSubmit()
-      return
     }
-    if (event.key === 'Escape' && active) {
-      event.preventDefault()
-      onCancel()
+  }
+
+  // Esc 中断走窗口级监听（M2）：焦点在输入框之外（例如结果区动作）时同样生效。
+  useEffect(() => {
+    if (!active) return
+    const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => {
+      // 输入法合成中的 Esc 属于选词操作，不中断
+      if (event.isComposing || event.keyCode === 229) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancel()
+      }
     }
+    window.addEventListener('keydown', handleWindowKeyDown)
+    return () => window.removeEventListener('keydown', handleWindowKeyDown)
+  }, [active, onCancel])
+
+  function handlePrimarySubmit() {
+    if (submitDisabled) return
+    onSubmit()
   }
 
   const unavailableMessage =
@@ -142,6 +158,7 @@ export function PromptComposer({
             <Chip
               key={option.value}
               selected={draft.targetType === option.value}
+              aria-pressed={draft.targetType === option.value}
               onClick={() => updateDraft({ targetType: option.value })}
             >
               {t(option.labelKey)}
@@ -268,9 +285,13 @@ export function PromptComposer({
           <Button
             variant="primary"
             icon={state.mode === 'generate' ? 'spark' : 'wand'}
-            onClick={onSubmit}
-            disabled={submitDisabled}
+            onClick={handlePrimarySubmit}
+            // 进行中不用原生 disabled（会把焦点弹到 BODY），改用 aria-disabled
+            // 加守卫点击，保持视觉禁用样式（M2）。
+            disabled={!active && invalid}
+            aria-disabled={submitDisabled || undefined}
             aria-describedby={sourceCountId}
+            className={active ? 'pointer-events-none opacity-40' : undefined}
           >
             {primaryLabel}
           </Button>

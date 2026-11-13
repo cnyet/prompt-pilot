@@ -6,7 +6,9 @@
  * - done(completed / canceled) 把 draft 落到 committed；done(failed) 丢弃 draft、
  *   保留上一轮 committed，并用 settling 标记等待详情。
  * - abort 先落草稿再进入 canceling，保证中断后已生成内容仍可见。
- * - settled 用服务端详情覆盖正文与说明；SSE 没给 usage 时用最新迭代补齐。
+ * - settled 用服务端详情覆盖正文与说明；SSE 没给 usage 时用最新迭代补齐；
+ *   已中断轮正文为空时不覆盖上一轮非空正文（C1 防御纵深）。
+ * - settle-failed 清掉 settling 并标记用量/详情不可用，正文与流内 usage 保留（I2）。
  */
 import type { IterationDto, RecordDetailDto, UsageDto } from './api'
 
@@ -36,6 +38,8 @@ export interface StreamState {
   detail: RecordDetailDto | null
   error: StreamError | null
   settling: boolean
+  /** 结算拉详情彻底失败：正文保留，用量与详情不可用（I2）。 */
+  settleFailed: boolean
   unavailable: boolean
 }
 
@@ -49,6 +53,7 @@ export type StreamAction =
   | { type: 'abort' }
   | { type: 'stream-closed' }
   | { type: 'settled'; detail: RecordDetailDto }
+  | { type: 'settle-failed' }
   | { type: 'unavailable' }
   | { type: 'reset' }
 
@@ -63,6 +68,7 @@ export const initialStreamState: StreamState = {
   detail: null,
   error: null,
   settling: false,
+  settleFailed: false,
   unavailable: false,
 }
 
@@ -81,6 +87,21 @@ export function shouldFinalizeStreamClosed(input: {
   terminalDispatched: boolean
 }): boolean {
   return !input.sawDone && !input.terminalDispatched
+}
+
+/**
+ * 传输错误后的收尾决策（M7）。已收到 done 的错误不再发终态，
+ * 防止 done(completed) 之后到达的传输错误把已完成结果覆盖成已中断或失败。
+ */
+export function recoverTransportError(input: {
+  sawDone: boolean
+  draftLength: number
+  aborted: boolean
+}): { kind: 'none' } | { kind: 'done-canceled' } | { kind: 'stream-closed' } {
+  if (input.aborted) return { kind: 'none' }
+  if (input.sawDone) return { kind: 'none' }
+  if (input.draftLength > 0) return { kind: 'done-canceled' }
+  return { kind: 'stream-closed' }
 }
 
 const MAX_NOTES = 3
@@ -125,6 +146,7 @@ export function streamReducer(state: StreamState, action: StreamAction): StreamS
         usage: null,
         error: null,
         settling: false,
+        settleFailed: false,
         unavailable: false,
       }
     }
@@ -193,16 +215,33 @@ export function streamReducer(state: StreamState, action: StreamAction): StreamS
     case 'settled': {
       const { detail } = action
       const iterations = detail.record.iterations
+      const settledPhase = state.phase === 'canceling' ? 'canceled' : state.phase
+      const detailOutput = detail.record.latestOutput
+      // 防御纵深（C1）：已中断轮正文为空时不覆盖上一轮的非空正文，
+      // 防止服务端短暂写库窗口内拉到的旧详情把结果面清空。
+      const committedOutput =
+        settledPhase === 'canceled' &&
+        detailOutput.trim().length === 0 &&
+        state.committedOutput.length > 0
+          ? state.committedOutput
+          : detailOutput
       return {
         ...state,
-        phase: state.phase === 'canceling' ? 'canceled' : state.phase,
-        committedOutput: detail.record.latestOutput,
+        phase: settledPhase,
+        committedOutput,
         draftOutput: '',
         notes: notesFromDetail(state, iterations),
         usage: state.usage ?? usageFromIteration(iterations),
         detail,
         settling: false,
+        settleFailed: false,
       }
+    }
+
+    case 'settle-failed': {
+      // 结算详情彻底失败（I2）：清掉 settling 让操作恢复，保留流内正文与用量，
+      // 用 settleFailed 标记「用量与详情不可用」。
+      return { ...state, settling: false, settleFailed: true }
     }
 
     case 'unavailable': {

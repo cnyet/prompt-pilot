@@ -4,28 +4,29 @@
  * 工作台流式请求 hook（Task 4）。
  *
  * run 接收一个返回原始 Response 的请求闭包，用 parseSseStreamV3 消费事件流
- * 并分发给 reducer；终态后用 fetchRecordDetail 拉详情并 dispatch settled。
+ * 并分发给 reducer；终态后用 fetchRecordDetail 拉详情并 dispatch settled，
+ * 详情重试全部失败时 dispatch settle-failed（I2：清 settling、标记用量不可用）。
  * 取消时先 dispatch abort 落草稿，再 abort 控制器并取消响应体，
  * 让服务端感知连接中断、把本轮迭代标记为已中断。
  */
 import { useCallback, useRef, useState } from 'react'
+import { t } from '@/lib/i18n/zh'
 import { parseSseStreamV3 } from '@/lib/engine/sse-v3'
-import { ApiError, fetchRecordDetail } from './api'
+import { ApiError } from './api'
+import { settleDetail } from './settle'
 import {
   initialStreamState,
   isRequestActive,
+  recoverTransportError,
   shouldFinalizeStreamClosed,
   streamReducer,
   type StreamAction,
   type StreamState,
 } from './stream-reducer'
 
-const SETTLE_ATTEMPTS = 3
-const SETTLE_DELAY_MS = 150
-
 const NETWORK_ERROR = {
   code: 'NETWORK',
-  message: '连接服务失败，检查网络后重试。',
+  message: t('error.network'),
   retryable: true,
 } as const
 
@@ -43,15 +44,11 @@ function isAbortError(error: unknown): boolean {
   )
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 /** 兜底解析非 2xx 响应；正常路径由 api.ts 的 requestStream 抛 ApiError。 */
 async function readHttpError(response: Response): Promise<HttpErrorInfo> {
   const fallback: HttpErrorInfo = {
     code: 'INTERNAL',
-    message: `请求失败（${response.status}）。`,
+    message: t('error.requestFailedStatus', { status: response.status }),
     retryable: response.status >= 500,
   }
   try {
@@ -71,35 +68,6 @@ async function readHttpError(response: Response): Promise<HttpErrorInfo> {
     }
   } catch {
     return fallback
-  }
-}
-
-/**
- * 拉详情并结算。中断时服务端可能还在写库，本轮迭代仍是 running，
- * 短暂重试避免用旧的 latestOutput 覆盖刚保留的中断内容。
- */
-async function settleDetail(
-  recordId: string,
-  iterationId: string | null,
-  isCurrent: () => boolean,
-  dispatch: (action: StreamAction) => void,
-): Promise<void> {
-  for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt += 1) {
-    try {
-      const detail = await fetchRecordDetail(recordId)
-      if (!isCurrent()) return
-      const target = iterationId
-        ? detail.record.iterations.find((iteration) => iteration.id === iterationId)
-        : undefined
-      if (target?.status !== 'running' || attempt === SETTLE_ATTEMPTS - 1) {
-        dispatch({ type: 'settled', detail })
-        return
-      }
-      await delay(SETTLE_DELAY_MS)
-    } catch {
-      // 详情拉取失败时保留流内结果；settling 保持 true，未知用量不写成 0
-      return
-    }
   }
 }
 
@@ -273,16 +241,20 @@ export function usePromptStream(): PromptStreamControls {
           finish()
           return
         }
-        if (isAbortError(error) || controller.signal.aborted) {
-          // 主动停止：保持 canceling，交给下面的收尾
-        } else if (draftLength > 0) {
+        const recovery = recoverTransportError({
+          sawDone,
+          draftLength,
+          aborted: isAbortError(error) || controller.signal.aborted,
+        })
+        if (recovery.kind === 'done-canceled') {
           // 传输中断但已有正文：按取消收尾，保留已生成内容
           terminalDispatched = true
           dispatch({ type: 'done', status: 'canceled' })
-        } else {
+        } else if (recovery.kind === 'stream-closed') {
           terminalDispatched = true
           dispatch({ type: 'stream-closed' })
         }
+        // none：主动停止交给下面的收尾；已收到 done 的传输错误不覆盖已完成结果（M7）
       } finally {
         detachAbort?.()
         detachAbort = null

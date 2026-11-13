@@ -4,7 +4,9 @@
  * JSON 调用统一走 requestJson：非 2xx 解析 `{ code, message, retryable }`
  * 并抛 ApiError；SSE 调用返回原始 Response，由 usePromptStream 读取事件流。
  * 本模块客户端安全：不引入任何 node: 模块或 registry（后者依赖 node:crypto）。
+ * 兜底错误文案走 i18n 字典，不在本模块写死中文。
  */
+import { t } from '@/lib/i18n/zh'
 
 export type ProcessMode = 'generate' | 'optimize'
 export type TargetType = 'text' | 'image' | 'video'
@@ -100,7 +102,7 @@ interface ErrorBody {
 /** 非 2xx 响应 → ApiError；错误体不是 JSON 时按状态码给出可读兜底。 */
 async function toApiError(response: Response): Promise<ApiError> {
   let code = 'INTERNAL'
-  let message = `请求失败（${response.status}）。`
+  let message = t('error.requestFailedStatus', { status: response.status })
   let retryable = response.status >= 500 || response.status === 429
   try {
     const body = (await response.json()) as ErrorBody

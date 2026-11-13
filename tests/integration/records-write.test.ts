@@ -7,6 +7,7 @@ import {
   failIteration,
   findIterationByRequestId,
   getRecordWithIterations,
+  listRecords,
   RecordInFlightError,
 } from '@/lib/db/records'
 
@@ -192,6 +193,56 @@ describe('appendIteration 与 completeIteration', () => {
     expect(after!.tokensIn).toBeNull()
     expect(after!.tokensOut).toBeNull()
     expect(after!.costCny).toBeNull()
+  })
+
+  it('空正文的 canceled 轮不覆盖上一轮 latestOutput，记录仍在提示词库列表里', async () => {
+    // C1：继续优化后在任何 delta 之前就停止，服务端把这轮记为 canceled 且正文为空。
+    const record = await createRecord({
+      mode: 'optimize',
+      targetType: 'text',
+      sourceInput: '原始提示词',
+    })
+    const first = await appendIteration({ recordId: record.id, seq: 1, kind: 'optimize' })
+    await completeIteration({
+      iterationId: first.id,
+      recordId: record.id,
+      output: '第一轮的完整正文',
+      notes: [],
+      modelId: 'm-1',
+      tokensIn: 10,
+      tokensOut: 5,
+      costCny: 0.001,
+      latencyMs: 400,
+      status: 'completed',
+    })
+
+    const second = await appendIteration({
+      recordId: record.id,
+      seq: 2,
+      kind: 'optimize',
+      instruction: '更严格',
+    })
+    await completeIteration({
+      iterationId: second.id,
+      recordId: record.id,
+      output: '',
+      notes: [],
+      modelId: 'm-1',
+      tokensIn: null,
+      tokensOut: null,
+      costCny: null,
+      latencyMs: null,
+      status: 'canceled',
+    })
+
+    const after = await getRecordWithIterations(record.id)
+    expect(after!.status).toBe('canceled')
+    expect(after!.latestOutput).toBe('第一轮的完整正文')
+    expect(after!.iterationCount).toBe(2)
+    expect(after!.iterations.map((item) => item.output)).toEqual(['第一轮的完整正文', ''])
+
+    const listing = await listRecords({ limit: 20, offset: 0 })
+    expect(listing.records.some((item) => item.id === record.id)).toBe(true)
   })
 
   it('canceled 迭代计入 iterationCount，latestOutput 为已生成正文', async () => {
