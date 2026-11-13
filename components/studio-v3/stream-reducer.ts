@@ -71,6 +71,18 @@ export function isRequestActive(phase: StreamPhase): boolean {
   return phase === 'starting' || phase === 'streaming' || phase === 'canceling'
 }
 
+/**
+ * 事件循环结束后的收尾决策：只有既没收到 done、也没有在 catch 中发过终态
+ * （transport 错误已按取消或失败收尾）时才补发 stream-closed。
+ * 防止 catch 里已 dispatch 的 done(canceled) 被随后的 stream-closed 覆盖为 failed。
+ */
+export function shouldFinalizeStreamClosed(input: {
+  sawDone: boolean
+  terminalDispatched: boolean
+}): boolean {
+  return !input.sawDone && !input.terminalDispatched
+}
+
 const MAX_NOTES = 3
 
 function commitDraft(state: StreamState): string {

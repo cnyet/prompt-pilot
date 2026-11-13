@@ -14,6 +14,7 @@ import { ApiError, fetchRecordDetail } from './api'
 import {
   initialStreamState,
   isRequestActive,
+  shouldFinalizeStreamClosed,
   streamReducer,
   type StreamAction,
   type StreamState,
@@ -134,6 +135,7 @@ export function usePromptStream(): PromptStreamControls {
       let recordId: string | null = null
       let iterationId: string | null = null
       let sawDone = false
+      let terminalDispatched = false
       let draftLength = 0
       let detachAbort: (() => void) | null = null
 
@@ -274,8 +276,11 @@ export function usePromptStream(): PromptStreamControls {
         if (isAbortError(error) || controller.signal.aborted) {
           // 主动停止：保持 canceling，交给下面的收尾
         } else if (draftLength > 0) {
+          // 传输中断但已有正文：按取消收尾，保留已生成内容
+          terminalDispatched = true
           dispatch({ type: 'done', status: 'canceled' })
         } else {
+          terminalDispatched = true
           dispatch({ type: 'stream-closed' })
         }
       } finally {
@@ -288,10 +293,13 @@ export function usePromptStream(): PromptStreamControls {
         return
       }
 
-      if (controller.signal.aborted && !sawDone) {
-        dispatch({ type: 'done', status: 'canceled' })
-      } else if (!sawDone) {
-        dispatch({ type: 'stream-closed' })
+      // catch 里已经发过终态时不再补发，避免 done(canceled) 被 stream-closed 覆盖为 failed
+      if (shouldFinalizeStreamClosed({ sawDone, terminalDispatched })) {
+        if (controller.signal.aborted) {
+          dispatch({ type: 'done', status: 'canceled' })
+        } else {
+          dispatch({ type: 'stream-closed' })
+        }
       }
 
       if (recordId) {

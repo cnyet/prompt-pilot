@@ -3,6 +3,7 @@ import type { IterationDto, RecordDetailDto } from '@/components/studio-v3/api'
 import {
   initialStreamState,
   isRequestActive,
+  shouldFinalizeStreamClosed,
   streamReducer,
   type StreamPhase,
   type StreamState,
@@ -199,6 +200,35 @@ describe('failed 流', () => {
 
     state = streamReducer(state, { type: 'settled', detail: makeDetail([]) })
     expect(state.settling).toBe(false)
+  })
+})
+
+describe('shouldFinalizeStreamClosed', () => {
+  // 循环结束后的收尾决策：只有既没收到 done、也没在 catch 中发过终态时才补发
+  it('只在 sawDone 与 terminalDispatched 都为 false 时返回 true', () => {
+    expect(shouldFinalizeStreamClosed({ sawDone: false, terminalDispatched: false })).toBe(true)
+    expect(shouldFinalizeStreamClosed({ sawDone: true, terminalDispatched: false })).toBe(false)
+    expect(shouldFinalizeStreamClosed({ sawDone: false, terminalDispatched: true })).toBe(false)
+    expect(shouldFinalizeStreamClosed({ sawDone: true, terminalDispatched: true })).toBe(false)
+  })
+
+  it('传输错误带草稿时按取消收尾，且不再补发 stream-closed 覆盖为 failed', () => {
+    let state = apply(
+      initialStreamState,
+      { type: 'start', recordId: 'rec-1', iterationId: 'it-1' },
+      { type: 'delta', text: '半截' },
+    )
+
+    // hook 在传输错误的 catch 中只发一次 done(canceled)，并置 terminalDispatched
+    state = streamReducer(state, { type: 'done', status: 'canceled' })
+    if (shouldFinalizeStreamClosed({ sawDone: false, terminalDispatched: true })) {
+      state = streamReducer(state, { type: 'stream-closed' })
+    }
+
+    expect(state.phase).toBe('canceled')
+    expect(state.committedOutput).toBe('半截')
+    expect(state.draftOutput).toBe('')
+    expect(state.settling).toBe(true)
   })
 })
 
