@@ -2,7 +2,7 @@
 
 > 取代 `docs/ROADMAP.md`（v2 八字段范式）。产品范围以 `PRODUCT.md` 为准，本文回答先做什么、怎么做、怎么验收。
 >
-> 基线：2026-11-12，`main` 分支。开工前先收口当前未提交改动（设置连通性测试与成本分页），不要在混合工作区上叠 v3。
+> 基线：2026-11-13，分支 `feat/v3-result-first`。遗留改动（网关端点规范化与测试库隔离）已收口为独立提交 `fc00f4c`；开发库已备份 `data/app.db.bak-20261113-1047`。
 
 ## 1. 范围与结论
 
@@ -73,6 +73,8 @@ model PromptRecord {
   tokensIn       Int?
   tokensOut      Int?
   costCny        Float?
+  copiedAt       DateTime? // 最近一次复制时间；一次通过率埋点
+  originTemplateId String? // 从模板「用它开始」进入时写入；模板使用率埋点
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   iterations     PromptIteration[]
@@ -209,9 +211,9 @@ done   { recordId, iterationId }
 
 ### Phase 0 文档与基线（1 人日）
 
-- V3-01 收口当前未提交改动：跑 `pnpm typecheck` 与 `pnpm test`，提交或 stash；备份数据库。
-- V3-02 文档：PRODUCT.md v3（已完成）、DESIGN.md v3 增量、CONTEXT.md 词表、ARCHITECTURE.md 契约、HANDOVER.md、README 索引、ADR-0007（结果优先重置）。
-- V3-03 建立分支 `feat/v3-result-first`，每阶段独立提交。
+- V3-01 收口当前未提交改动（已完成：`fc00f4c`，typecheck 与 512 条测试通过；开发库已备份）。
+- V3-02 文档：PRODUCT.md v3（已完成）、DESIGN.md v3 增量（已完成）、CONTEXT.md 词表、ARCHITECTURE.md 契约、HANDOVER.md、README 索引、ADR-0007（结果优先重置）。
+- V3-03 建立分支 `feat/v3-result-first`（已完成），每阶段独立提交。
 
 验收：文档之间不矛盾；`node ~/.claude/scripts/claude-project-harness-check.mjs .` 通过。
 
@@ -298,7 +300,7 @@ E2E 场景：
 5. 设置模型，测试连接（mock），设置预算触发提示。
 6. 无密钥与断网状态下的禁用与提示。
 
-现有 493 条测试不要求保留数量。旧引擎测试随模块退役，新基线以 Phase 6 的结果为准。
+测试基线以实测为准（2026-11-13 实测 512 条，41 个文件），不要求保留数量。旧引擎测试随模块退役，新基线以 Phase 6 的结果为准。
 
 ## 5. 风险与对策
 
@@ -344,4 +346,4 @@ pnpm build
 pnpm check:contrast
 ```
 
-跑测试前先停掉 3100 端口，测试与运行中的应用共用一个 SQLite 文件。CI 顺序保持 contrast、`next typegen`、typecheck、test、build。
+测试已与开发库隔离（`tests/global-setup.ts` 建独立 `data/test.db`，`tests/setup-env.ts` 设 `DATABASE_URL` 并清真实密钥），跑测试不再需要停 3100，但测试绝不读写 `data/app.db`。CI 顺序保持 contrast、`next typegen`、typecheck、test、build。

@@ -1,42 +1,36 @@
 # 交接说明
 
-写给接手这个项目的人。读完应该能：把服务跑起来、知道代码在哪、知道哪些约定不能碰、知道哪里还没做完。
+写给接手这个项目的人。读完应该能：把服务跑起来、知道代码在哪、知道哪些约定不能碰、知道现在做到哪、下一步做什么。
 
 ---
 
 ## 1. 一句话
 
-把用户随口一句需求，扩写成结构完整、边界清晰的提示词，并用真实模型试跑一次，让用户当场看到效果。
+PromptPilot 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-界面参考火山 PromptPilot，但不是复刻：它更强调"先看到输出，再看结构"。
+产品已重置为 v3「结果优先」范式（ADR-0007）。**文档已收口到 v3，代码仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，当前处于 Phase 0 完成点，Phase 1（数据层与 API）待启动。
 
 ---
 
-## 2. 现在能做什么
+## 2. 当前状态
 
-### 已验证可用
+### v3 文档基线（Phase 0 已完成）
 
-- 输入一句话，流式生成八字段结构化提示词（离线启发式或方舟真模型）
-- 字段级编辑、AI 单字段重算、撤销重做
-- 假设 chip：模型替用户做的小决定，可改可回退
-- 16 条本地诊断规则 + 一键修复（修复不覆盖手改字段）
-- 试运行：变量表单、真实输出、可取消、用量与耗时
-- 两种导出：Markdown、OpenAI messages
-- 版本库：首次生成自动存 v0，可另存新版本，v0 服务端不可改删
-- 成本账本：按调用记录 token 与金额，区分"未知"与"0"
-- 无密钥时降级为离线模板并持续提示
+- `PRODUCT.md` v3、`DESIGN.md` v3、`docs/ROADMAP-V3.md`、`.impeccable/design.json` 四件套为事实源。
+- `CONTEXT.md` 词表、`docs/ARCHITECTURE.md` v3 契约、本文件、`README.md`、ADR-0007 已收口；v2 的 `docs/ROADMAP.md` 已删除。
+- 分支 `feat/v3-result-first`；开发库备份 `data/app.db.bak-20261113-1047`。
+- 网关端点规范化与测试库隔离已收口（`fc00f4c`）：默认端点 `https://opencode.ai/inference/go/openai/v1`，测试用独立 `data/test.db`。
+
+### v2 代码仍在运行（已验证可用）
+
+- 输入一句话，流式生成八字段结构化提示词（离线启发式或真模型）
+- 字段级编辑、AI 单字段重算、假设 chip、16 条诊断 + 一键修复
+- 试运行、版本库（v0 服务端不可改删）、成本账本、设置页模型配置与连通性测试
+- 512 条测试通过（41 个文件），typecheck 零错误
 
 ### 未验证
 
-**真实 ARK 密钥下的端到端行为一次都没跑过。** 没有密钥，所有真模型路径只经过 Mock 与故障注入。接上密钥后请优先验证三件事：
-
-1. 流式 usage 是否正确落库（否则账本全是"未知"）
-2. `reasoning_content` 是否被单独识别（否则思考内容可能混进正文）
-3. 限流与额度用尽的真实错误码是否被正确映射
-
-### 明确没做
-
-版本回滚与 diff 界面、标签/收藏/删除/分页、模型选择器与参数面板、流式进行中的文本诊断、Playwright 级 UI 断言。这些不在本次范围，不是遗漏。
+真实 ARK 密钥下的端到端行为一次都没跑过。接上密钥后优先验证：流式 usage 落库、`reasoning_content` 不混正文、限流与额度错误码映射。
 
 ---
 
@@ -44,12 +38,11 @@
 
 ### 环境
 
-Node 24（E2E 脚本用内置 type stripping，低版本跑不了）、pnpm、SQLite（无需单独安装）。
+Node 24、pnpm 10、SQLite（无需单独安装）。
 
 ### 第一次运行
 
 ```bash
-cd prompt-pilot
 pnpm install
 cp .env.example .env
 pnpm db:generate
@@ -57,247 +50,143 @@ pnpm db:push
 pnpm dev            # http://localhost:3100
 ```
 
-不填 `ARK_API_KEY` 也能跑通全流程，此时是离线模板模式，界面会有明确标识。
+不填 `ARK_API_KEY` 也能跑通流程（离线模板模式，界面有明确标识）；v3 交付后无密钥时模型操作禁用并说明原因（FR-8.7）。
 
 ### 常用命令
 
 | 命令 | 作用 |
 |---|---|
 | `pnpm dev` | 开发服务，3100 |
-| `pnpm build` / `pnpm start` | 生产构建与启动，3100 |
-| `pnpm test` | 全量单测（466 条） |
+| `pnpm build` / `pnpm start` | 生产构建与启动 |
+| `pnpm test` | 全量测试。独立测试库 `data/test.db`（`tests/global-setup.ts` 建库、`tests/setup-env.ts` 隔离），不碰开发库，跑测试不用停 3100 |
 | `pnpm typecheck` | 类型检查 |
-| `pnpm db:push` | 同步 schema 到 SQLite |
-| `pnpm db:studio` | 图形化看数据 |
-| `node scripts/e2e-http.mjs` | HTTP 层端到端，自带服务与清理 |
+| `pnpm db:push` / `pnpm db:studio` | 同步 schema / 图形化看数据 |
+| `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
+| `pnpm check:contrast` | 双主题对比度校验 |
 
 ### 环境变量
 
-界面上「设置」页可以覆盖下面四项，优先级为 **设置页 > 环境变量 > 代码默认值**。
-密钥写入后只存在本机 SQLite，接口只回报末四位，不回传明文；「清除全部覆盖」即回落到环境变量。
+设置页可覆盖以下项，优先级 **设置页 > 环境变量 > 代码默认值**。密钥只存本机 SQLite，接口只回末四位；「清除全部覆盖」回落到环境变量。`ARK_BASE_URL` 保存时自动规范化（旧版网关地址补 `/openai/v1`）。
 
 | 变量 | 说明 |
 |---|---|
-| `ARK_API_KEY` | 留空进入 L1 离线模板模式 |
-| `ARK_BASE_URL` | 默认 `https://ark.cn-beijing.volces.com/api/v3` |
-| `ARK_MODEL_GENERATE` | 生成用 pro |
-| `ARK_MODEL_EVALUATE` | 评估用 lite，刻意不同族以免自评 |
+| `ARK_API_KEY` | 留空进入离线模板模式（v2）/ 模型操作禁用（v3 交付后） |
+| `ARK_BASE_URL` | 默认 `https://opencode.ai/inference/go/openai/v1` |
+| `ARK_MODEL_GENERATE` | 生成模型 ID（不能用展示名） |
+| `ARK_MODEL_EVALUATE` | v2 评估模型；v3 改名为优化模型（generate / optimize），Phase 5 落地 |
 | `DATABASE_URL` | `file:../data/app.db`，路径相对 schema 目录解析 |
 
 ### 故障注入
 
-`MOCK_LLM_FAULT=valid|network|rate_limited|quota_exceeded|truncated|bad_json|fenced_json|slow_stream` 可在无密钥时模拟各种上游行为，用于验证错误态与兜底链。
+`MOCK_LLM_FAULT=valid|network|rate_limited|quota_exceeded|truncated|bad_json|fenced_json|slow_stream` 可在无密钥时模拟上游行为，验证错误态与兜底链。
 
 ---
 
-## 4. 代码地图
+## 4. 代码地图（现状为 v2，Phase 1 起替换）
 
 ```
 app/
   (workspace)/          工作台、库、评估、模板、设置（共享 AppShell 布局）
-  api/engine/generate/  流式生成（SSE）
-  api/engine/field/     单字段重算
-  api/run/              试运行（SSE）
-  api/prompts/          提示词与版本 CRUD
-  api/stats/            成本与调用统计
+  api/engine/generate/  流式生成（SSE，v3 改为 /api/generate Markdown 文本流）
+  api/engine/field/     单字段重算（v3 删）
+  api/run/              试运行（v3 删）
+  api/prompts/          提示词与版本 CRUD（v3 改为 /api/records）
+  api/stats/            成本与调用统计（保留）
 components/
-  shell/AppShell.tsx    侧栏、顶栏、主题、模型状态徽标
-  studio/               工作台全部交互（约 20 个文件）
-  library/              提示词库
+  shell/AppShell.tsx    侧栏、顶栏、主题、模型状态徽标（保留）
+  studio/               v2 工作台约 20 个文件（v3 全量重写）
+  library/              v2 提示词库（v3 重写为记录行 + 详情抽屉）
 lib/
+  llm/                  types（冻结）/ registry / ark / openai-compat / mock / ledger
   engine/
-    schema.ts           八字段契约（冻结，不要改）
-    compose.ts          离线启发式生成
-    doc.ts              文档状态机、撤销栈、写入路径
-    paths.ts            字段文本 ↔ 结构化叶子
-    assumptions.ts      chip 派生与基线比较
-    lint/               16 条规则、修复、诊断引擎
-    render.ts           结构化文档 → 可读文本
-    export.ts           Markdown 与 OpenAI messages 导出
-    variables.ts        变量派生与校验
-    sse.ts              SSE 事件协议
-  llm/
-    types.ts            Provider 接口（冻结）
-    registry.ts         选择 provider
-    ark.ts / openai-compat.ts   方舟适配与兼容层
-    structured.ts       五级兜底解析
-    mock.ts             故障注入
-    ledger.ts           成本记录
+    schema.ts           八字段契约（冻结至 Phase 1 新模型落地，Phase 6 删）
+    compose.ts 等       v2 引擎五阶段（intent/interview/compose/harden/evaluate/refine）
+    lint/               R001-R016（v3 迁移为 R101-R108 自由文本规则）
+    doc.ts / paths.ts / assumptions.ts / render.ts / export.ts / variables.ts（v3 删）
+    sse.ts              SSE 写出工具（保留改造）
   db/                   Prisma 客户端、提示词、运行记录
+tests/                  global-setup.ts 建测试库；unit + integration
 scripts/e2e-http.mjs    HTTP 端到端
 ```
 
-### 几个名字上的约定
+v3 目标目录结构与新增模块见 [ARCHITECTURE.md](ARCHITECTURE.md) 第二节。
 
-- **字段**不是"模块"，**版本**不是"快照"，**试运行**不是"测试"，**评估**不是"评分"，**诊断**专指 16 条本地规则
-- 界面文案中文，禁止感叹号、禁止 em dash（——）、禁止 emoji
+### 术语约定
 
----
+v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化、对比原文、检查（R101-R108）、收藏、评分、模板**。v2 的「字段、版本、试运行、评估、假设 chip」在界面与文档中禁用，代码残留至 Phase 6。
 
-## 5. 一次生成的数据流
-
-```
-用户输入
-  → POST /api/engine/generate（SSE）
-  → compose：模型或离线启发式产出八字段 JSON（流式）
-  → 客户端 applyStreamDelta：只写 pending，不碰已确认内容
-  → field 完成时 commitField：字段级原子提交，脏字段得到 suggestion
-  → harden：确定性补边界，不调模型
-  → 自动试运行（变量有默认值时）
-  → 落库：Run 与 LlmCall
-```
-
-SSE 事件顺序：`stage` 包裹 `field` 包裹 `delta`，`reasoning` 与 `usage` 不改变字段状态，`error` 终止，`done` 收尾。
+界面文案中文，禁止感叹号、禁止 em dash、禁止 emoji；未知值显示「—」不写 0；未评分显示「未评分」。
 
 ---
 
-## 6. API 清单
+## 5. 数据模型
 
-| 路由 | 方法 | 说明 |
-|---|---|---|
-| `/api/engine/generate` | POST | 流式生成，`text/event-stream` |
-| `/api/engine/field` | POST | 单字段重算，接受操作与上下文 |
-| `/api/run` | GET/POST | GET 返回可用性与历史，POST 流式试运行 |
-| `/api/prompts` | GET/POST | 列表与创建 v0 |
-| `/api/prompts/[id]` | GET/PATCH/DELETE | 详情、追加版本、删除（有 v0 时 409） |
-| `/api/stats` | GET | 成本与用量统计 |
+现状 Prisma + SQLite，12 个模型。v2 核心四个：
 
-全部为动态路由（`force-dynamic`），依赖请求时环境与数据库。
+- `Prompt`：一条提示词；`PromptVersion`：版本，`versionNo = 0` 为基线 v0（服务端 409 保护）
+- `Run`：一次试运行；`LlmCall`：一次模型调用，用量字段全部可空
+
+v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCHITECTURE.md 第三节），Phase 1 落地，只增不删；旧表保留可读到 Phase 6，删表前再备份。
 
 ---
 
-## 7. 数据模型
+## 6. 不能破坏的约定
 
-Prisma + SQLite，12 个模型。会直接碰到的四个：
+**1. 未知不是 0。** 用量字段一律可空。`null` 是不知道，`0` 是确实是 0。未评分显示「未评分」，未设置预算显示「未设置」。v3 全程延续。
 
-- `Prompt`：一条提示词
-- `PromptVersion`：版本，`versionNo = 0` 是基线 v0，`@@unique([promptId, versionNo])`
-- `Run`：一次试运行，`versionId` 可空（保存版本前也能试运行），`sessionKey` 标识草稿
-- `LlmCall`：一次模型调用，用量字段全部可空
+**2. 密钥安全。** 密钥只存本机 SQLite 或环境变量，接口只回末四位，客户端产物零密钥字符串（构建期扫描）。任何改动不得引入第三方分析脚本或远程日志。
 
-其余：`Variable`、`VariableSet`、`EvalTask`、`CriterionCheck`、`ModelConfig`、`PromptTemplate`、`Draft`、`AppSetting`。
+**3. 迁移只增不删。** 无 `prisma/migrations/`，用 `db push`；Phase 6 删表前再备份。
 
----
+**4. 冻结契约。** `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地。改 `package.json`、`prisma/schema.prisma` 需先确认。
 
-## 8. 不能破坏的约定
-
-这七条是踩过坑之后定下来的，改之前先想清楚代价。
-
-**1. 未知不是 0。**
-用量字段一律可空。`null` 表示不知道，`0` 表示确实是 0。混用会让成本报表撒谎。历史上有过一次 `@default(0)` 的写法，已全部改掉。
-
-**2. 解析层只拒绝结构，不拒绝不完整。**
-缺字段用 `.default()` 兜住，schema 不因为模型少给两段就整体失败。完整性交给诊断规则判断。
-
-**3. 流式只写 pending。**
-R1 阶段用户正在看的内容不能被覆盖；R2 字段级原子提交；R3 用户编辑立即落文档；R4 补丁必须显式接受。
-
-**4. 修复写入不是用户编辑。**
-`applyRepair` 走 `origin: 'patch'`、`dirty: false`。如果修复也置脏，下一次一键修复会把自己刚修过的字段当成手改字段跳过。
-
-**5. 例外：覆盖式补丁保留 dirty。**
-`applyPatch('overwrite')` 刻意保留脏标记。这条保护回答的是"用户要不要复核"，与程序修复不是一回事，不要为了整齐抹掉。
-
-**6. v0 不可改删，且服务端强制。**
-UI 禁用只是建议。`assertVersionWritable(0)` 在服务端返回 409。
-
-**7. 契约文件不要动。**
-`lib/engine/schema.ts` 与 `lib/llm/types.ts` 是冻结接口。`package.json`、`prisma/schema.prisma` 的改动需要负责人确认。
+**5. v2 运行期约定（Phase 6 前有效）。** 流式只写 pending、修复写入不置脏（`origin: 'patch'`）、覆盖式补丁保留 dirty、v0 服务端不可改删。这些服务于八字段编辑器，v3 重写后随之退役，但在 v2 代码存活期间不得破坏。
 
 ---
 
-## 9. 测试与验收
+## 7. 测试与验收
 
-### 规模
-
-37 个测试文件，466 条用例。单测为主，集成测试覆盖路由。
-
-### 分层
-
-| 层 | 覆盖 |
-|---|---|
-| 纯函数单测 | 路径映射、诊断规则、导出转义、变量校验、文档状态机 |
-| reducer 级 | 撤销重做、chip 基线派生、修复写入语义 |
-| 集成 | 生成路由、运行路由、提示词路由（含并发版本号） |
-| 端到端 | `scripts/e2e-http.mjs`，生成 → 导出 → 试运行 → v0 → 库列表 → 评估 |
-
-### 视觉回归
-
-界面在 B1 到 B4 四批里重做过，验收基准是 `docs/BEAUTY-PLAN.md` 第九节：
-
-- 对比度用 OKLCH 转 sRGB 后按 WCAG 公式算，浅色最低 4.53:1、深色最低 5.13:1
-- 单屏 `border` 容器不超过 3 个，实测工作台 2 个
-- 每屏只有一个 primary 按钮
-- 改动样式时先看 `components/ui/`，不要再手写一套按钮与空态
-- 动效只有 `rise` / `reveal` 两个类，规则见 `docs/adr/0002-css-only-motion.md`
-- 跑测试前先停掉 3100 上的应用服务：两边共用同一个 SQLite 文件，会互相干扰
-
-### 验收原则
-
-- 一律以 **clean build** 为准：`rm -rf .next && pnpm build`
-- 本地 dev 的增量缓存会少编译媒体查询变体（例如 `xl`），看起来像布局 bug，删掉 `.next` 即可
-- 四件事同时绿才算通过：`pnpm test`、`pnpm typecheck`、`pnpm build`、`node scripts/e2e-http.mjs`
+- 基线以实测为准：2026-11-13 实测 512 条（41 文件），typecheck 零错误。
+- 集成测试共用独立 `data/test.db`，文件串行执行（共享同一 SQLite）。
+- 测试基线数在 v3 中会先增（Phase 1 新测试）后减（Phase 6 删旧测试），不追求数量，以 ROADMAP-V3 各阶段验收为准。
+- 视觉：改样式先看 `components/ui/` 与 `DESIGN.md`；改令牌跑 `pnpm check:contrast`；改 DESIGN.md 跑 design-parser。
+- 验收一律以 clean build 为准：`rm -rf .next && pnpm build`。
 
 ---
 
-## 10. 已知缺口与建议
+## 8. 下一步（按 docs/ROADMAP-V3.md）
 
-### 优先做
+1. **Phase 1 数据层与 API（3 人日）**：PromptRecord / PromptIteration / Template 模型、`db push`、12 条模板 seed、`lib/engine/prompts/` 元数据协议、SSE 路由、记录 / 模板 / 统计 API、定向测试。验收：mock 跑通一次生成与一次继续优化，落库正确。
+2. **Phase 2 工作台重写（4 人日）**：双模式、结果面板、diff、继续优化、按需检查。验收 AC-1 到 AC-7、AC-19、AC-20。
+3. Phase 3 库 → Phase 4 模板 → Phase 5 设置与成本 → Phase 6 移除旧模块与收口。
 
-1. **接真密钥验一轮**，重点看 usage 落库、`reasoning_content`、错误码映射
-2. ~~成本字段收口~~：已改成可空（与 Run / LlmCall 一致）
-3. **来源文案**：修复后显示「已生成 · 补丁写入」，「补丁写入」是内部术语，需要一次文案统一
-
-### 可以排期
-
-- 版本回滚与 diff 界面（API 已接受 `rollback` 来源）
-- 库的标签、收藏、删除、分页
-- 模型选择器与参数面板（现在固定默认模型）
-- 流式进行中的文本参与诊断
-- 导入已有提示词（API 已接受 `imported` 来源）
-
-### 结构性建议
-
-- 如果要做多人协作，`sessionKey` 这套草稿标识需要换成真正的会话
-- 如果需要审计，`LlmCall` 已经有 traceId，但 `Prompt/Template` 的变更还没有留痕
+约束：每个 Phase 独立提交；动 UI 先读 `DESIGN.md`；产品行为以 `PRODUCT.md` 为准。
 
 ---
 
-## 11. 排障
+## 9. 排障
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
 | `pnpm install` 报 EPERM | 沙箱把 `~/.npm` 设为不可写 | `.npmrc` 已把 store 与 cache 放工程内，不要改回全局 |
-| Prisma 找不到数据库 | SQLite 相对路径按 schema 目录解析 | `DATABASE_URL="file:../data/app.db"`，且 Prisma CLI 只读 `.env` 不读 `.env.local` |
+| Prisma 找不到数据库 | SQLite 相对路径按 schema 目录解析 | `DATABASE_URL="file:../data/app.db"`；Prisma CLI 只读 `.env` 不读 `.env.local` |
+| 测试失败提示密钥或网络 | 测试环境变量未隔离 | `tests/setup-env.ts` 会清 `ARK_API_KEY`，确认 vitest 配置未被绕过 |
+| 测试动到了开发库 | 不应发生 | 测试必须走 `data/test.db`；如发生立即停手检查 global-setup 是否生效 |
 | 1440 布局塌成单栏 | dev 增量缓存缺 `xl` 变体 | `rm -rf .next` 重新构建 |
 | 端口被占 | 同一目录起了两个 dev server | `lsof -ti tcp:3100 \| xargs kill -9` |
-| 试运行一直显示不可用 | 没有密钥也没注入 Mock | 配 `ARK_API_KEY`，或 `MOCK_LLM_FAULT=valid` |
 | 构建时 Prisma 报 relation 缺失 | schema 改了但没 generate | `pnpm db:generate` |
+| 网关 404 | `ARK_BASE_URL` 缺 `/openai/v1` | 保存设置会自动规范化；环境变量写错时用 `normalizeArkBaseUrl` 兜底 |
 
 ---
 
-## 12. 第一天 checklist
-
-- [ ] 跑通 `pnpm dev`，打开 3100，确认首页空态与模型状态条
-- [ ] 输入一句话，看八字段流式生成
-- [ ] 改一个 chip，撤销，确认字段与标记一起回退
-- [ ] 点一键修复，确认有错误的字段被修、手改字段被跳过
-- [ ] 点试运行，看输出与用量
-- [ ] 导出 Markdown，粘贴到任意 Markdown 编辑器
-- [ ] 保存版本，去库里打开，另存一个新版本
-- [ ] 跑 `pnpm test` 与 `node scripts/e2e-http.mjs`，确认全绿
-- [ ] 读完 `PRODUCT.md` 与 `docs/ARCHITECTURE.md` 的状态模型一节
-
----
-
-## 附：文档索引
+## 10. 文档索引
 
 | 文件 | 内容 |
 |---|---|
-| `PRODUCT.md` | 需求、验收标准、指标、非目标 |
-| `DESIGN.md` | 视觉规范、组件状态矩阵、交互约束 |
-| `docs/ARCHITECTURE.md` | Provider 接口、SSE 协议、schema、状态模型、数据模型 |
-| `docs/ROADMAP.md` | 里程碑与风险 |
-| `docs/REVIEW.md` | 评审结论与问题闭环 |
-| `docs/EXECUTION.md` | 技术方案与分工 |
-| `.scratch/promptpilot/issues/` | 19 张工单，含验收记录与已知问题 |
+| `PRODUCT.md` | v3 产品定义、FR / NFR / AC、成功指标 |
+| `DESIGN.md` | v3 设计系统、组件规格、禁令 |
+| `CONTEXT.md` | v3 领域词表与废弃词 |
+| `docs/ROADMAP-V3.md` | 七阶段计划、数据模型、SSE 协议、测试计划 |
+| `docs/ARCHITECTURE.md` | v3 技术契约 |
+| `docs/adr/` | 0001-0007；0007 是结果优先重置 |
+| `.agent/memory/` | 会话状态（ACTIVE_CONTEXT / session-summary / todo-tracker） |

@@ -160,7 +160,7 @@ components:
 
 **Creative North Star: "烛光落在纸面上"**
 
-PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到结果。用户不需要看系统怎么想，只需要看写出来的提示词好不好用。因此结果面是屏幕上最亮、最大、最安静的一块纸；左轨、顶栏、输入区都退到更暗的羊皮纸层里。默认路径只有两步：给出需求或原文，读结果。
+PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到结果。用户不需要看系统怎么想，只需要看写出来的提示词好不好用。因此结果面是屏幕上最亮、最大、最安静的一块纸；左轨、顶栏、输入区都退到更暗的羊皮纸层里。默认路径不超过三步：给出需求或原文，读结果，复制带走。
 
 材质沿用 v2 的深棕分层、金色主操作、衬线标题、细描边与克制的金色 glow，但删掉多阶段时间轴、八字段 bento、假设 chip 墙、评估仪表盘这类流程表演。奇观只出现在三个位置：当前模式、主操作、当前选中项。其余区域保持工具密度，让阅读与复制成为唯一焦点。
 
@@ -174,7 +174,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 - 金色是稀缺资源：主操作、当前导航、焦点、一个 KPI，合计不超过单屏 10%。
 - 双主题一套材质，深色是烛光变体，浅色是日光羊皮纸。
 - 中文宋体只给页面标题、大陈述句与 KPI 数字；正文、按钮、标签、数据一律无衬线。
-- 动效只动 opacity 与 transform，120 到 180ms；glow 只给 active / selected / focus，同屏不超过 2 个。
+- 动效只动 opacity 与 transform（glow 的 box-shadow 过渡是唯一例外），120 到 180ms；glow 只给 active / selected / focus，同屏不超过 2 个。
 - 工具密度与阅读留白并存：chrome 紧凑，结果正文 68ch 上限。
 
 ## 2. Colors: 羊皮纸与烛光
@@ -185,7 +185,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 
 - **Candle Gold** (#8a5a00，深色主题 #ca8a04)：主按钮、当前导航、焦点环、一个主 KPI。它必须稀缺，像黑屋里的一盏灯。
 - **Candle Gold Hover** (#6f4800)：主按钮悬停与按下，只加深，不换色相。
-- **Candle Gold Subtle** (#f0e2c4)：当前导航底、选中行底、当前步骤底。它是金光的低亮度版本，不做大面积背景。
+- **Candle Gold Subtle** (#f0e2c4)：当前导航底、选中行底。它是金光的低亮度版本，不做大面积背景。
 
 ### Neutral
 
@@ -235,7 +235,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 
 - **Display** (display, weight 600, 40px, line-height 1.12): 页面标题、空态大标题，宽屏 48px。必须 `text-balance`。
 - **Headline** (display, weight 600, 26px, line-height 1.25): 区块标题。
-- **Title** (display, weight 600, 18px, line-height 1.35): 面板标题、卡片标题、字段标题。
+- **Title** (display, weight 600, 18px, line-height 1.35): 面板标题、卡片标题。
 - **Body** (body, weight 400, 15px, line-height 1.7): 默认正文、表单辅助文字。正文行长上限 68ch。
 - **Body Large** (body, weight 400, 16px, line-height 1.75): 渲染后的 Markdown 提示词正文，行长上限 68ch。
 - **Label** (label, weight 500, 13px, line-height 1.4): 按钮、导航、表单标签。
@@ -248,7 +248,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 
 **The 12px Floor Rule.** 中文最小 12px，不做大写变形。11px 中文 chip 与 `text-transform: uppercase` 都在禁止之列。
 
-**The Tabular Numbers Rule.** 所有数字使用 `tabular-nums`，包括耗时、token、费用、评分计数与版本号。
+**The Tabular Numbers Rule.** 所有数字使用 `tabular-nums`，包括耗时、token、费用、评分计数与迭代序号。
 
 **The Source Is Mono Rule.** 提示词源码、模型 ID、token、费用一律等宽。渲染视图里的代码块同样用等宽，并允许横向滚动。
 
@@ -262,7 +262,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 - **Elevation Medium** (`0 2px 8px rgba(90,60,20,.18)`): 抬升卡片、下拉、悬停浮层。
 - **Elevation Large** (`0 8px 24px -12px rgba(90,60,20,.28)`): 弹层、抽屉、命令面板。
 - **Glow Gold** (`0 0 0 1px #8a5a00, 0 0 16px rgba(138,90,0,.25)`): 当前导航、选中项、结果面聚焦。
-- **Glow Gold Strong** (`0 0 0 1px #ca8a04, 0 0 24px rgba(202,138,4,.32)`): 主操作按下、当前阶段。
+- **Glow Gold Strong** (`0 0 0 1px #ca8a04, 0 0 24px rgba(202,138,4,.32)`): 主操作按下。
 
 ### Named Rules
 
@@ -361,7 +361,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 
 ### Settings Panels
 
-- **Layout:** 左侧锚点导航（模型 / 成本），右侧分区。窄屏改为吸顶三段横向分段条。
+- **Layout:** 左侧锚点导航（模型 / 成本），右侧分区。窄屏改为吸顶两段横向分段条。
 - **Model Hero:** 单行状态条，说明「已接入真实模型」或「未配置模型」。下面两个模型槽位：生成模型、优化模型，允许相同。密钥只显示末四位。
 - **Actions:** 测试连接只测已保存配置，15 秒超时；有未保存改动时禁用并说明原因。
 - **Cost:** 四个 KPI 用衬线数字；近 14 天柱状折线图，柱为调用次数，线为已知金额；按模型与按阶段两张表，每页 10 行；预算条显示已用比例，80% 提示，100% 强提示但不阻断调用。
@@ -385,7 +385,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 
 ### Motion
 
-只动 opacity 与 transform，用 ease-out-quart（`cubic-bezier(0.16, 1, 0.3, 1)`）：
+只动 opacity 与 transform，唯一例外是 `.glow-in` 的 box-shadow 过渡，用 ease-out-quart（`cubic-bezier(0.16, 1, 0.3, 1)`）：
 
 - `.rise` 120ms：内容首次出现。
 - `.reveal` 180ms：容器展开、抽屉打开。
