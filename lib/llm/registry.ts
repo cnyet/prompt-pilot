@@ -71,6 +71,7 @@ export function isOpencodeGateway(baseUrl: string): boolean {
   }
 }
 export const DEFAULT_GENERATE_MODEL_CONFIG_ID = 'ark-generate'
+export const DEFAULT_OPTIMIZE_MODEL_CONFIG_ID = 'ark-optimize'
 export const DEFAULT_EVALUATE_MODEL_CONFIG_ID = 'ark-evaluate'
 
 export interface ModelPricing extends ModelPricingCny {
@@ -100,7 +101,7 @@ export const ARK_MODEL_PRESETS: Readonly<Record<string, ModelPricing>> = {
 }
 
 export type ProviderKind = 'ark' | 'openai_compatible' | 'mock'
-export type ModelRole = 'generate' | 'evaluate' | 'judge'
+export type ModelRole = 'generate' | 'optimize' | 'evaluate' | 'judge'
 
 export interface ModelConfig {
   id: string
@@ -165,6 +166,8 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
     envValue(env, 'ARK_BASE_URL') ?? ARK_DEFAULT_BASE_URL,
   )
   const generateModel = envValue(env, 'ARK_MODEL_GENERATE') ?? DEFAULT_GENERATE_MODEL_ID
+  // 未单独配置优化模型时复用生成模型（FR-8.3）
+  const optimizeModel = envValue(env, 'ARK_MODEL_OPTIMIZE') ?? generateModel
   const evaluateModel = envValue(env, 'ARK_MODEL_EVALUATE') ?? DEFAULT_EVALUATE_MODEL_ID
 
   const makeConfig = (
@@ -202,6 +205,13 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
       generateModel,
       `生成模型 · ${modelDisplayLabel(generateModel)}`,
       true,
+    ),
+    makeConfig(
+      DEFAULT_OPTIMIZE_MODEL_CONFIG_ID,
+      'optimize',
+      optimizeModel,
+      `优化模型 · ${modelDisplayLabel(optimizeModel)}`,
+      false,
     ),
     makeConfig(
       DEFAULT_EVALUATE_MODEL_CONFIG_ID,
@@ -364,5 +374,35 @@ export function getGenerateProvider(
   }
 
   const config = getDefaultModelConfig('generate', env)
+  return config ? createProvider(config, env, overrides) : null
+}
+
+/** 优化阶段的 provider：有 ARK_API_KEY 返回方舟实例，否则 null。 */
+export function getOptimizeProvider(
+  env: RegistryEnv = process.env,
+  overrides: ProviderOverrides = {},
+): LLMProvider | null {
+  // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
+  // optimize 路由的失败分支；有 Key 时仍以真实方舟为准。
+  if (!hasArkApiKey(env)) {
+    // valid 画像需要显式申请：试运行与评估要它，优化不要（优化应继续走
+    // 离线 composer，否则会用 mock 文本去解析结构化输出）。
+    if (
+      overrides.allowValidMock &&
+      envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE
+    ) {
+      return createValidMockProvider()
+    }
+    const fault = getMockFaultProfile(env)
+    if (fault) {
+      return new MockProvider({
+        id: 'mock-fault',
+        label: `Mock 故障画像 · ${fault}`,
+        fault,
+      })
+    }
+  }
+
+  const config = getDefaultModelConfig('optimize', env)
   return config ? createProvider(config, env, overrides) : null
 }
