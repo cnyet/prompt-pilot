@@ -223,3 +223,185 @@ export async function findIterationByRequestId(
   const prisma = requirePrisma()
   return prisma.promptIteration.findUnique({ where: { requestId } })
 }
+
+/* ---------- v3 记录读取 / 修改 / 删除（Batch D） ---------- */
+
+/** 列表与详情共用的记录摘要；不含正文 latestOutput。 */
+export interface RecordSummary {
+  id: string
+  title: string
+  mode: string
+  targetType: string
+  sourceInput: string
+  status: string
+  favorite: boolean
+  rating: number | null
+  modelId: string | null
+  iterationCount: number
+  tokensIn: number | null
+  tokensOut: number | null
+  costCny: number | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ListRecordsQuery {
+  q?: string
+  filter?: 'all' | 'favorite' | 'rated' | 'generate' | 'optimize'
+  targetType?: 'text' | 'image' | 'video'
+  from?: Date
+  to?: Date
+  limit: number
+  offset: number
+}
+
+/** 记录不存在。 */
+export class RecordNotFoundError extends Error {
+  constructor(message = '没有找到这条记录。') {
+    super(message)
+    this.name = 'RecordNotFoundError'
+  }
+}
+
+/** 记录尚无可用结果：收藏与评分类操作暂不可用。 */
+export class RecordNotReadyError extends Error {
+  constructor(message = '记录还在处理中或没有可用结果，暂时不能评分或收藏。') {
+    super(message)
+    this.name = 'RecordNotReadyError'
+  }
+}
+
+/** 行 → 摘要：只暴露列表契约字段，正文与内部列不外泄。 */
+export function toRecordSummary(record: PromptRecordRow): RecordSummary {
+  return {
+    id: record.id,
+    title: record.title,
+    mode: record.mode,
+    targetType: record.targetType,
+    sourceInput: record.sourceInput,
+    status: record.status,
+    favorite: record.favorite,
+    rating: record.rating,
+    modelId: record.modelId,
+    iterationCount: record.iterationCount,
+    tokensIn: record.tokensIn,
+    tokensOut: record.tokensOut,
+    costCny: record.costCny,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  }
+}
+
+/**
+ * 提示词库列表：只收有正文的记录，按最近处理倒序，id 倒序兜底保证分页稳定。
+ * 返回的摘要不含 latestOutput，正文只在详情接口返回。
+ */
+export async function listRecords(
+  query: ListRecordsQuery,
+): Promise<{ records: RecordSummary[]; total: number }> {
+  const prisma = requirePrisma()
+  const where: Prisma.PromptRecordWhereInput = { latestOutput: { not: '' } }
+  if (query.q) {
+    where.OR = [
+      { title: { contains: query.q } },
+      { sourceInput: { contains: query.q } },
+      { latestOutput: { contains: query.q } },
+    ]
+  }
+  if (query.filter === 'favorite') where.favorite = true
+  if (query.filter === 'rated') where.rating = { not: null }
+  if (query.filter === 'generate' || query.filter === 'optimize') {
+    where.mode = query.filter
+  }
+  if (query.targetType) where.targetType = query.targetType
+  if (query.from || query.to) {
+    where.updatedAt = {
+      ...(query.from ? { gte: query.from } : {}),
+      ...(query.to ? { lte: query.to } : {}),
+    }
+  }
+
+  const [records, total] = await Promise.all([
+    prisma.promptRecord.findMany({
+      where,
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      skip: query.offset,
+      take: query.limit,
+      select: {
+        id: true,
+        title: true,
+        mode: true,
+        targetType: true,
+        sourceInput: true,
+        status: true,
+        favorite: true,
+        rating: true,
+        modelId: true,
+        iterationCount: true,
+        tokensIn: true,
+        tokensOut: true,
+        costCny: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.promptRecord.count({ where }),
+  ])
+  return { records, total }
+}
+
+export interface UpdateRecordMetaInput {
+  recordId: string
+  title?: string
+  favorite?: boolean
+  rating?: number | null
+}
+
+/**
+ * 改名 / 收藏 / 评分。改名任何状态都可执行；收藏与评分只对 completed / canceled
+ * 开放（running 还在处理，failed 没有可用结果）。
+ * updatedAt 显式写回读到的值，元数据编辑不改变「最近处理」排序。
+ */
+export async function updateRecordMeta(
+  input: UpdateRecordMetaInput,
+): Promise<PromptRecordRow> {
+  const prisma = requirePrisma()
+  const record = await prisma.promptRecord.findUnique({ where: { id: input.recordId } })
+  if (!record) throw new RecordNotFoundError()
+
+  const wantsRatingChange = input.rating !== undefined || input.favorite !== undefined
+  if (wantsRatingChange && !['completed', 'canceled'].includes(record.status)) {
+    throw new RecordNotReadyError()
+  }
+
+  const data: Prisma.PromptRecordUpdateInput = {}
+  if (input.title !== undefined) data.title = input.title
+  if (input.favorite !== undefined) data.favorite = input.favorite
+  if (input.rating !== undefined) data.rating = input.rating
+
+  return prisma.promptRecord.update({
+    where: { id: record.id },
+    data: { ...data, updatedAt: record.updatedAt },
+  })
+}
+
+/**
+ * 删除记录与迭代正文；调用账本只置空关联，保留匿名用量（FR-11.2）。
+ * 并发下记录已被删掉时 Prisma 抛 P2025，由路由当作幂等删除处理。
+ */
+export async function deleteRecord(recordId: string): Promise<void> {
+  const prisma = requirePrisma()
+  await prisma.$transaction(async (tx) => {
+    const iterations = await tx.promptIteration.findMany({
+      where: { recordId },
+      select: { id: true },
+    })
+    await tx.llmCall.updateMany({
+      where: {
+        OR: [{ recordId }, { iterationId: { in: iterations.map((iteration) => iteration.id) } }],
+      },
+      data: { recordId: null, iterationId: null },
+    })
+    await tx.promptRecord.delete({ where: { id: recordId } })
+  })
+}
