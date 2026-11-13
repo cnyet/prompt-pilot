@@ -4,9 +4,6 @@
 - 无。
 
 ## Pending
-- [ ] P1 修复 PRODUCT/ROADMAP：NFR-9 i18n 决策（补字典任务或降级）、AC 补缺（FR-1.1/1.2/1.3/2.4/6.3/8.4/10.3/11.2）与 AC-17/19/20 双重分配去重 | Priority: P1 | Created: 2026-11-12 | Source: PM 评审
-- [ ] P1 design.json：colorMeta 补全 28 色 darkValue 或加「新语义名 → CSS 变量」映射；组件 CSS 令牌名与 frontmatter 统一 | Priority: P1 | Created: 2026-11-12 | Source: PM 评审
-- [ ] P2 修复：评分对象限定完成记录、记录层幂等、输入长度 Zod 校验入 Phase 1 测试、cachedHit 字段、模板 style 枚举+补「代码」风格、删除记录时置空 LlmCall 关联 | Priority: P2 | Created: 2026-11-12 | Source: PM 评审（测试数统一已随 `f3a281d` 完成）
 - [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2
 - [ ] ROADMAP Phase 1：数据层与 API（3 人日，前置已全部清空可开工）| Priority: P0 | Created: 2026-11-12
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
@@ -17,6 +14,8 @@
 - 无。
 
 ## Done
+- [x] P1 收口：NFR-9 单一字典模块定稿、AC-21 到 AC-28 补缺、AC 分配去重、design.json colorMeta 28 色 + tokenMapping | Completed: 2026-11-13 | `6bd7233`
+- [x] P2 收口：评分限定完成记录、幂等两层、Zod 边界测试、cachedHit、模板四风格含代码、删除置空 LlmCall | Completed: 2026-11-13 | `6bd7233`
 - [x] 验收工作区遗留改动并独立提交 `fc00f4c`（typecheck ✓、512/512 测试 ✓、harness 24/24 ✓）| Completed: 2026-11-13
 - [x] P0-1 Phase 0 文档收口：ADR-0007 新建、CONTEXT/ARCHITECTURE/HANDOVER/README 重写、`docs/ROADMAP.md` 删除（`f3a281d`）| Completed: 2026-11-13
 - [x] P0-2 FR-9.1 删「说明」阶段并定 stage 落库值 generate/optimize/repair | Completed: 2026-11-13

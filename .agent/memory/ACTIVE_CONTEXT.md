@@ -1,12 +1,12 @@
 # Active Context
 
-> Last updated: 2026-11-13T03:10:00Z
+> Last updated: 2026-11-13T03:40:00Z
 
 ## Current Task
-- Done（Phase 0 文档收口，2026-11-13）：① 遗留改动验收提交 `fc00f4c`（网关端点规范化 + 测试库隔离 test.db）；② 分支 `feat/v3-result-first` + 备份 `data/app.db.bak-20261113-1047`；③ 文档收口 `f3a281d`（ADR-0007、CONTEXT/ARCHITECTURE/HANDOVER/README 重写、删 docs/ROADMAP.md）；④ P0-2 stage 枚举、P0-3 埋点字段、FR-4.5、DESIGN 7 处修正。
-- In progress: 无（persist 收口）。
-- Next step（按序）：① P1 剩余：NFR-9 i18n 决策、AC 补缺与去重、design.json colorMeta 补全；② P2 批次（11 条）；③ Phase 1 数据层与 API（3 人日，前置已清空可开工）。
-- Blockers: design-parser.mjs 脚本本机缺失，改 DESIGN.md 结构前需先解决。
+- Done（PM 评审问题全部收口，2026-11-13）：Phase 0 文档收口（`f3a281d`）+ P1/P2 剩余项（`6bd7233`）。19 条评审问题中 3 P0 / 5 P1 / P2 批次全部处理；仅存 DESIGN 主题切换位置对账（Phase 2 做）与 design-parser 脚本缺失（P2）。
+- 关键落点：NFR-9 定稿单一字典模块 `lib/i18n/zh.ts`；AC 扩到 AC-28；design.json colorMeta 28 色全 + tokenMapping 语义名→CSS 变量；幂等两层（记录 LRU + 迭代唯一约束）；LlmCall 补 cachedHit；内置模板文本类四风格各一条（含代码）。
+- In progress: 无。
+- Next step: Phase 1 数据层与 API（3 人日，ROADMAP-V3 §3；分支已建、库已备份）。
 
 ## Current Constraints
 - v3 四件套为事实源：PRODUCT.md、docs/ROADMAP-V3.md、DESIGN.md、.impeccable/design.json；v2 八字段/评估/版本树已废弃。
