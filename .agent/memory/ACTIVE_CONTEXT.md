@@ -5,7 +5,7 @@
 ## Current Task
 - In progress: v3 Phase 1+2 craft 实现（shape brief 已确认，见 `docs/shape-studio-v3.md`）。SDD 批次推进中：
   - Batch A 数据层第一批：**已验收**（reviewer approve）。提交 `8ee16b3` schema 三模型+LlmCall 列、`7e402a5` settings modelOptimize+预算键、`cd77c37` registry optimize 角色。备份 `data/app.db.bak-20261113-1139`。
-  - Batch B 引擎纯函数层：**实现完成待终审**。提交 `aec9c65` meta 切分、`bcbacf0` sse-v3、`542cde0` 幂等 LRU、`9008711` 三组系统提示词。545/545 测试。两处计划偏差有理由（提前出现降级分支；容量用例断言矛盾修正）。
+  - Batch B 引擎纯函数层：**已验收**（verifier approve，两处偏差均判合理）。提交 `aec9c65` meta 切分、`bcbacf0` sse-v3、`542cde0` 幂等 LRU、`9008711` 三组系统提示词。545/545 测试。文档漂移已修：done 事件规格补 status（`a198253`）。
 - 批次计划：`docs/superpowers/plans/2026-11-13-v3-batch-{a,b,c}.md`；B/C 已写好，C 待 B 终审通过后派实现者。
 - Next step: 1) Batch B 终审；2) Batch C（ledger 加法 → lib/db/records.ts → /api/generate → optimize/repair 路由）；3) Batch D（records/templates/stats API + 12 模板 seed + 预算聚合）；4) Batch E（studio-v3 UI）。
 - Phase 2 收口项：主题切换移顶栏（DESIGN §4.1 对账，AppShell.tsx:169-181 现状）。
