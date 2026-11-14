@@ -19,8 +19,9 @@ import {
   type LibraryListParams,
   type LibraryTargetType,
 } from '@/lib/library/query'
-import { replaceRecord } from '@/lib/library/rows'
+import { removeRecordFromList, replaceRecord } from '@/lib/library/rows'
 import { LibraryFilters } from './LibraryFilters'
+import { RecordDetailDrawer } from './RecordDetailDrawer'
 import { RecordRow } from './RecordRow'
 import { useRecordMeta } from './useRecordMeta'
 
@@ -33,7 +34,7 @@ export interface LibraryV3Props {
  *
  * 搜索 300ms 防抖，筛选立即生效；请求带 AbortController 与递增请求号双守卫，
  * 旧响应直接丢弃。列表按最近处理倒序，完成即入库，收藏/评分/重命名就地更新。
- * 详情抽屉由下一步接入，本步保留选中行状态。
+ * 选中行打开右侧详情抽屉；抽屉内删除后同步移除列表行并递减总数。
  */
 export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
   const [query, setQuery] = useState('')
@@ -110,6 +111,13 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
 
   const updateRecord = useCallback((next: RecordSummaryDto) => {
     setRecords((current) => replaceRecord(current, next))
+  }, [])
+
+  const handleDeleted = useCallback((id: string) => {
+    setRecords((current) => removeRecordFromList(current, id))
+    setTotal((current) => Math.max(0, current - 1))
+    setOffset((current) => Math.max(0, current - 1))
+    setSelectedId((current) => (current === id ? null : current))
   }, [])
 
   const onMetaError = useCallback(() => {
@@ -285,6 +293,17 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
           </>
         )}
       </div>
+
+      {selectedId ? (
+        <RecordDetailDrawer
+          key={selectedId}
+          recordId={selectedId}
+          optimizeAvailable={optimizeAvailable}
+          onClose={() => setSelectedId(null)}
+          onDeleted={handleDeleted}
+          onMetaChanged={updateRecord}
+        />
+      ) : null}
     </PageShell>
   )
 }

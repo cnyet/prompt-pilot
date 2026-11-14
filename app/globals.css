@@ -318,3 +318,38 @@
 @utility tnum {
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * 提示词库详情抽屉（FR-6.7）：右侧 560px 面板，移动端全屏。
+ * 原生 <dialog> 提供焦点陷阱与 Esc；遮罩用纯色半透明，不做背景模糊。
+ */
+.library-drawer {
+  margin: 0 0 0 auto;
+  width: min(560px, 100vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--elevation-lg);
+  overflow: hidden;
+}
+
+.library-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-drawer::backdrop {
+  background: rgba(26, 15, 10, 0.55);
+}
+
+@media (max-width: 1023px) {
+  .library-drawer {
+    width: 100vw;
+    border-left: 0;
+  }
+}
