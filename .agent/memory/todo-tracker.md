@@ -12,7 +12,7 @@
 - 无。
 
 ## Done
-- [x] Batch F：提示词库 v3 UI（列表 + 详情抽屉 + 继续优化/修复 + v2 库删除）；final fix `618f0b2`；typecheck 0 / 83 文件 857 用例 / build ✓ / contrast ✓；分支未合并未 push，待收尾决定 | Completed: 2026-11-14
+- [x] Batch F：提示词库 v3 UI（列表 + 详情抽屉 + 继续优化/修复 + v2 库删除）；final fix `618f0b2`；已本地合入 main（快进 `fc7ac2f` → `79a101d`），分支已删；merged main typecheck 0 / 83 文件 857 用例 / build ✓ / contrast ✓；未 push | Completed: 2026-11-14
 - [x] Batch E 合入 main（fast-forward `cdc8ebc` → `f48833d`），特性分支与 SDD 工作区已删；merged main typecheck 0 / 78 文件 832 用例 / harness 24 pass / 0 fail；未 push | Completed: 2026-11-14
 - [x] Batch E：studio-v3 UI 全量（i18n、Markdown/diff、R101-R108、流式、工作台、导航）；final review 后 fix wave `f48833d`，scoped re-review 11/11 ADDRESSED；typecheck 0 / 78 文件 832 用例 / harness 24 pass | Completed: 2026-11-13
 - [x] DESIGN 主题切换位置对账：主题切换移至顶栏，导航四项 + 移动底栏（Batch E `7828b16`）| Completed: 2026-11-13

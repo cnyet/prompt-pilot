@@ -565,5 +565,5 @@
 - 本 harness 无 Chromium，交互与焦点只能人工验收。
 
 ### Carry-over
-- [ ] 用户决定 Batch F 收尾：本地合并 / PR / 保留分支（未授权前不合不推）。
+- [x] 用户选择本地合并：快进 `fc7ac2f` → `79a101d`，特性分支已删；merged main typecheck 0 / 83 文件 857 用例 / build ✓ / contrast ✓；未 push。
 - [ ] Phase 4 模板页、Phase 5 设置/成本、Phase 6 v2 清理。
