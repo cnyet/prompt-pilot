@@ -63,7 +63,7 @@ describe('设置连通性测试接口', () => {
     expect(ping).not.toHaveBeenCalled()
   })
 
-  it('生成与评估各测一次，只回模型标识与耗时', async () => {
+  it('生成与优化各测一次，只回模型标识与耗时', async () => {
     vi.stubEnv('ARK_API_KEY', 'ark-secret-key-1234567890')
 
     const response = await testSettingsRoute()
@@ -74,7 +74,7 @@ describe('设置连通性测试接口', () => {
     expect(body.result.ok).toBe(true)
     expect(body.result.models.map((model) => model.role)).toEqual([
       'generate',
-      'evaluate',
+      'optimize',
     ])
     expect(ping).toHaveBeenCalledTimes(2)
     for (const model of body.result.models) {

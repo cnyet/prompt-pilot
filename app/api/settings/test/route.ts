@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
-  DEFAULT_EVALUATE_MODEL_CONFIG_ID,
   DEFAULT_GENERATE_MODEL_CONFIG_ID,
+  DEFAULT_OPTIMIZE_MODEL_CONFIG_ID,
   createProvider,
   getModelConfig,
   modelDisplayLabel,
@@ -21,14 +21,14 @@ const TARGETS = [
     configId: DEFAULT_GENERATE_MODEL_CONFIG_ID,
   },
   {
-    role: 'evaluate',
-    roleLabel: '评估',
-    configId: DEFAULT_EVALUATE_MODEL_CONFIG_ID,
+    role: 'optimize',
+    roleLabel: '优化',
+    configId: DEFAULT_OPTIMIZE_MODEL_CONFIG_ID,
   },
 ] as const
 
 interface ModelTestResult {
-  role: 'generate' | 'evaluate'
+  role: 'generate' | 'optimize'
   roleLabel: string
   modelId: string | null
   modelLabel: string | null
