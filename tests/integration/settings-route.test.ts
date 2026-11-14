@@ -1,11 +1,15 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { GET as getSettingsRoute, PUT as putSettingsRoute } from '@/app/api/settings/route'
 import { ARK_DEFAULT_BASE_URL } from '@/lib/llm/registry'
 import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
 import {
+  BUDGET_SETTING_KEY,
   LLM_SETTING_KEYS,
+  MODEL_PARAM_SETTING_KEYS,
+  getBudgetSetting,
   getEffectiveLlmEnv,
   getLlmSettingsView,
+  invalidateSettingsCache,
   saveLlmSettings,
 } from '@/lib/settings/store'
 
@@ -17,8 +21,17 @@ async function clearOverrides(): Promise<void> {
     return
   }
   await prisma.appSetting.deleteMany({
-    where: { key: { in: Object.values(LLM_SETTING_KEYS) } },
+    where: {
+      key: {
+        in: [
+          ...Object.values(LLM_SETTING_KEYS),
+          ...Object.values(MODEL_PARAM_SETTING_KEYS),
+          BUDGET_SETTING_KEY,
+        ],
+      },
+    },
   })
+  invalidateSettingsCache()
 }
 
 async function callPut(body: unknown): Promise<Response> {
@@ -31,7 +44,7 @@ async function callPut(body: unknown): Promise<Response> {
   )
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
   await clearOverrides()
 })
 
@@ -142,5 +155,114 @@ describe('设置接口', () => {
       settings: { modelGenerate: { source: string } }
     }
     expect(body.settings.modelGenerate.source).not.toBe('settings')
+  })
+})
+
+interface SettingsBody {
+  settings: {
+    modelOptimize: { value: string; source: string }
+    params: {
+      generate: {
+        temperature: { value: number; source: string }
+        maxTokens: { value: number; source: string }
+      }
+      optimize: {
+        temperature: { value: number; source: string }
+        maxTokens: { value: number; source: string }
+      }
+    }
+  }
+  budget: { monthlyCny: number | null }
+}
+
+describe('设置接口：模型、参数与预算（Batch H）', () => {
+  it('PUT modelOptimize 后 GET 返回设置来源', async () => {
+    const response = await callPut({ modelOptimize: 'opt-model' })
+    expect(response.status).toBe(200)
+
+    const body = (await response.json()) as SettingsBody
+    expect(body.settings.modelOptimize).toEqual({
+      value: 'opt-model',
+      source: 'settings',
+    })
+
+    const getBody = (await (await getSettingsRoute()).json()) as SettingsBody
+    expect(getBody.settings.modelOptimize).toEqual({
+      value: 'opt-model',
+      source: 'settings',
+    })
+  })
+
+  it('PUT 生成参数后 GET 返回参数值', async () => {
+    const response = await callPut({
+      generateTemperature: 0.3,
+      generateMaxTokens: 2048,
+    })
+    expect(response.status).toBe(200)
+
+    const body = (await response.json()) as SettingsBody
+    expect(body.settings.params.generate.temperature.value).toBe(0.3)
+    expect(body.settings.params.generate.maxTokens.value).toBe(2048)
+  })
+
+  it('PUT optimizeTemperature null 恢复继承生成参数', async () => {
+    await callPut({ generateTemperature: 0.3, generateMaxTokens: 2048 })
+    await callPut({ optimizeTemperature: 1.2 })
+
+    const own = (await (await callPut({})).json()) as SettingsBody
+    expect(own.settings.params.optimize.temperature).toEqual({
+      value: 1.2,
+      source: 'settings',
+    })
+
+    const inherited = (await (
+      await callPut({ optimizeTemperature: null })
+    ).json()) as SettingsBody
+    expect(inherited.settings.params.optimize.temperature).toEqual({
+      value: 0.3,
+      source: 'inherited',
+    })
+    expect(inherited.settings.params.optimize.maxTokens).toEqual({
+      value: 2048,
+      source: 'inherited',
+    })
+  })
+
+  it('PUT 预算并清除', async () => {
+    const saved = await callPut({ budgetMonthlyCny: 100 })
+    expect(saved.status).toBe(200)
+    expect(((await saved.json()) as SettingsBody).budget.monthlyCny).toBe(100)
+    expect(await getBudgetSetting()).toBe(100)
+
+    const cleared = await callPut({ budgetMonthlyCny: null })
+    expect(cleared.status).toBe(200)
+    expect(((await cleared.json()) as SettingsBody).budget.monthlyCny).toBeNull()
+    expect(await getBudgetSetting()).toBeNull()
+  })
+
+  it('PUT 类型与范围错误返回 400', async () => {
+    const stringTemperature = await callPut({ generateTemperature: '0.3' })
+    expect(stringTemperature.status).toBe(400)
+    expect(await stringTemperature.json()).toMatchObject({
+      error: { code: 'INVALID_BODY' },
+    })
+
+    const fractionalTokens = await callPut({ generateMaxTokens: 1.5 })
+    expect(fractionalTokens.status).toBe(400)
+    expect(await fractionalTokens.json()).toMatchObject({
+      error: { code: 'INVALID_MODEL_PARAM' },
+    })
+
+    const negativeBudget = await callPut({ budgetMonthlyCny: -1 })
+    expect(negativeBudget.status).toBe(400)
+    expect(await negativeBudget.json()).toMatchObject({
+      error: { code: 'INVALID_BUDGET' },
+    })
+  })
+
+  it('响应不包含密钥明文', async () => {
+    await callPut({ apiKey: SECRET, generateTemperature: 0.4 })
+    const response = await getSettingsRoute()
+    expect(JSON.stringify(await response.json())).not.toContain(SECRET)
   })
 })
