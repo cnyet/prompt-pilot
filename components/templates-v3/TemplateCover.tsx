@@ -117,7 +117,7 @@ function TextCover({ model }: { model: CoverModel }): ReactElement {
         y="216"
         textAnchor="end"
         fontSize="12"
-        style={{ ...MONO_FONT, fill: 'var(--text-faint)' }}
+        style={{ ...MONO_FONT, fill: 'var(--text-muted)' }}
       >
         {String((model.seed % 99) + 1).padStart(2, '0')}
       </text>
@@ -173,7 +173,7 @@ function ImageCover({ model }: { model: CoverModel }): ReactElement {
         x="28"
         y="36"
         fontSize="12"
-        style={{ ...MONO_FONT, fill: 'var(--text-faint)' }}
+        style={{ ...MONO_FONT, fill: 'var(--text-muted)' }}
       >
         {String((model.seed % 99) + 1).padStart(2, '0')}
       </text>
@@ -239,7 +239,7 @@ function VideoCover({ model }: { model: CoverModel }): ReactElement {
         y="17"
         textAnchor="end"
         fontSize="12"
-        style={{ ...BODY_FONT, fill: 'var(--text-faint)' }}
+        style={{ ...BODY_FONT, fill: 'var(--text-muted)' }}
       >
         {model.titleLines.join(' ')}
       </text>
@@ -272,7 +272,7 @@ function VideoCover({ model }: { model: CoverModel }): ReactElement {
               x={x + 2}
               y="188"
               fontSize="12"
-              style={{ ...MONO_FONT, fill: 'var(--text-faint)' }}
+              style={{ ...MONO_FONT, fill: 'var(--text-muted)' }}
             >
               {index === 0 ? '00:00' : index === 1 ? '00:07' : '00:15'}
             </text>

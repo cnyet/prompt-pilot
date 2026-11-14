@@ -37,9 +37,9 @@ const CATEGORY_LABEL = {
 } as const
 
 const GRID: Readonly<Record<TemplateCategory, string>> = {
-  text: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3',
-  image: 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3',
-  video: 'grid gap-4 lg:grid-cols-2',
+  text: 'grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3',
+  image: 'grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3',
+  video: 'grid items-start gap-4 lg:grid-cols-2',
 }
 
 const SKELETON_ASPECT: Readonly<Record<TemplateCategory, string>> = {
@@ -224,7 +224,7 @@ export function TemplateLibrary({
                   'min-w-0',
                   category === 'text' &&
                     template.featured &&
-                    'sm:col-span-2',
+                    'lg:col-span-2',
                   category === 'video' &&
                     template.featured &&
                     'lg:col-span-2',
@@ -233,7 +233,6 @@ export function TemplateLibrary({
                 <TemplateCard
                   template={template}
                   onDeleted={handleDeleted}
-                  className="h-full"
                 />
               </li>
             ))}
