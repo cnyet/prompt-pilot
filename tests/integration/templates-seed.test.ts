@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { disconnectPrisma, getPrisma } from '@/lib/db/prisma'
+import { resolveTemplatePrefill } from '@/lib/templates-v3'
 import { BUILTIN_TEMPLATES, seedBuiltinTemplates } from '@/prisma/seed'
 
 // 内置模板 seed 的契约测试。
@@ -113,5 +114,76 @@ describe('seedBuiltinTemplates', () => {
   it('BUILTIN_TEMPLATES 含 12 条且 slug 唯一', () => {
     expect(BUILTIN_TEMPLATES).toHaveLength(12)
     expect(new Set(BUILTIN_TEMPLATES.map((template) => template.slug)).size).toBe(12)
+  })
+})
+
+// V3-44：内置模板必须真实可用，卡片不出现空壳、超长文案或禁用词。
+describe('内置模板内容质量', () => {
+  const charLength = (value: string) => Array.from(value).length
+  const bannedWords = ['强大', '智能', '一键起飞']
+
+  it('每条文案都有可用长度，且不含感叹号、em dash、emoji 与空词', () => {
+    for (const template of BUILTIN_TEMPLATES) {
+      expect(charLength(template.style), template.slug).toBeGreaterThan(0)
+      expect(charLength(template.style), template.slug).toBeLessThanOrEqual(40)
+      expect(charLength(template.title), template.slug).toBeGreaterThanOrEqual(2)
+      expect(charLength(template.title), template.slug).toBeLessThanOrEqual(20)
+      expect(charLength(template.description), template.slug).toBeGreaterThanOrEqual(10)
+      expect(charLength(template.description), template.slug).toBeLessThanOrEqual(80)
+      expect(charLength(template.body), template.slug).toBeGreaterThanOrEqual(10)
+      expect(charLength(template.body), template.slug).toBeLessThanOrEqual(500)
+
+      if (template.mode === 'generate') {
+        expect(template.exampleInput, template.slug).toBeTruthy()
+        expect(
+          charLength(template.exampleInput ?? ''),
+          template.slug,
+        ).toBeGreaterThanOrEqual(10)
+        expect(
+          charLength(template.exampleInput ?? ''),
+          template.slug,
+        ).toBeLessThanOrEqual(2000)
+      }
+
+      const copy = [
+        template.title,
+        template.description,
+        template.body,
+        template.exampleInput ?? '',
+      ].join('\n')
+      expect(copy, template.slug).not.toMatch(/[!！—]/u)
+      expect(/\p{Extended_Pictographic}/u.test(copy), template.slug).toBe(false)
+      for (const word of bannedWords) {
+        expect(copy, `${template.slug} / ${word}`).not.toContain(word)
+      }
+    }
+  })
+
+  it('文本类覆盖四种风格，图片与视频各至少三种风格', () => {
+    const styles = (category: 'text' | 'image' | 'video') =>
+      new Set(
+        BUILTIN_TEMPLATES.filter((template) => template.category === category).map(
+          (template) => template.style,
+        ),
+      )
+
+    expect(styles('text').size).toBeGreaterThanOrEqual(4)
+    expect(styles('image').size).toBeGreaterThanOrEqual(3)
+    expect(styles('video').size).toBeGreaterThanOrEqual(3)
+  })
+
+  it('每条都能解析出非空预填，模式与目标类型与 seed 一致', () => {
+    for (const template of BUILTIN_TEMPLATES) {
+      const prefill = resolveTemplatePrefill({
+        ...template,
+        id: template.slug,
+        builtin: true,
+      })
+
+      expect(prefill, template.slug).not.toBeNull()
+      expect(prefill!.sourceInput.trim().length, template.slug).toBeGreaterThan(0)
+      expect(prefill!.mode, template.slug).toBe(template.mode)
+      expect(prefill!.targetType, template.slug).toBe(template.category)
+    }
   })
 })
