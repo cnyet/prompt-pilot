@@ -23,7 +23,7 @@ import {
   getModelConfig,
   getOptimizeProvider,
 } from '@/lib/llm/registry'
-import { getEffectiveLlmEnv } from '@/lib/settings/store'
+import { getEffectiveLlmEnv, getEffectiveModelParams } from '@/lib/settings/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,6 +84,7 @@ export async function POST(request: Request): Promise<Response> {
   const isMock = provider.id.startsWith('mock')
   const providerName = isMock ? 'mock' : (modelConfig?.provider ?? provider.id)
   const modelId = isMock ? 'mock' : (modelConfig?.modelId ?? provider.id)
+  const params = await getEffectiveModelParams(mode)
 
   const { system, user } =
     mode === 'generate'
@@ -106,7 +107,8 @@ export async function POST(request: Request): Promise<Response> {
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      maxTokens: 8192,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
       thinking: 'off',
     },
     fallbackTitle: input.sourceInput.slice(0, 24),

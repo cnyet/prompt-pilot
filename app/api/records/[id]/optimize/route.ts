@@ -15,7 +15,7 @@ import {
   getModelConfig,
   getOptimizeProvider,
 } from '@/lib/llm/registry'
-import { getEffectiveLlmEnv } from '@/lib/settings/store'
+import { getEffectiveLlmEnv, getEffectiveModelParams } from '@/lib/settings/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +63,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const modelConfigId = DEFAULT_OPTIMIZE_MODEL_CONFIG_ID
   const modelConfig = getModelConfig(modelConfigId, env)
   const isMock = provider.id.startsWith('mock')
+  const params = await getEffectiveModelParams('optimize')
   const { system, user } = buildOptimizeMessages({
     sourceInput: record.latestOutput,
     ...(input.instruction ? { instruction: input.instruction } : {}),
@@ -81,7 +82,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      maxTokens: 8192,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
       thinking: 'off',
     },
     fallbackTitle: record.title,
