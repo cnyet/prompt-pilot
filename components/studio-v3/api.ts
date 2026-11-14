@@ -7,6 +7,7 @@
  * 兜底错误文案走 i18n 字典，不在本模块写死中文。
  */
 import { t } from '@/lib/i18n/zh'
+import { buildRecordsQuery, type LibraryListParams } from '@/lib/library/query'
 
 export type ProcessMode = 'generate' | 'optimize'
 export type TargetType = 'text' | 'image' | 'video'
@@ -50,6 +51,13 @@ export interface RecordSummaryDto {
   costCny: number | null
   createdAt: string
   updatedAt: string
+}
+
+export interface RecordListDto {
+  records: RecordSummaryDto[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export interface RecordDetailDto {
@@ -180,6 +188,13 @@ export function postRegenerate(
   return jsonPost(recordPath(recordId, '/regenerate'), body)
 }
 
+export function fetchRecordList(
+  params: LibraryListParams,
+  signal?: AbortSignal,
+): Promise<RecordListDto> {
+  return requestJson<RecordListDto>(buildRecordsQuery(params), { cache: 'no-store', signal })
+}
+
 export function fetchRecordDetail(id: string): Promise<RecordDetailDto> {
   return requestJson<RecordDetailDto>(recordPath(id), { cache: 'no-store' })
 }
@@ -193,6 +208,11 @@ export function patchRecordMeta(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+}
+
+export async function deleteRecord(id: string): Promise<void> {
+  const response = await fetch(recordPath(id), { method: 'DELETE' })
+  if (!response.ok) throw await toApiError(response)
 }
 
 export function createTemplate(body: {
