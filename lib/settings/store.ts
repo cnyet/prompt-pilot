@@ -50,7 +50,32 @@ export class SettingsError extends Error {
   }
 }
 
-export type SettingSource = 'settings' | 'env' | 'default' | 'none'
+export const MODEL_PARAM_SETTING_KEYS = {
+  generateTemperature: 'llm.generate.temperature',
+  generateMaxTokens: 'llm.generate.maxTokens',
+  optimizeTemperature: 'llm.optimize.temperature',
+  optimizeMaxTokens: 'llm.optimize.maxTokens',
+} as const
+
+export const DEFAULT_MODEL_TEMPERATURE = 0.7
+export const DEFAULT_MODEL_MAX_TOKENS = 8192
+
+export type SettingSource =
+  | 'settings'
+  | 'env'
+  | 'default'
+  | 'none'
+  | 'inherited'
+
+export interface ModelParamValue {
+  value: number
+  source: SettingSource
+}
+
+export interface ModelParamSettings {
+  temperature: ModelParamValue
+  maxTokens: ModelParamValue
+}
 
 export interface LlmSettingsView {
   apiKey: { configured: boolean; hint: string | null; source: SettingSource }
@@ -58,6 +83,12 @@ export interface LlmSettingsView {
   modelGenerate: { value: string; source: SettingSource }
   modelOptimize: { value: string; source: SettingSource }
   modelEvaluate: { value: string; source: SettingSource }
+  params: { generate: ModelParamSettings; optimize: ModelParamSettings }
+}
+
+export interface EffectiveModelParams {
+  temperature: number
+  maxTokens: number
 }
 
 type EnvLike = Readonly<Record<string, string | undefined>>
@@ -94,7 +125,16 @@ async function readRows(): Promise<Record<string, string>> {
   }
 
   const query = prisma.appSetting
-    .findMany({ where: { key: { in: Object.values(LLM_SETTING_KEYS) } } })
+    .findMany({
+      where: {
+        key: {
+          in: [
+            ...Object.values(LLM_SETTING_KEYS),
+            ...Object.values(MODEL_PARAM_SETTING_KEYS),
+          ],
+        },
+      },
+    })
     .then((rows) => {
       const out: Record<string, string> = {}
       for (const row of rows) {
@@ -126,6 +166,115 @@ export function invalidateSettingsCache(): void {
 function trimmed(value: string | undefined): string | undefined {
   const next = value?.trim()
   return next && next.length > 0 ? next : undefined
+}
+
+/** 读取存量数字：缺失、非数字、越界或非整数（要求时）都按未设置处理。 */
+function readStoredNumber(
+  rows: Record<string, string>,
+  key: string,
+  min: number,
+  max: number,
+  integer: boolean,
+): number | null {
+  const raw = rows[key]?.trim()
+  if (!raw) {
+    return null
+  }
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return null
+  }
+  if (integer && !Number.isInteger(value)) {
+    return null
+  }
+  return value
+}
+
+function resolveModelParams(rows: Record<string, string>): {
+  generate: ModelParamSettings
+  optimize: ModelParamSettings
+} {
+  const generateTemperature = readStoredNumber(
+    rows,
+    MODEL_PARAM_SETTING_KEYS.generateTemperature,
+    0,
+    2,
+    false,
+  )
+  const generateMaxTokens = readStoredNumber(
+    rows,
+    MODEL_PARAM_SETTING_KEYS.generateMaxTokens,
+    1,
+    65536,
+    true,
+  )
+  const optimizeTemperature = readStoredNumber(
+    rows,
+    MODEL_PARAM_SETTING_KEYS.optimizeTemperature,
+    0,
+    2,
+    false,
+  )
+  const optimizeMaxTokens = readStoredNumber(
+    rows,
+    MODEL_PARAM_SETTING_KEYS.optimizeMaxTokens,
+    1,
+    65536,
+    true,
+  )
+
+  const ownOrDefault = (
+    own: number | null,
+    fallback: number,
+  ): ModelParamValue =>
+    own === null
+      ? { value: fallback, source: 'default' }
+      : { value: own, source: 'settings' }
+
+  const inherited = (
+    own: number | null,
+    generate: number | null,
+    fallback: number,
+  ): ModelParamValue => {
+    if (own !== null) {
+      return { value: own, source: 'settings' }
+    }
+    if (generate !== null) {
+      return { value: generate, source: 'inherited' }
+    }
+    return { value: fallback, source: 'default' }
+  }
+
+  return {
+    generate: {
+      temperature: ownOrDefault(generateTemperature, DEFAULT_MODEL_TEMPERATURE),
+      maxTokens: ownOrDefault(generateMaxTokens, DEFAULT_MODEL_MAX_TOKENS),
+    },
+    optimize: {
+      temperature: inherited(
+        optimizeTemperature,
+        generateTemperature,
+        DEFAULT_MODEL_TEMPERATURE,
+      ),
+      maxTokens: inherited(
+        optimizeMaxTokens,
+        generateMaxTokens,
+        DEFAULT_MODEL_MAX_TOKENS,
+      ),
+    },
+  }
+}
+
+/** 生成与优化角色的实际参数；优化未单独设置时继承生成。 */
+export async function getEffectiveModelParams(
+  role: 'generate' | 'optimize',
+): Promise<EffectiveModelParams> {
+  const rows = await readRows()
+  const params = resolveModelParams(rows)[role]
+  return {
+    temperature: params.temperature.value,
+    maxTokens: params.maxTokens.value,
+  }
 }
 
 /**
@@ -203,6 +352,7 @@ export async function getLlmSettingsView(
         ? { value: modelOptimizeEnv, source: 'env' }
         : modelGenerate,
     modelEvaluate: pick('modelEvaluate'),
+    params: resolveModelParams(rows),
   }
 }
 
@@ -242,6 +392,10 @@ export interface LlmSettingsPatch {
   modelGenerate?: string | null
   modelOptimize?: string | null
   modelEvaluate?: string | null
+  generateTemperature?: number | null
+  generateMaxTokens?: number | null
+  optimizeTemperature?: number | null
+  optimizeMaxTokens?: number | null
 }
 
 /**
@@ -300,6 +454,62 @@ export async function saveLlmSettings(
   )
   handle('modelEvaluate', patch.modelEvaluate, (next) =>
     assertModelId(next, '评估模型'),
+  )
+
+  const handleNumber = (
+    key: string,
+    value: number | null | undefined,
+    label: '生成' | '优化',
+    kind: 'temperature' | 'maxTokens',
+  ): void => {
+    if (value === undefined) {
+      return
+    }
+    if (value === null) {
+      deletes.push(key)
+      return
+    }
+    if (kind === 'temperature') {
+      if (!Number.isFinite(value) || value < 0 || value > 2) {
+        throw new SettingsError(
+          'INVALID_MODEL_PARAM',
+          400,
+          `${label}温度必须是 0 到 2 之间的数字。`,
+        )
+      }
+    } else if (!Number.isInteger(value) || value < 1 || value > 65536) {
+      throw new SettingsError(
+        'INVALID_MODEL_PARAM',
+        400,
+        `${label}最大输出 token 必须是 1 到 65536 的整数。`,
+      )
+    }
+    writes.push({ key, value: String(value) })
+  }
+
+  handleNumber(
+    MODEL_PARAM_SETTING_KEYS.generateTemperature,
+    patch.generateTemperature,
+    '生成',
+    'temperature',
+  )
+  handleNumber(
+    MODEL_PARAM_SETTING_KEYS.generateMaxTokens,
+    patch.generateMaxTokens,
+    '生成',
+    'maxTokens',
+  )
+  handleNumber(
+    MODEL_PARAM_SETTING_KEYS.optimizeTemperature,
+    patch.optimizeTemperature,
+    '优化',
+    'temperature',
+  )
+  handleNumber(
+    MODEL_PARAM_SETTING_KEYS.optimizeMaxTokens,
+    patch.optimizeMaxTokens,
+    '优化',
+    'maxTokens',
   )
 
   const operations = [

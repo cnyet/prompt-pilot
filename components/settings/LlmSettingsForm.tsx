@@ -55,6 +55,7 @@ const SOURCE_LABEL: Record<SettingSource, string> = {
   env: '环境变量',
   default: '默认值',
   none: '未配置',
+  inherited: '继承生成',
 }
 
 function SourceBadge({ source }: { source: SettingSource }) {
