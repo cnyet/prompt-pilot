@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 const SECTIONS = [
   { id: 'settings-model', label: '模型' },
   { id: 'settings-cost', label: '成本' },
-  { id: 'settings-data', label: '数据' },
 ] as const
 
 /**

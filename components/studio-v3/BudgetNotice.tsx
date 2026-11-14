@@ -3,12 +3,10 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import Link from 'next/link'
 import { Icon } from '@/components/ui/Icon'
+import { budgetLevel, formatBudgetPercent } from '@/lib/budget'
 import { t } from '@/lib/i18n/zh'
 import { cn } from '@/lib/utils'
 import { fetchV3Stats } from './api'
-
-const WARN_THRESHOLD = 0.8
-const OVER_THRESHOLD = 1
 
 /**
  * 月度预算提示（FR-9.5）。
@@ -33,10 +31,12 @@ export function BudgetNotice(): ReactElement | null {
     }
   }, [])
 
-  if (usage === null || usage < WARN_THRESHOLD) return null
+  if (usage === null) return null
+  const level = budgetLevel(usage)
+  if (level === null || level === 'ok') return null
 
-  const over = usage >= OVER_THRESHOLD
-  const percent = Math.round(usage * 100)
+  const over = level === 'over'
+  const percent = formatBudgetPercent(usage)
 
   return (
     <p

@@ -167,8 +167,8 @@ export const zh = {
   'studio.template.reason.emptyDescription': '填写一句话说明',
   'studio.template.reason.emptyStyle': '填写风格或场景',
   'studio.template.reason.bodyTooLong': '正文超过 {limit} 字，请删减',
-  'studio.budget.warning': '本月费用已达到预算的 {percent}%',
-  'studio.budget.over': '本月费用已超出预算，当前为 {percent}%',
+  'studio.budget.warning': '本月费用已达到预算的 {percent}',
+  'studio.budget.over': '本月费用已超出预算，当前为 {percent}',
   'studio.budget.link': '查看成本',
   // 外壳导航（Task 7）
   'nav.studio': '工作台',
