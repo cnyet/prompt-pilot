@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { Button } from '@/components/ui/Button'
 import { cardStyles } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
@@ -41,6 +41,21 @@ export function TemplateCard({
   const [deleting, setDeleting] = useState(false)
   const [deleteFailed, setDeleteFailed] = useState(false)
 
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const restoreFocus = useRef(false)
+
+  useEffect(() => {
+    if (confirming) {
+      confirmRef.current?.focus()
+      return
+    }
+    if (restoreFocus.current) {
+      restoreFocus.current = false
+      deleteTriggerRef.current?.focus()
+    }
+  }, [confirming])
+
   async function confirmDelete() {
     if (deleting) return
     setDeleting(true)
@@ -49,8 +64,10 @@ export function TemplateCard({
       await deleteTemplate(template.id)
       onDeleted(template.id)
     } catch {
+      restoreFocus.current = true
       setDeleteFailed(true)
       setDeleting(false)
+      setConfirming(false)
     }
   }
 
@@ -82,7 +99,9 @@ export function TemplateCard({
 
         <div className="flex flex-wrap items-center gap-1.5">
           {template.style.length > 0 ? (
-            <Chip>{template.style}</Chip>
+            <Chip className="max-w-full min-w-0" title={template.style}>
+              <span className="min-w-0 truncate">{template.style}</span>
+            </Chip>
           ) : null}
           <Chip>{t(TARGET_LABEL[template.category])}</Chip>
         </div>
@@ -120,8 +139,12 @@ export function TemplateCard({
                     {t('templates.deleteConfirm')}
                   </p>
                   <Button
+                    ref={confirmRef}
                     variant="destructive"
                     size="sm"
+                    aria-label={t('templates.deleteConfirmAria', {
+                      title: template.title,
+                    })}
                     onClick={() => void confirmDelete()}
                     disabled={deleting}
                   >
@@ -132,7 +155,11 @@ export function TemplateCard({
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label={t('templates.deleteCancelAria', {
+                      title: template.title,
+                    })}
                     onClick={() => {
+                      restoreFocus.current = true
                       setConfirming(false)
                       setDeleteFailed(false)
                     }}
@@ -143,6 +170,7 @@ export function TemplateCard({
                 </div>
               ) : (
                 <Button
+                  ref={deleteTriggerRef}
                   variant="ghost"
                   size="sm"
                   aria-label={t('templates.deleteAria', {

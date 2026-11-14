@@ -71,6 +71,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   iconRight?: IconName
   /** 合成一个子元素（通常是 Link）继承按钮样式，取代 buttonStyles 拼链接。 */
   asChild?: boolean
+  /** React 19 把 ref 当普通 prop 转发给原生元素或 Slot。 */
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 export function Button({

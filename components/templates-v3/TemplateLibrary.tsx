@@ -164,9 +164,11 @@ export function TemplateLibrary({
                 key={item}
                 selected={selectedStyle === item}
                 aria-pressed={selectedStyle === item}
+                className="max-w-full min-w-0"
+                title={item}
                 onClick={() => setStyle(item)}
               >
-                {item}
+                <span className="min-w-0 truncate">{item}</span>
               </Chip>
             ))}
           </div>

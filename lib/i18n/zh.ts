@@ -251,6 +251,8 @@ export const zh = {
   'templates.deleteAria': '删除模板：{title}',
   'templates.deleteConfirm': '删除后不可恢复，确定删除这个模板吗',
   'templates.deleteConfirmAction': '确认删除',
+  'templates.deleteConfirmAria': '确认删除模板：{title}',
+  'templates.deleteCancelAria': '取消删除模板：{title}',
   'templates.deleteFailed': '模板没有删除成功，请重试',
   'templates.deleted': '模板已删除',
   'templates.loading': '正在读取模板',
