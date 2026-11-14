@@ -200,11 +200,11 @@ export function RequirementInput({
             ? '正在确认模型可用性。'
             : model.status === 'available'
               ? model.providerId === 'mock'
-                ? '离线模板模式：生成使用本地模板，试运行使用本地 Mock 模型。配置 ARK_API_KEY 后可用真实模型。'
+                ? '离线模板模式：生成使用本地模板，试运行使用本地 Mock 模型。配置模型凭据后可用真实模型。'
                 : `当前模型：${model.modelLabel ?? '可用模型'}。生成仍可使用离线模板兜底。`
               : model.status === 'error'
                 ? '无法确认模型状态。生成、编辑与导出仍可用，试运行可能不可用。'
-                : '当前为离线模板模式。生成、编辑与导出可用，试运行需要先配置 ARK_API_KEY。'}
+                : '当前为离线模板模式。生成、编辑与导出可用，试运行需要先配置模型凭据。'}
         </span>
       </p>
     </div>

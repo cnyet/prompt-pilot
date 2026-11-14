@@ -37,7 +37,7 @@ const ModelStatusContext = createContext<ModelStatusValue>(INITIAL)
 /**
  * 模型可用性只在布局层探测一次，所有页面共用同一份结果。
  *
- * 没有 ARK_API_KEY 时也允许生成（离线模板），但试运行必须显式禁用，
+ * 没有模型凭据时也允许生成（离线模板），但试运行必须显式禁用，
  * 所以这里只负责「是不是真的能用模型」，不替代 RunDrawer 的按钮禁用逻辑。
  */
 export function ModelStatusProvider({
@@ -133,10 +133,10 @@ export function ModelStatusBanner() {
     status === 'error'
       ? '无法确认模型是否可用，试运行可能不可用。'
       : mockOnly
-        ? '未配置 ARK_API_KEY。生成使用本地模板，试运行使用本地 Mock 模型。'
+        ? '未配置模型凭据。生成使用本地模板，试运行使用本地 Mock 模型。'
         : reason.length > 0
           ? reason
-          : '未配置 ARK_API_KEY，生成使用本地模板，试运行不可用。'
+          : '未配置模型凭据，生成使用本地模板，试运行不可用。'
 
   return (
     <div
@@ -192,7 +192,7 @@ export function ModelStatusBadge() {
       ? '正在确认模型服务是否可用'
       : online
         ? '已配置模型服务，生成与试运行都走真实模型'
-        : '未配置 ARK_API_KEY，当前使用本地 Mock 模型'
+        : '未配置模型凭据，当前使用本地 Mock 模型'
   return (
     <span
       data-testid="model-status-badge"

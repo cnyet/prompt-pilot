@@ -54,7 +54,7 @@ export default async function SettingsPage() {
       <SettingsNav />
       <div className="flex min-w-0 flex-1 flex-col gap-12">
       <p className="max-w-[68ch] text-balance text-body text-ink-muted">
-        模型接入、成本汇总与本机数据都在这一个页面里。
+        模型接入与成本汇总都在这一个页面里。
       </p>
 
       <div id="settings-model" className="scroll-mt-[7.5rem] lg:scroll-mt-8">
@@ -71,7 +71,7 @@ export default async function SettingsPage() {
                 llmSettings.apiKey.configured ? 'bg-success' : 'bg-warning',
               )}
             />
-            {llmSettings.apiKey.configured ? '已接入真实模型' : '离线模板模式'}
+            {llmSettings.apiKey.configured ? '已接入真实模型' : '未配置模型'}
           </span>
           <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="text-caption text-ink-muted tnum">
@@ -79,7 +79,7 @@ export default async function SettingsPage() {
           </span>
           <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="text-caption text-ink-muted tnum">
-            评估 {modelDisplayLabel(llmSettings.modelEvaluate.value)}
+            优化 {modelDisplayLabel(llmSettings.modelOptimize.value)}
           </span>
           <span aria-hidden className="hidden text-ink-faint sm:inline">·</span>
           <span className="truncate text-caption text-ink-faint">

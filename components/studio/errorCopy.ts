@@ -64,7 +64,7 @@ const COPY: Readonly<Record<Exclude<ModelErrorKind, 'unknown'>, CopyParts>> = {
   },
   auth: {
     title: '模型认证失败',
-    detail: 'ARK_API_KEY 缺失、写错或已经过期。',
+    detail: '模型密钥缺失、写错或已经过期。',
     action: '在设置页确认密钥已经配置，然后重新生成或试运行。',
     retryable: true,
   },

@@ -7,7 +7,15 @@ import { useModelStatus } from '@/components/studio/modelStatus'
 import { cn } from '@/lib/utils'
 import type { LlmSettingsView, SettingSource } from '@/lib/settings/store'
 
-type FieldKey = 'apiKey' | 'baseUrl' | 'modelGenerate' | 'modelEvaluate'
+type FieldKey =
+  | 'apiKey'
+  | 'baseUrl'
+  | 'modelGenerate'
+  | 'modelOptimize'
+  | 'generateTemperature'
+  | 'generateMaxTokens'
+  | 'optimizeTemperature'
+  | 'optimizeMaxTokens'
 
 interface ModelTestResult {
   role: string
@@ -104,7 +112,11 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     apiKey: '',
     baseUrl: initial.baseUrl.value,
     modelGenerate: initial.modelGenerate.value,
-    modelEvaluate: initial.modelEvaluate.value,
+    modelOptimize: initial.modelOptimize.value,
+    generateTemperature: String(initial.params.generate.temperature.value),
+    generateMaxTokens: String(initial.params.generate.maxTokens.value),
+    optimizeTemperature: String(initial.params.optimize.temperature.value),
+    optimizeMaxTokens: String(initial.params.optimize.maxTokens.value),
   })
   const [touched, setTouched] = useState<ReadonlySet<FieldKey>>(new Set())
   const [fieldErrors, setFieldErrors] = useState<
@@ -159,12 +171,41 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         next.modelGenerate = '只能用字母、数字、点、下划线、冒号或连字符。'
       }
     }
-    if (touched.has('modelEvaluate')) {
-      const value = values.modelEvaluate.trim()
+    if (touched.has('modelOptimize')) {
+      const value = values.modelOptimize.trim()
       if (value.length > 0 && !modelRe.test(value)) {
-        next.modelEvaluate = '只能用字母、数字、点、下划线、冒号或连字符。'
+        next.modelOptimize = '只能用字母、数字、点、下划线、冒号或连字符。'
       }
     }
+
+    const numberField = (
+      key: FieldKey,
+      min: number,
+      max: number,
+      integer: boolean,
+      label: string,
+    ) => {
+      if (!touched.has(key)) {
+        return
+      }
+      const raw = values[key].trim()
+      if (raw.length === 0) {
+        return
+      }
+      const parsed = Number(raw)
+      if (integer) {
+        if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+          next[key] = `${label}必须是 ${min} 到 ${max} 的整数。`
+        }
+      } else if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+        next[key] = `${label}必须是 ${min} 到 ${max} 之间的数字。`
+      }
+    }
+    numberField('generateTemperature', 0, 2, false, '生成温度')
+    numberField('generateMaxTokens', 1, 65536, true, '生成最大输出 token')
+    numberField('optimizeTemperature', 0, 2, false, '优化温度')
+    numberField('optimizeMaxTokens', 1, 65536, true, '优化最大输出 token')
+
     setFieldErrors(next)
     return Object.keys(next).length === 0
   }
@@ -173,9 +214,13 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     view.apiKey.source === 'settings' ||
     view.baseUrl.source === 'settings' ||
     view.modelGenerate.source === 'settings' ||
-    view.modelEvaluate.source === 'settings'
+    view.modelOptimize.source === 'settings' ||
+    view.params.generate.temperature.source === 'settings' ||
+    view.params.generate.maxTokens.source === 'settings' ||
+    view.params.optimize.temperature.source === 'settings' ||
+    view.params.optimize.maxTokens.source === 'settings'
 
-  const submit = async (payload: Record<string, string | null>) => {
+  const submit = async (payload: Record<string, string | number | null>) => {
     setSaving(true)
     setError(null)
     setMessage(null)
@@ -198,7 +243,11 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         apiKey: '',
         baseUrl: next.baseUrl.value,
         modelGenerate: next.modelGenerate.value,
-        modelEvaluate: next.modelEvaluate.value,
+        modelOptimize: next.modelOptimize.value,
+        generateTemperature: String(next.params.generate.temperature.value),
+        generateMaxTokens: String(next.params.generate.maxTokens.value),
+        optimizeTemperature: String(next.params.optimize.temperature.value),
+        optimizeMaxTokens: String(next.params.optimize.maxTokens.value),
       })
       setTouched(new Set())
       setTestResult(null)
@@ -213,7 +262,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
   }
 
   const onSave = () => {
-    const payload: Record<string, string | null> = {}
+    const payload: Record<string, string | number | null> = {}
     if (touched.has('apiKey')) {
       payload.apiKey = values.apiKey.trim()
     }
@@ -223,9 +272,20 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     if (touched.has('modelGenerate')) {
       payload.modelGenerate = values.modelGenerate.trim()
     }
-    if (touched.has('modelEvaluate')) {
-      payload.modelEvaluate = values.modelEvaluate.trim()
+    if (touched.has('modelOptimize')) {
+      payload.modelOptimize = values.modelOptimize.trim()
     }
+    const numberValue = (key: FieldKey) => {
+      if (!touched.has(key)) {
+        return
+      }
+      const raw = values[key].trim()
+      payload[key] = raw.length === 0 ? null : Number(raw)
+    }
+    numberValue('generateTemperature')
+    numberValue('generateMaxTokens')
+    numberValue('optimizeTemperature')
+    numberValue('optimizeMaxTokens')
     if (Object.keys(payload).length === 0) {
       setMessage('没有改动需要保存。')
       return
@@ -242,7 +302,12 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
       apiKey: null,
       baseUrl: null,
       modelGenerate: null,
+      modelOptimize: null,
       modelEvaluate: null,
+      generateTemperature: null,
+      generateMaxTokens: null,
+      optimizeTemperature: null,
+      optimizeMaxTokens: null,
     })
   }
 
@@ -315,6 +380,60 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
   const inputClass =
     'h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink shadow-[inset_0_1px_0_oklch(0.5_0.01_80/0.03)] transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none'
 
+  const numberField = (
+    key: FieldKey,
+    label: string,
+    hint: string,
+    source: SettingSource,
+    step: number,
+    min: number,
+    max: number,
+  ) => (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor={`setting-${key}`}
+          className="text-caption font-medium text-ink"
+        >
+          {label}
+        </label>
+        <SourceBadge source={source} />
+      </div>
+      <input
+        id={`setting-${key}`}
+        type="number"
+        inputMode="decimal"
+        min={min}
+        max={max}
+        step={step}
+        value={values[key]}
+        aria-invalid={fieldErrors[key] ? true : undefined}
+        aria-describedby={
+          fieldErrors[key]
+            ? `setting-${key}-error`
+            : `setting-${key}-hint`
+        }
+        onChange={(event) => {
+          markTouched(key)
+          setValues((prev) => ({ ...prev, [key]: event.target.value }))
+        }}
+        className={cn(inputClass, 'tnum')}
+      />
+      {fieldErrors[key] ? (
+        <p
+          id={`setting-${key}-error`}
+          role="alert"
+          className="text-caption text-danger"
+        >
+          {fieldErrors[key]}
+        </p>
+      ) : null}
+      <p id={`setting-${key}-hint`} className="text-caption text-ink-faint">
+        {hint}
+      </p>
+    </div>
+  )
+
   const allUnconfigured =
     testResult !== null && testResult.models.every((model) => !model.configured)
 
@@ -364,55 +483,99 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           />,
         )}
 
-        {field(
-          'modelGenerate',
-          '生成模型',
-          '生成与优化阶段使用。填模型 ID 或 ep- 接入点 ID。',
-          view.modelGenerate.source,
-          <input
-            id="setting-modelGenerate"
-            aria-invalid={fieldErrors.modelGenerate ? true : undefined}
-            aria-describedby={
-              fieldErrors.modelGenerate
-                ? 'setting-modelGenerate-error'
-                : 'setting-modelGenerate-hint'
-            }
-            value={values.modelGenerate}
-            onChange={(event) => {
-              markTouched('modelGenerate')
-              setValues((prev) => ({
-                ...prev,
-                modelGenerate: event.target.value,
-              }))
-            }}
-            className={cn(inputClass, 'font-mono')}
-          />,
-        )}
+        <div>
+          {field(
+            'modelGenerate',
+            '生成模型',
+            '生成阶段使用。填模型 ID 或 ep- 接入点 ID。',
+            view.modelGenerate.source,
+            <input
+              id="setting-modelGenerate"
+              aria-invalid={fieldErrors.modelGenerate ? true : undefined}
+              aria-describedby={
+                fieldErrors.modelGenerate
+                  ? 'setting-modelGenerate-error'
+                  : 'setting-modelGenerate-hint'
+              }
+              value={values.modelGenerate}
+              onChange={(event) => {
+                markTouched('modelGenerate')
+                setValues((prev) => ({
+                  ...prev,
+                  modelGenerate: event.target.value,
+                }))
+              }}
+              className={cn(inputClass, 'font-mono')}
+            />,
+          )}
+          <div className="grid gap-x-4 pb-3 sm:grid-cols-2">
+            {numberField(
+              'generateTemperature',
+              '温度',
+              '0 到 2，默认 0.7。',
+              view.params.generate.temperature.source,
+              0.1,
+              0,
+              2,
+            )}
+            {numberField(
+              'generateMaxTokens',
+              '最大输出 token',
+              '1 到 65536 的整数，默认 8192。',
+              view.params.generate.maxTokens.source,
+              1,
+              1,
+              65536,
+            )}
+          </div>
+        </div>
 
-        {field(
-          'modelEvaluate',
-          '评估模型',
-          '评估阶段使用。建议与生成模型不同族，避免自评偏高。',
-          view.modelEvaluate.source,
-          <input
-            id="setting-modelEvaluate"
-            aria-invalid={fieldErrors.modelEvaluate ? true : undefined}
-            aria-describedby={
-              fieldErrors.modelEvaluate
-                ? 'setting-modelEvaluate-error'
-                : 'setting-modelEvaluate-hint'
-            }
-            value={values.modelEvaluate}
-            onChange={(event) => {
-              markTouched('modelEvaluate')
-              setValues((prev) => ({
-                ...prev,
-                modelEvaluate: event.target.value,
-              }))
-            }}
-            className={cn(inputClass, 'font-mono')}
-          />,
-        )}
+        <div>
+          {field(
+            'modelOptimize',
+            '优化模型',
+            '留空或与生成模型相同。填模型 ID 或 ep- 接入点 ID。',
+            view.modelOptimize.source,
+            <input
+              id="setting-modelOptimize"
+              aria-invalid={fieldErrors.modelOptimize ? true : undefined}
+              aria-describedby={
+                fieldErrors.modelOptimize
+                  ? 'setting-modelOptimize-error'
+                  : 'setting-modelOptimize-hint'
+              }
+              value={values.modelOptimize}
+              onChange={(event) => {
+                markTouched('modelOptimize')
+                setValues((prev) => ({
+                  ...prev,
+                  modelOptimize: event.target.value,
+                }))
+              }}
+              className={cn(inputClass, 'font-mono')}
+            />,
+          )}
+          <div className="grid gap-x-4 pb-3 sm:grid-cols-2">
+            {numberField(
+              'optimizeTemperature',
+              '温度',
+              '未单独设置时沿用生成模型的参数。',
+              view.params.optimize.temperature.source,
+              0.1,
+              0,
+              2,
+            )}
+            {numberField(
+              'optimizeMaxTokens',
+              '最大输出 token',
+              '未单独设置时沿用生成模型的参数。',
+              view.params.optimize.maxTokens.source,
+              1,
+              1,
+              65536,
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line-subtle px-4 py-3 sm:px-5">
