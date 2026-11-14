@@ -1,53 +1,44 @@
 # Active Context
 
-> Last updated: 2026-11-14T09:40:00Z
+> Last updated: 2026-11-14T09:35:00Z
 
 ## Current Task
-- v3 Phase 4 模板页已完成（HEAD `83b0743`），未 push。
-- Phase 5 设置/成本：计划已写入 `docs/superpowers/plans/2026-11-14-v3-batch-h.md`，尚未实现。
-- 基线（2026-11-14 复跑）：typecheck 0；85 文件 / 887 用例通过。
-- 下一会话第一步：按 Batch H 计划执行；不要重新探索设置/成本现状。
+- Batch H（v3 Phase 5 设置/成本）实现与全量验证已完成，HEAD `2793ee4`，未 push。
+- 剩余唯一一步：独立 `verifier` 验收 AC-12/13/14/17/26（实现者不自签），通过后 Batch H 收口。
+- 基线：typecheck 0；88 文件 / 906 用例；build ✓；check:contrast ✓；harness 24 pass / 0 fail。
+- 下一会话第一步：派只读 `verifier` 核对计划、`83b0743..HEAD` diff 与验证证据；不要重做实现。
+
+## Batch H 验证证据
+- CDP 冒烟 22/22（隔离空库 `data/smoke.db`，已删）：生成/优化槽、无评估模型、四参数默认 0.7/8192、四 KPI、预算 100 → 0%、清除 → 未设置、1440/1024 无横向溢出。
+- AC-17：`.next/static` 无 `ARK_API_KEY`、无 `Bearer`；`sk-` 仅命中 CSS `mask-*` 与 `task-list-item`。
+- 未冒烟：stats null 分支（同目录第二个 `next dev` 被 Next 单实例锁拒绝）；该分支是既有服务端降级文案。
+- 全量测试比基线 +19 用例（887 → 906）。
 
 ## Phase 5 关键决策
-- 设置页从 v2 评估模型切到生成/优化双槽；`modelEvaluate` 留在 store/API 供 v2 eval 到 Phase 6，UI 不再暴露。
-- 新增每角色 temperature（默认 0.7）与 max_tokens（默认 8192）；优化参数未单独设置时继承生成参数。
-- `GET /api/settings` 返回 `{ settings, budget: { monthlyCny } }`；PUT 接受模型、四个参数与 `budgetMonthlyCny`。
-- 成本页改用 `getV3Stats`：本月费用、调用次数、平均单次费用、预算使用率；未设预算「未设置」，未知「—」。
-- 设置页移除「数据」分区；客户端可见文案移除 `ARK_API_KEY`（AC-17）。
+- 模型角色 generate/optimize；`modelEvaluate` 留在 store/API 供 v2 eval 到 Phase 6，UI 不暴露。
+- 参数默认 0.7 / 8192；优化未设置时继承生成，source=`inherited`。
+- `GET /api/settings` → `{ settings, budget: { monthlyCny } }`；PUT 增量写模型、四参数与 `budgetMonthlyCny`。
+- 成本页用 `getV3Stats`：本月费用/调用/平均单次/预算使用率；未设预算「未设置」，未知「—」。
+- 设置页移除「数据」分区；预算阈值集中在 `lib/budget.ts`，设置页与工作台共用。
 
 ## Hard Constraints
-- `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 6 删除。v3 新代码不 import v2。
-- stage 仅 generate/optimize/repair；未知一律 null 不写 0；未评分「未评分」；未设置预算「未设置」。
-- 密钥只存本机 SQLite，接口只回末四位。无 prisma/migrations/，`db push` + `generate`。
-- 测试隔离 `data/test.db`，绝不读写 `data/app.db`。
-- Batch H 期间不要新增设置来源；不要用 v2 `getCostSummary`。
-
-## Current Constraints
-- v3 四件套为事实源：PRODUCT.md、docs/ROADMAP-V3.md、DESIGN.md、.impeccable/design.json。
-- 界面中文；禁感叹号与 em dash；单屏 primary 1 个；金色 ≤10%；glow 同屏 ≤2。
-- 改 DESIGN 令牌同步 app/globals.css 双主题并跑 `pnpm check:contrast`。
+- `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 6。v3 新代码不 import v2。
+- stage 仅 generate/optimize/repair；未知 null 不写 0；未评分「未评分」；未设置预算「未设置」。
+- 密钥只存本机 SQLite，接口只回末四位。测试隔离 `data/test.db`，绝不读写 `data/app.db`。
+- 无 prisma/migrations/，`db push` + `generate`。
 
 ## Do Not Retry
-- 照搬 QuestUI 原稿；`readonly:` 变体（用 `read-only:`）。
-- 模型显示名当 modelId（用 slug + `modelDisplayLabel()`）。
-- 测试读写 data/app.db；`pnpm test -- <path>` 不过滤，用 `pnpm exec vitest run <path>`。
-- 只用 record.status 判断并发；依赖 mock valid 画像验证 META 不泄漏。
-- 封面文字用 `--text-faint`（对比度不足），用 `--text-muted`。
-- 成本页用 `getCostSummary`（v2）；把 `modelEvaluate` 加回 UI；硬编码 `maxTokens: 8192`。
+- 用 v2 `getCostSummary`；把 `modelEvaluate` 加回 UI；硬编码 `maxTokens: 8192`。
+- 同目录并行起两个 `next dev`（单实例锁）；隔离库冒烟先停旧 server。
+- 用裸 `grep "sk-"` 判 AC-17（会被 `mask-*` / `task-list-item` 误报），分模式核验。
 
 ## Current Decisions
 - 结果优先；导航 4 项；Markdown + diff + ≤3 条说明；完成自动入库。
 - 失败轮 failed 且 output 空；中断 canceled 保留正文；length 视为失败。
-- 流式：canceled 提交草稿、failed 丢弃；sawDone 后传输错误不改完成态。
-- 记录并发互斥在迭代层；标题仅生成时由 meta.title 更新。
-- 对比原文：单轮「原文 vs 输出」，≥2 轮任选两轮。
-- 收藏/评分 PATCH 单飞合并，保留方向键焦点。
-- 记录日期筛选按 Asia/Shanghai 日历日。
-- 模板 `originTemplateId` 只挂匹配模式首条产出提交。
-- 其余历史决策见 `session-summary.md` Batch E/F/G 节。
+- 收藏/评分 PATCH 单飞合并；日期筛选按 Asia/Shanghai；模板 origin 只挂首条匹配模式产出。
+- 其余历史决策见 `session-summary.md` Batch E/F/G/H 节。
 
 ## Current References
+- Batch H 计划：`docs/superpowers/plans/2026-11-14-v3-batch-h.md`（任务 1-7，剩独立验收）。
 - 历史细节：`.agent/memory/session-summary.md` Batch E/F/G/H 节。
-- Batch H 计划：`docs/superpowers/plans/2026-11-14-v3-batch-h.md`（待执行）。
-- Batch G 计划：`docs/superpowers/plans/2026-11-14-v3-batch-g.md`（已入库）。
 - 备份：`data/app.db.bak-20261113-1139`。

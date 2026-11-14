@@ -1,7 +1,7 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] Batch H：Phase 5 设置/成本执行（计划 `docs/superpowers/plans/2026-11-14-v3-batch-h.md`）| Priority: P0 | Created: 2026-11-14 | Next: 任务 1 settings store 模型参数
+- [ ] Batch H：Phase 5 设置/成本。实现与全量验证完成（HEAD `2793ee4`：typecheck 0 / 906 用例 / build ✓ / contrast ✓ / harness 24-0-0 / CDP 22-22）| Priority: P0 | Created: 2026-11-14 | Next: 新会话派 `verifier` 验收 AC-12/13/14/17/26
 
 ## Pending
 - [ ] Phase 6 v2 清理（评估页/字段引擎/旧测试退役）| Priority: P2 | Created: 2026-11-14

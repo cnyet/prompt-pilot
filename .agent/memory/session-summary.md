@@ -621,6 +621,26 @@
 - 四个 v3 路由硬编码 `maxTokens: 8192`，且不传 temperature；改参数后需 `grep -R "maxTokens: 8192" app/api` 验证清零。
 - 成本页仍 import `lib/llm/ledger.ts` 的 `getCostSummary`；切换时注意 `STAGE_LABELS` 与 v2 `compose` 阶段残留。
 
-### Carry-over
-- [ ] 执行 Batch H（新会话按计划任务 1-7）。
+### Completed（2026-11-14 执行）
+- [x] 任务 1-6 实现并分别提交：`04bbb7b` store 参数与继承、`9cb5a28` settings API（模型/参数/预算）、`665b4ad` 连通性 generate/optimize、`b560114` 四个 v3 路由注入参数、`09ba9a8` 设置页双槽与参数表单、`c5da7ef` v3 成本 KPI + 预算编辑（`lib/budget.ts`、`BudgetSetting`、`SettingsNav` 去数据区、`BudgetNotice` 共用阈值）。
+- [x] 任务 7 文档：`2793ee4` 更新 ARCHITECTURE 设置 API 契约与 HANDOVER（v3 状态、`ARK_MODEL_OPTIMIZE`、代码地图、Phase 6 next）。
+- [x] 全量验证（HEAD `2793ee4`）：typecheck 0；88 文件 / 906 用例；build ✓；contrast ✓；harness 24/0/0。
+- [x] AC-17 客户端扫描：`.next/static` 无 `ARK_API_KEY` / `Bearer`；`sk-` 仅 `mask-*`、`task-list-item` 误报。
+- [x] CDP 冒烟 22/22（隔离空库 `data/smoke.db`，用后删除）：生成/优化槽与参数默认 0.7/8192；四 KPI；预算 100 → 0%，清除 → 未设置；1440/1024 无横向溢出。
+- [ ] 独立 verifier 未跑（会话压缩抖动，按 hook 轮转；新会话第一动作）。
+- 未冒烟：stats null 分支（同目录第二个 `next dev` 被单实例锁拒绝）。
+
+### Execution Rulings
+- 设置页成本 KPI 在零调用时显示 ¥0 / 0（已知 0），未知费用仍「—」；预算使用率按 `formatBudgetUsage` 优先判定未设置。
+- 预算提示阈值与百分比统一在 `lib/budget.ts`；工作台 `BudgetNotice` 改用它，i18n 去掉重复 `%`。
+- `docs/HANDOVER.md` 同步到 v3 现役状态，而不只改环境变量表：原文停留在 Batch D，会误导接手者。
+
+### Execution Pitfalls
+- 裸 `grep -E "ARK_API_KEY|sk-|Bearer" .next/static` 会因 CSS `mask-*`、`task-list-item` 产生 453KB 输出；AC-17 应分模式核验。
+- 同目录不能并行两个 `next dev`（Next 16 单实例锁）；隔离库冒烟需先停旧 server，或换目录跑。
+- `BudgetNotice` 中 `usage` 的 null 收窄必须显式 `if (usage === null)`，不能靠 `budgetLevel` 的返回值反推类型。
+
+### Carry-over（更新）
+- [ ] 新会话派 `verifier` 验收 Batch H（AC-12/13/14/17/26），通过后收口。
 - [ ] Phase 6 v2 清理。
+- [ ] 本地 main 未 push。
