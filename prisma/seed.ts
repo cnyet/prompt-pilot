@@ -98,7 +98,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplateSeed[] = [
     slug: 'isometric-3d',
     category: 'image',
     style: '3D',
-    title: '3D 等距插画',
+    title: '3D 插画',
     description: '暖色圆润造型的等距场景插画提示词。',
     body: '等距视角 3D 插画，小型移动咖啡馆摊位，奶油色与木色配色，圆润几何造型，柔和环境光，浅色背景，细节丰富，C4D 渲染质感。',
     mode: 'generate',
