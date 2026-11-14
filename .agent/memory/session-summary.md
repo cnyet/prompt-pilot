@@ -540,3 +540,30 @@
 ### Carry-over
 - [x] 用户选择本地合并：fast-forward `cdc8ebc` → `f48833d`；merged main typecheck 0 / 78 文件 832 用例 / harness 24 pass；特性分支与 `.superpowers/sdd/2026-11-13-v3-batch-e/` 已删；未 push。
 - [ ] Phase 3 提示词库 v3 UI、Phase 4 模板页 v3 UI、Phase 5 设置/成本 UI、Phase 6 v2 清理。
+
+## 2026-11-14 Batch F（提示词库 v3 UI）
+
+### Completed
+- 分支 `feat/v3-batch-f`（base `fc7ac2f`，plan `e9206d0`）4 个任务：库查询/格式化/API 客户端；v3 列表（搜索 300ms 防抖、筛选、offset 分页、行内收藏/评分/重命名）；详情抽屉（native dialog、结果渲染/源码、时间线、任意两轮对比、检查、存模板、删除）；抽屉内继续优化/修复流 + v2 库删除 + 跨路由集成测试。
+- 任务提交：`e9206d0`（plan）、`dcaaccb`、`199fbe6`、`d4b5d83`、`613072f`；final fix `618f0b2`。
+- 集成测试 `tests/integration/library-v3-flow.test.ts`：搜索标题/输入/正文、收藏/已评分/模式/目标类型/上海日历日筛选、PATCH 即时反映、删除后 404 且账本匿名保留、limit/offset 分页无重复。
+- Final review（fable）：0 Critical；Important I1 CheckPanel 陈旧结果/修复载荷、I2 收藏/已评分筛选归属；修复 `618f0b2`（I2 新增 `applyMetaUpdate`，RED 6 失败 → GREEN；I1 加 `key={output}`）。9 条 Minor + 9 条 declined 均裁决。
+- 终验（`618f0b2`）：typecheck 0；83 文件 / 857 用例；build ✓；check:contrast ✓；生产 HTTP 冒烟（/library 200、CSS `.library-drawer`×4 与 `::backdrop`×3、/api/records 200）。
+
+### Key Decisions / Rulings
+- 集成测试首次即绿（记录 API 已在 Batch D 落地），保留为 AC-8/9/25/28 跨路由回归钉；RED 缺失已记账。
+- 无 Chromium / `data/app.db` 为空：手动交互冒烟以全量验证 + 生产 HTTP 冒烟替代，交互留待人工验收。
+- 抽屉卸载调用 `cancelStream()+resetStream()`：关闭即取消，服务端标记已中断并保留正文。
+- `applyMetaUpdate`：筛选归属在更新时维护，避免取消收藏后行残留与总数矛盾。
+- CheckPanel 以 `key={output}` 重置，防止对旧正文发起修复。
+
+### Deferred Minors
+- M1 useRecordMeta confirmed 陈旧/无差异仍发 PATCH；M2 failed 流无状态文案；M3 生成单轮仍展示对比区；M4 MetaRow 混用迭代与累计值；M5 deleting 未纳入 busy；M6 无显式停止按钮；M7 未按 updatedAt 重排；M8 行点击仅标题/死代码；M9 客户端交互无 DOM 测试。
+
+### Pitfalls
+- `task-done` 脚本会把 vitest 的 learn-more 行写进账本，需按日志修正。
+- 本 harness 无 Chromium，交互与焦点只能人工验收。
+
+### Carry-over
+- [ ] 用户决定 Batch F 收尾：本地合并 / PR / 保留分支（未授权前不合不推）。
+- [ ] Phase 4 模板页、Phase 5 设置/成本、Phase 6 v2 清理。
