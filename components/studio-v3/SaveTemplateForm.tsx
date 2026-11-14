@@ -48,6 +48,8 @@ export interface SaveTemplateFormProps {
   source: string
   targetType: TargetType
   mode: ProcessMode
+  /** 生成记录的原始需求，存为模板后作为「用它开始」的示例输入。 */
+  exampleInput?: string | null
   /** 记录不可用或流式进行中：不可打开表单。 */
   disabled: boolean
 }
@@ -55,7 +57,8 @@ export interface SaveTemplateFormProps {
 /**
  * 当前结果存为自定义模板（FR-7.5）。
  *
- * 内联表单；分类固定为记录的目标类型，模式沿用记录模式。title / description /
+ * 内联表单；分类固定为记录的目标类型，模式沿用记录模式。生成模式把记录原文
+ * 一并写入 exampleInput，模板页才能用它预填生成需求。title / description /
  * style 由 maxLength 限长，body 8000 字双保险：超过时显示计数并禁用保存。
  * 成功后关闭表单并就地提示，不打断阅读。
  */
@@ -63,6 +66,7 @@ export function SaveTemplateForm({
   source,
   targetType,
   mode,
+  exampleInput = null,
   disabled,
 }: SaveTemplateFormProps): ReactElement {
   const titleId = useId()
@@ -111,6 +115,7 @@ export function SaveTemplateForm({
     setBusy(true)
     setError(null)
     try {
+      const example = exampleInput?.trim() ?? ''
       await createTemplate({
         category: targetType,
         style: values.style.trim(),
@@ -118,6 +123,9 @@ export function SaveTemplateForm({
         description: values.description.trim(),
         body: values.body,
         mode,
+        ...(mode === 'generate' && example.length > 0
+          ? { exampleInput: example }
+          : {}),
       })
       setOpen(false)
       setSaved(true)

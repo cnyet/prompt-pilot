@@ -303,6 +303,7 @@ export function ResultPanel({
           source={source}
           targetType={targetType}
           mode={mode}
+          exampleInput={sourceInput}
           disabled={active || settling}
         />
       ) : null}

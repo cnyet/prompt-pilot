@@ -71,13 +71,19 @@ export interface RecordDetailDto {
 
 export interface TemplateDto {
   id: string
+  slug: string | null
   category: string
   style: string
   title: string
   description: string
   body: string
   mode: string
+  exampleInput: string | null
+  coverKind: string
+  featured: boolean
   builtin: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export interface V3StatsDto {
@@ -222,12 +228,26 @@ export function createTemplate(body: {
   description: string
   body: string
   mode: ProcessMode
+  exampleInput?: string | null
 }): Promise<{ template: TemplateDto }> {
   return requestJson<{ template: TemplateDto }>('/api/templates', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+}
+
+export function fetchTemplates(): Promise<{ templates: TemplateDto[] }> {
+  return requestJson<{ templates: TemplateDto[] }>('/api/templates', {
+    cache: 'no-store',
+  })
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  const response = await fetch(`/api/templates/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) throw await toApiError(response)
 }
 
 export function fetchV3Stats(): Promise<V3StatsDto> {

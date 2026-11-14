@@ -671,6 +671,7 @@ export function RecordDetailDrawer({
                 source={output}
                 targetType={targetType}
                 mode={mode}
+                exampleInput={detail.sourceInput}
                 disabled={busy}
               />
             </section>
