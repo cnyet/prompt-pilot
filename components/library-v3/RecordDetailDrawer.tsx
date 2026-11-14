@@ -14,14 +14,19 @@ import { Input } from '@/components/ui/Input'
 import { Rating } from '@/components/ui/Rating'
 import { ChangeNotes } from '@/components/studio-v3/ChangeNotes'
 import { CheckPanel, type RepairIssueInput } from '@/components/studio-v3/CheckPanel'
+import { ContinueBar } from '@/components/studio-v3/ContinueBar'
 import { IterationCompare } from '@/components/studio-v3/IterationCompare'
 import { MarkdownView } from '@/components/studio-v3/MarkdownView'
 import { MetaRow } from '@/components/studio-v3/MetaRow'
 import { SaveTemplateForm } from '@/components/studio-v3/SaveTemplateForm'
+import { isRequestActive } from '@/components/studio-v3/stream-reducer'
+import { usePromptStream } from '@/components/studio-v3/usePromptStream'
 import {
   deleteRecord,
   fetchRecordDetail,
   patchRecordMeta,
+  postOptimize,
+  postRepair,
   type ProcessMode,
   type RecordDetailDto,
   type RecordSummaryDto,
@@ -57,6 +62,11 @@ const TARGET_KEYS: Record<TargetType, MessageKey> = {
   video: 'library.target.video',
 }
 
+function createRequestId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  return uuid ?? `req_${Date.now()}_${Math.random().toString(36).slice(2)}`
+}
+
 export interface RecordDetailDrawerProps {
   recordId: string
   optimizeAvailable: boolean
@@ -75,6 +85,7 @@ export interface RecordDetailDrawerProps {
  */
 export function RecordDetailDrawer({
   recordId,
+  optimizeAvailable,
   onClose,
   onDeleted,
   onMetaChanged,
@@ -98,6 +109,24 @@ export function RecordDetailDrawer({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const {
+    state: streamState,
+    run: runStream,
+    cancel: cancelStream,
+    reset: resetStream,
+  } = usePromptStream()
+  const active = isRequestActive(streamState.phase)
+  const busy = active || streamState.settling
+
+  // 关闭抽屉时中断仍在进行的生成；服务端把该轮标记为已中断并保留正文。
+  useEffect(
+    () => () => {
+      cancelStream()
+      resetStream()
+    },
+    [cancelStream, resetStream],
+  )
 
   useEffect(
     () => () => {
@@ -142,6 +171,14 @@ export function RecordDetailDrawer({
     return () => controller.abort()
   }, [recordId, reloadToken])
 
+  // 流式结算后详情到达：更新抽屉正文、时间线与用量，并同步列表行。
+  useEffect(() => {
+    const next = streamState.detail
+    if (!next) return
+    setDetail(next.record)
+    onMetaChanged(next.record)
+  }, [streamState.detail, onMetaChanged])
+
   const flash = useCallback((text: string, kind: Feedback['kind'] = 'status') => {
     setFeedback({ text, kind })
     if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current)
@@ -167,8 +204,6 @@ export function RecordDetailDrawer({
     updateMetaRecord,
     onMetaError,
   )
-
-  const noopRepair = useCallback((_issues: RepairIssueInput[]) => {}, [])
 
   function startTitleEdit() {
     if (!detail) return
@@ -201,7 +236,7 @@ export function RecordDetailDrawer({
   }
 
   async function confirmDelete() {
-    if (!detail) return
+    if (!detail || busy) return
     setDeleting(true)
     setDeleteError(null)
     try {
@@ -216,13 +251,21 @@ export function RecordDetailDrawer({
     }
   }
 
-  const output = detail?.latestOutput ?? ''
+  const detailOutput = detail?.latestOutput ?? ''
+  // 进行中与结算前优先显示流内正文；流结束并结算后本地详情已同步。
+  const streamSource =
+    streamState.draftOutput.length > 0
+      ? streamState.draftOutput
+      : streamState.committedOutput
+  const output = streamSource.length > 0 ? streamSource : detailOutput
+  const optimizeReady = optimizeAvailable && !streamState.unavailable
   const iterations = detail?.iterations ?? []
   const latest = latestIteration(iterations)
   const mode: ProcessMode = detail ? toProcessMode(detail.mode) : 'generate'
   const targetType: TargetType = detail ? toTargetType(detail.targetType) : 'text'
   const canRate =
     detail !== null &&
+    !busy &&
     (detail.status === 'completed' || detail.status === 'canceled')
   const pending =
     detail !== null &&
@@ -252,6 +295,34 @@ export function RecordDetailDrawer({
       flash(t('studio.actions.downloadFailed'), 'error')
     }
   }, [detail, output, flash])
+
+  const continueOptimize = useCallback(
+    (instruction: string) => {
+      if (!detail || !optimizeReady || busy) return
+      void runStream(() =>
+        postOptimize(detail.id, { instruction, requestId: createRequestId() }),
+      )
+    },
+    [detail, optimizeReady, busy, runStream],
+  )
+
+  const repair = useCallback(
+    (issues: RepairIssueInput[]) => {
+      if (!detail || !optimizeReady || busy || issues.length === 0) return
+      void runStream(() =>
+        postRepair(detail.id, {
+          issues: issues.slice(0, 20),
+          requestId: createRequestId(),
+        }),
+      )
+    },
+    [detail, optimizeReady, busy, runStream],
+  )
+
+  const retryDetail = useCallback(() => {
+    resetStream()
+    setReloadToken((token) => token + 1)
+  }, [resetStream])
 
   return (
     <dialog
@@ -498,6 +569,42 @@ export function RecordDetailDrawer({
                 </p>
               ) : null}
 
+              {active ? (
+                <p role="status" className="mb-2 text-caption text-ink-muted">
+                  {t(
+                    streamState.phase === 'starting'
+                      ? 'studio.result.status.starting'
+                      : 'studio.result.status.streaming',
+                  )}
+                </p>
+              ) : streamState.phase === 'canceled' ? (
+                <p role="status" className="mb-2 text-caption text-warning">
+                  {t('studio.result.status.canceled')}
+                </p>
+              ) : streamState.settling ? (
+                <p role="status" className="mb-2 text-caption text-ink-muted">
+                  {t('studio.result.status.settling')}
+                </p>
+              ) : null}
+
+              {streamState.error ? (
+                <p role="alert" className="mb-2 text-caption text-danger">
+                  {streamState.error.message}
+                </p>
+              ) : null}
+
+              {streamState.settleFailed ? (
+                <p
+                  role="alert"
+                  className="mb-2 flex flex-wrap items-center gap-2 text-caption text-warning"
+                >
+                  <span>{t('studio.result.status.settleFailed')}</span>
+                  <Button variant="ghost" size="sm" onClick={retryDetail}>
+                    {t('common.retry')}
+                  </Button>
+                </p>
+              ) : null}
+
               {view === 'rendered' ? (
                 <MarkdownView source={output} />
               ) : (
@@ -520,6 +627,12 @@ export function RecordDetailDrawer({
 
               <ChangeNotes notes={latest?.notes ?? []} />
             </section>
+
+            <ContinueBar
+              busy={busy}
+              available={optimizeReady}
+              onContinue={continueOptimize}
+            />
 
             <section className="border-t border-line-subtle px-5 py-4">
               <h3 className="text-label font-medium text-ink">
@@ -547,9 +660,9 @@ export function RecordDetailDrawer({
             <CheckPanel
               source={output}
               recordId={detail.id}
-              busy={false}
-              repairAvailable={false}
-              onRepair={noopRepair}
+              busy={busy}
+              repairAvailable={optimizeReady}
+              onRepair={repair}
             />
 
             <section className="border-t border-line-subtle px-5 py-4">
@@ -557,7 +670,7 @@ export function RecordDetailDrawer({
                 source={output}
                 targetType={targetType}
                 mode={mode}
-                disabled={false}
+                disabled={busy}
               />
             </section>
 
@@ -565,6 +678,11 @@ export function RecordDetailDrawer({
               {deleteError ? (
                 <p role="alert" className="mb-2 text-caption text-danger">
                   {deleteError}
+                </p>
+              ) : null}
+              {busy ? (
+                <p className="mb-2 text-caption text-ink-faint">
+                  {t('library.detail.deleteBusy')}
                 </p>
               ) : null}
               {confirmingDelete ? (
@@ -576,7 +694,7 @@ export function RecordDetailDrawer({
                     variant="destructive"
                     size="sm"
                     onClick={() => void confirmDelete()}
-                    disabled={deleting}
+                    disabled={deleting || busy}
                   >
                     {deleting
                       ? t('library.detail.deleting')
@@ -596,6 +714,7 @@ export function RecordDetailDrawer({
                   variant="destructive"
                   size="sm"
                   onClick={() => setConfirmingDelete(true)}
+                  disabled={busy}
                 >
                   {t('library.detail.delete')}
                 </Button>

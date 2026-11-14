@@ -233,6 +233,7 @@ export const zh = {
   'library.detail.deleteConfirmAction': '确认删除',
   'library.detail.deleteCancel': '取消',
   'library.detail.deleteFailed': '删除没有成功，请重试',
+  'library.detail.deleteBusy': '处理中不能删除，等这一轮完成后再试',
   'library.detail.title': '记录标题',
 } as const
 
