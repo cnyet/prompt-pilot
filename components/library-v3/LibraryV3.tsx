@@ -19,7 +19,11 @@ import {
   type LibraryListParams,
   type LibraryTargetType,
 } from '@/lib/library/query'
-import { removeRecordFromList, replaceRecord } from '@/lib/library/rows'
+import {
+  applyMetaUpdate,
+  removeRecordFromList,
+  type RecordListSnapshot,
+} from '@/lib/library/rows'
 import { LibraryFilters } from './LibraryFilters'
 import { RecordDetailDrawer } from './RecordDetailDrawer'
 import { RecordRow } from './RecordRow'
@@ -44,9 +48,12 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
   const [from, setFrom] = useState<string | null>(null)
   const [to, setTo] = useState<string | null>(null)
 
-  const [records, setRecords] = useState<RecordSummaryDto[]>([])
-  const [total, setTotal] = useState(0)
-  const [offset, setOffset] = useState(0)
+  const [list, setList] = useState<RecordListSnapshot>({
+    records: [],
+    total: 0,
+    offset: 0,
+  })
+  const { records, total, offset } = list
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,14 +97,16 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
 
     setLoading(true)
     setError(null)
-    setOffset(0)
+    setList((current) => ({ ...current, offset: 0 }))
 
     void fetchRecordList(listParams(0), controller.signal)
       .then((dto) => {
         if (requestIdRef.current !== requestId) return
-        setRecords(dto.records)
-        setTotal(dto.total)
-        setOffset(dto.records.length)
+        setList({
+          records: dto.records,
+          total: dto.total,
+          offset: dto.records.length,
+        })
         setLoading(false)
       })
       .catch((cause: unknown) => {
@@ -109,14 +118,19 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
     return () => controller.abort()
   }, [listParams, reloadToken])
 
-  const updateRecord = useCallback((next: RecordSummaryDto) => {
-    setRecords((current) => replaceRecord(current, next))
-  }, [])
+  const updateRecord = useCallback(
+    (next: RecordSummaryDto) => {
+      setList((current) => applyMetaUpdate(current, next, filter))
+    },
+    [filter],
+  )
 
   const handleDeleted = useCallback((id: string) => {
-    setRecords((current) => removeRecordFromList(current, id))
-    setTotal((current) => Math.max(0, current - 1))
-    setOffset((current) => Math.max(0, current - 1))
+    setList((current) => ({
+      records: removeRecordFromList(current.records, id),
+      total: Math.max(0, current.total - 1),
+      offset: Math.max(0, current.offset - 1),
+    }))
     setSelectedId((current) => (current === id ? null : current))
   }, [])
 
@@ -159,13 +173,15 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
     try {
       const dto = await fetchRecordList(listParams(offset))
       if (requestIdRef.current !== requestId) return
-      setRecords((current) => {
-        const seen = new Set(current.map((record) => record.id))
+      setList((current) => {
+        const seen = new Set(current.records.map((record) => record.id))
         const additions = dto.records.filter((record) => !seen.has(record.id))
-        return [...current, ...additions]
+        return {
+          records: [...current.records, ...additions],
+          total: dto.total,
+          offset: nextOffset(current.offset, dto.records.length),
+        }
       })
-      setTotal(dto.total)
-      setOffset((current) => nextOffset(current, dto.records.length))
     } catch (cause) {
       if (requestIdRef.current !== requestId) return
       setNotice(cause instanceof Error ? cause.message : t('library.error'))

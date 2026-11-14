@@ -658,6 +658,7 @@ export function RecordDetailDrawer({
             ) : null}
 
             <CheckPanel
+              key={output}
               source={output}
               recordId={detail.id}
               busy={busy}
