@@ -53,6 +53,11 @@ export interface TemplatePrefill {
   targetType: TemplateCategory
 }
 
+export interface TemplateOrigin {
+  id: string
+  mode: TemplateMode
+}
+
 export interface CoverModel {
   variant: TemplateCategory
   seed: number
@@ -116,6 +121,14 @@ export function resolveTemplatePrefill(
 
 export function templateHref(id: string): string {
   return `/studio?template=${encodeURIComponent(id)}`
+}
+
+/** 模板来源只在用户用原模式提交时附上；切换模式后不再冒充模板使用。 */
+export function originTemplateIdForMode(
+  origin: TemplateOrigin | null,
+  mode: TemplateMode,
+): string | undefined {
+  return origin?.mode === mode ? origin.id : undefined
 }
 
 export function countTemplatesByCategory(

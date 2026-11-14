@@ -45,11 +45,44 @@ describe('initialComposerState', () => {
     })
   })
 
-  it('模板预填只放进生成草稿，优化草稿保持为空', () => {
-    const state = initialComposerState('帮我写个周报')
-    expect(state.generate.sourceInput).toBe('帮我写个周报')
-    expect(state.optimize.sourceInput).toBe('')
+  it('生成模板预填只放进生成草稿，并保留目标类型', () => {
+    const state = initialComposerState({
+      mode: 'generate',
+      sourceInput: '帮我写个周报',
+      targetType: 'image',
+    })
+
     expect(state.mode).toBe('generate')
+    expect(state.generate).toEqual({
+      sourceInput: '帮我写个周报',
+      instruction: '',
+      targetType: 'image',
+    })
+    expect(state.optimize).toEqual({
+      sourceInput: '',
+      instruction: '',
+      targetType: 'text',
+    })
+  })
+
+  it('优化模板预填只放进优化草稿，并选中优化模式', () => {
+    const state = initialComposerState({
+      mode: 'optimize',
+      sourceInput: '镜头慢慢推近',
+      targetType: 'video',
+    })
+
+    expect(state.mode).toBe('optimize')
+    expect(state.optimize).toEqual({
+      sourceInput: '镜头慢慢推近',
+      instruction: '',
+      targetType: 'video',
+    })
+    expect(state.generate).toEqual({
+      sourceInput: '',
+      instruction: '',
+      targetType: 'text',
+    })
   })
 })
 

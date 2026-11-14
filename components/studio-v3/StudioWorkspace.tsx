@@ -13,6 +13,10 @@ import { downloadMarkdown } from '@/lib/download'
 import { t } from '@/lib/i18n/zh'
 import { markdownToPlainText } from '@/lib/markdown/plain'
 import {
+  originTemplateIdForMode,
+  type TemplatePrefill,
+} from '@/lib/templates-v3'
+import {
   patchAgainstConfirmed,
   queueMetaPatch,
   type MetaPatch,
@@ -41,8 +45,8 @@ import { isRequestActive } from './stream-reducer'
 import { usePromptStream } from './usePromptStream'
 
 export interface StudioWorkspaceProps {
-  /** 从模板页「用它开始」带过来的示例需求，只作生成草稿初值。 */
-  initialGenerateInput?: string
+  /** 模板页「用它开始」带来的首个草稿；首轮提交时同时写入 originTemplateId。 */
+  initialDraft?: TemplatePrefill | null
   generateAvailable: boolean
   optimizeAvailable: boolean
 }
@@ -66,12 +70,20 @@ function toTargetType(value: string): TargetType {
  * 收藏与评分乐观更新并合并补发（I1），请求失败时按已确认值回滚并提示。
  */
 export function StudioWorkspace({
-  initialGenerateInput = '',
+  initialDraft = null,
   generateAvailable,
   optimizeAvailable,
 }: StudioWorkspaceProps): ReactElement {
   const [composer, setComposer] = useState<ComposerState>(() =>
-    initialComposerState(initialGenerateInput),
+    initialComposerState(
+      initialDraft
+        ? {
+            mode: initialDraft.mode,
+            sourceInput: initialDraft.sourceInput,
+            targetType: initialDraft.targetType,
+          }
+        : undefined,
+    ),
   )
   const {
     state: streamState,
@@ -91,6 +103,12 @@ export function StudioWorkspace({
     rating: null,
   })
   const recordIdRef = useRef<string | null>(null)
+  // 模板来源只在匹配模式的首轮提交时携带；记录创建后清空，后续迭代不再写。
+  const originTemplateRef = useRef<{ id: string; mode: ProcessMode } | null>(
+    initialDraft
+      ? { id: initialDraft.originTemplateId, mode: initialDraft.mode }
+      : null,
+  )
   // 详情到达前用提交时的模式与目标类型兜底，避免切换 tab 后存错模板分类
   const [submittedMeta, setSubmittedMeta] = useState<{
     mode: ProcessMode
@@ -132,6 +150,12 @@ export function StudioWorkspace({
   const detailRecord = detail?.record ?? null
   const recordId = streamState.recordId ?? detailRecord?.id ?? null
   recordIdRef.current = recordId
+
+  // 首条记录已经创建后，模板来源已完成使命；后续请求不再带 originTemplateId。
+  useEffect(() => {
+    if (recordId !== null) originTemplateRef.current = null
+  }, [recordId])
+
   const source =
     streamState.draftOutput.length > 0
       ? streamState.draftOutput
@@ -219,6 +243,10 @@ export function StudioWorkspace({
     const mode = composer.mode
     const draft = mode === 'generate' ? composer.generate : composer.optimize
     const requestId = createRequestId()
+    const originTemplateId = originTemplateIdForMode(
+      originTemplateRef.current,
+      mode,
+    )
     setSubmittedMeta({ mode, targetType: draft.targetType })
 
     // 全新请求先清空上一条详情，避免新流首字到达前泄漏旧结果。
@@ -236,6 +264,7 @@ export function StudioWorkspace({
           mode: 'generate',
           sourceInput: draft.sourceInput,
           targetType: draft.targetType,
+          ...(originTemplateId ? { originTemplateId } : {}),
           requestId,
         }),
       )
@@ -249,6 +278,7 @@ export function StudioWorkspace({
         mode: 'optimize',
         sourceInput: draft.sourceInput,
         ...(instruction ? { instruction } : {}),
+        ...(originTemplateId ? { originTemplateId } : {}),
         requestId,
       }),
     )

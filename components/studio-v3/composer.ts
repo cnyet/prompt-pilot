@@ -29,6 +29,12 @@ export interface ComposerState {
   optimize: ComposerDraft
 }
 
+export interface ComposerInitialDraft {
+  mode: ProcessMode
+  sourceInput: string
+  targetType: TargetType
+}
+
 export type ComposerInvalidReason =
   | 'empty'
   | 'sourceTooLong'
@@ -45,15 +51,25 @@ function emptyDraft(): ComposerDraft {
   return { sourceInput: '', instruction: '', targetType: 'text' }
 }
 
-/** `initialGenerateInput` 只预填生成草稿（legacy `?template=` 的示例需求）。 */
+/** 模板预填只写入对应模式的草稿，另一侧保持空。 */
 export function initialComposerState(
-  initialGenerateInput = '',
+  initial?: ComposerInitialDraft,
 ): ComposerState {
-  return {
-    mode: 'generate',
-    generate: { ...emptyDraft(), sourceInput: initialGenerateInput },
+  const state: ComposerState = {
+    mode: initial?.mode ?? 'generate',
+    generate: emptyDraft(),
     optimize: emptyDraft(),
   }
+  if (!initial) return state
+
+  const draft: ComposerDraft = {
+    sourceInput: initial.sourceInput,
+    instruction: '',
+    targetType: initial.targetType,
+  }
+  return initial.mode === 'optimize'
+    ? { ...state, optimize: draft }
+    : { ...state, generate: draft }
 }
 
 /** 当前模式对应的草稿；UI 与校验共用，避免两处各写一遍三元表达式。 */

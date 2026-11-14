@@ -1,7 +1,8 @@
 import { StudioWorkspace } from '@/components/studio-v3/StudioWorkspace'
+import { getTemplate } from '@/lib/db/templates'
 import { getGenerateProvider, getOptimizeProvider } from '@/lib/llm/registry'
 import { getEffectiveLlmEnv } from '@/lib/settings/store'
-import { findSceneTemplate } from '@/lib/templates'
+import { resolveTemplatePrefill, type TemplatePrefill } from '@/lib/templates-v3'
 
 export default async function StudioPage({
   searchParams,
@@ -9,7 +10,15 @@ export default async function StudioPage({
   searchParams: Promise<{ template?: string | string[] }>
 }) {
   const { template } = await searchParams
-  const scene = findSceneTemplate(template)
+  let initialDraft: TemplatePrefill | null = null
+
+  // 模板预填只在服务端解析；无效 id、重复参数或数据库失败都回落为空工作台。
+  if (typeof template === 'string' && template.length > 0) {
+    try {
+      const row = await getTemplate(template)
+      initialDraft = row ? resolveTemplatePrefill(row) : null
+    } catch {}
+  }
 
   // 可用性只在服务端计算，客户端只拿到布尔值；配置读取失败按不可用处理。
   let generateAvailable = false
@@ -22,7 +31,8 @@ export default async function StudioPage({
 
   return (
     <StudioWorkspace
-      initialGenerateInput={scene?.sample ?? ''}
+      key={initialDraft?.originTemplateId ?? 'studio'}
+      initialDraft={initialDraft}
       generateAvailable={generateAvailable}
       optimizeAvailable={optimizeAvailable}
     />

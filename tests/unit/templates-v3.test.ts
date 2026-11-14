@@ -3,6 +3,7 @@ import {
   buildCoverModel,
   countTemplatesByCategory,
   filterTemplatesByStyle,
+  originTemplateIdForMode,
   resolveStyleSelection,
   resolveTemplatePrefill,
   stylesInCategory,
@@ -146,6 +147,16 @@ describe('template links and grouping', () => {
   it('builds an encoded studio link', () => {
     expect(templateHref('tpl-1')).toBe('/studio?template=tpl-1')
     expect(templateHref('a b')).toBe('/studio?template=a%20b')
+  })
+
+  it('keeps the template origin only for the original mode', () => {
+    expect(
+      originTemplateIdForMode({ id: 'tpl-1', mode: 'optimize' }, 'optimize'),
+    ).toBe('tpl-1')
+    expect(
+      originTemplateIdForMode({ id: 'tpl-1', mode: 'optimize' }, 'generate'),
+    ).toBeUndefined()
+    expect(originTemplateIdForMode(null, 'generate')).toBeUndefined()
   })
 
   it('counts every category, including empty ones', () => {
