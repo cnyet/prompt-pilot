@@ -106,6 +106,13 @@ export async function listTemplates(
   return rows.map(toTemplateDto)
 }
 
+/** 单条模板读取；不存在返回 null。工作台 `?template=` 预填使用。 */
+export async function getTemplate(id: string): Promise<TemplateDto | null> {
+  const prisma = requirePrisma()
+  const row = await prisma.template.findUnique({ where: { id } })
+  return row ? toTemplateDto(row) : null
+}
+
 /** 新建自定义模板：内部字段强制，mode / featured / exampleInput 有默认值。 */
 export async function createCustomTemplate(
   input: CreateCustomTemplateInput,
