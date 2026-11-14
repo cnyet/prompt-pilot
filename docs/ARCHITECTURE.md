@@ -232,6 +232,56 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 - 顶层没有 `total`。
 - 数据库不可用返回 503 `DATABASE_UNAVAILABLE`。
 
+### 设置 API（Batch H）
+
+**GET `/api/settings`**
+
+响应 200：
+
+```json
+{
+  "settings": {
+    "apiKey": { "configured": true, "hint": "••••9f3a", "source": "settings" },
+    "baseUrl": { "value": "https://opencode.ai/inference/go/openai/v1", "source": "env" },
+    "modelGenerate": { "value": "deepseek-v4.1-flash", "source": "settings" },
+    "modelOptimize": { "value": "gpt-5.6-luna", "source": "env" },
+    "modelEvaluate": { "value": "", "source": "none" },
+    "params": {
+      "generate": {
+        "temperature": { "value": 0.7, "source": "default" },
+        "maxTokens": { "value": 8192, "source": "default" }
+      },
+      "optimize": {
+        "temperature": { "value": 0.7, "source": "inherited" },
+        "maxTokens": { "value": 8192, "source": "inherited" }
+      }
+    }
+  },
+  "budget": { "monthlyCny": 100 }
+}
+```
+
+`source` 取值 `settings | env | default | none | inherited`。密钥只回已配置状态与末四位提示，不回明文。`modelEvaluate` 只为 v2 评估路由保留，v3 UI 不展示，Phase 6 删除。
+
+**PUT `/api/settings`**
+
+请求体按字段增量更新，未出现的字段保持不变：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `apiKey`、`baseUrl`、`modelGenerate`、`modelOptimize`、`modelEvaluate` | string 或 null | null 或空串删除覆盖，回落到环境变量 |
+| `generateTemperature`、`optimizeTemperature` | number 或 null | 0 到 2；null 删除覆盖 |
+| `generateMaxTokens`、`optimizeMaxTokens` | number 或 null | 1 到 65536 的整数；null 删除覆盖 |
+| `budgetMonthlyCny` | number 或 null | 大于 0；null 清除预算 |
+
+默认 temperature `0.7`、maxTokens `8192`。优化参数未单独设置时继承生成参数，视图标记 `inherited`；生成参数未设置时用默认值。成功 200 返回与 GET 相同的 `{ settings, budget }`。
+
+错误码：400 `INVALID_JSON`（请求体不是合法 JSON）、`INVALID_BODY`（字段类型不合法）、`INVALID_MODEL_PARAM`（数值越界或不是整数）、`INVALID_BUDGET`（预算不大于 0）；503 `NO_DATABASE` / `WRITE_FAILED`。
+
+**POST `/api/settings/test`**
+
+只测已保存配置，15 秒超时。响应 `{ result: { ok, configured, checkedAt, models } }`；`models` 固定含 `generate` 与 `optimize` 两个角色，每项给出 `roleLabel`、`modelId`、`configured`、`ok`、`latencyMs`，失败时附 `error`。优化模型未单独配置时复用生成模型。请求失败返回 500 `TEST_FAILED`。
+
 ## 五、SSE 与元数据协议
 
 客户端不能用 `EventSource`（只支持 GET），用 `fetch` + `ReadableStream` 自写解析。

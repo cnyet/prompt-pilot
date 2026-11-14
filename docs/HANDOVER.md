@@ -8,7 +8,7 @@
 
 PromptPilot 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-产品已重置为 v3「结果优先」范式（ADR-0007）。**数据与 API 层已收口到 v3（Batch A 到 D），工作台 UI 仍运行 v2 范式**，v2 的八字段编辑器、假设 chip、试运行、评估页面仍然可用；v3 按 [docs/ROADMAP-V3.md](ROADMAP-V3.md) 七阶段重写，下一步是 Batch E 工作台 UI。
+产品已重置为 v3「结果优先」范式（ADR-0007）。v3 数据层、API、工作台、提示词库、模板、设置与成本已全部上线（Batch A 到 H，Phase 1 到 5 完成）；v2 的八字段编辑器、评估页面与旧 API 仍留在仓库中，但不再进入 v3 导航，Phase 6 统一移除。下一步是 Phase 6 清理与收口。
 
 ---
 
@@ -28,12 +28,19 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 - **Batch C**：`/api/generate`、`/api/records/[id]/optimize`、`/api/records/[id]/repair` 三条 SSE 路由，完成自动入库。
 - **Batch D**：`/api/records`、`/api/records/[id]`、`/api/templates`、`/api/templates/[id]`、`/api/stats` 五组 JSON 接口与契约（见 `docs/ARCHITECTURE.md` 第四节）；`prisma/seed.ts` 按 slug 幂等写入 12 条内置模板；成本统计按上海时区切月并给出预算使用率；继续优化与修复补上空源守卫（409 `RECORD_HAS_NO_OUTPUT`）与重放元数据收敛。
 
-### v2 代码仍在运行（已验证可用）
+### v3 UI 与设置（Batch E 到 H 已完成）
 
-- 输入一句话，流式生成八字段结构化提示词（离线启发式或真模型）
-- 字段级编辑、AI 单字段重算、假设 chip、16 条诊断 + 一键修复
-- 试运行、版本库（v0 服务端不可改删）、成本账本、设置页模型配置与连通性测试
-- 全量 639 条测试通过（59 个文件），typecheck 零错误
+- **Batch E**：studio-v3 工作台替换 `/studio`。i18n `lib/i18n/zh.ts`、Markdown 渲染与源码视图、diff、R101-R108 本地检查、流式 reducer、继续优化 / 修复、收藏与 1 到 5 星评分、四项导航与移动底栏。
+- **Batch F**：提示词库 v3 UI。搜索防抖、筛选、分页、行内收藏 / 评分 / 重命名、详情抽屉、迭代时间线、任意两轮对比。
+- **Batch G**：模板页 v3。三分类与风格筛选、12 个内置模板、三套程序化 SVG 封面、「用它开始」预填、自定义模板创建与删除。
+- **Batch H**：设置与成本。生成 / 优化双模型槽与每角色 temperature / maxTokens（默认 0.7 / 8192，优化未设置时继承生成）；`/api/settings` 同时读写模型、参数与月度预算；连通性测试覆盖 generate / optimize；成本页改用 `getV3Stats`，四个 KPI、14 天趋势、按阶段与按模型两张表；预算 80% 提示、100% 强提示但不阻断。
+- 2026-11-14 实测：typecheck 零错误；88 个文件 / 906 条测试通过。
+
+### v2 代码仍在仓库（Phase 6 移除）
+
+- v2 八字段编辑器、单字段重算、假设 chip、试运行、版本库与 `/eval` 页面仍可直接访问，但不在 v3 导航中。
+- 旧引擎 API（`/api/engine/*`、`/api/prompts/*`、`/api/run/*`、`/api/eval/*`）保留到 Phase 6，v3 新代码不依赖它们。
+- 设置页的 `modelEvaluate` 覆盖值仅为 v2 评估保留，v3 UI 不展示；Phase 6 一并删除。
 
 ### 未验证
 
@@ -58,7 +65,7 @@ pnpm db:seed        # 写入 12 条内置模板，按 slug 幂等，可重复执
 pnpm dev            # http://localhost:3100
 ```
 
-不填 `ARK_API_KEY` 也能跑通流程（离线模板模式，界面有明确标识）；v3 交付后无密钥时模型操作禁用并说明原因（FR-8.7）。
+不填 `ARK_API_KEY` 时 v3 的生成与优化禁用，界面就地说明原因并给出设置入口（FR-8.7）；库、模板、复制与导出仍可用。v2 旧页面保留离线模板模式，仅供 Phase 6 前回看。
 
 ### 常用命令
 
@@ -79,10 +86,11 @@ pnpm dev            # http://localhost:3100
 
 | 变量 | 说明 |
 |---|---|
-| `ARK_API_KEY` | 留空进入离线模板模式（v2）/ 模型操作禁用（v3 交付后） |
+| `ARK_API_KEY` | 留空时 v3 模型操作禁用并说明原因；也可在设置页保存，优先级高于环境变量 |
 | `ARK_BASE_URL` | 默认 `https://opencode.ai/inference/go/openai/v1` |
-| `ARK_MODEL_GENERATE` | 生成模型 ID（不能用展示名） |
-| `ARK_MODEL_EVALUATE` | v2 评估模型；v3 改名为优化模型（generate / optimize），Phase 5 落地 |
+| `ARK_MODEL_GENERATE` | 生成模型 ID（不能用展示名）；也用于优化模型未单独配置时的继承 |
+| `ARK_MODEL_OPTIMIZE` | 优化模型 ID（v3 generate / optimize 双角色）；留空时复用生成模型 |
+| `ARK_MODEL_EVALUATE` | v2 评估模型，仅为旧评估 API 保留；v3 UI 不展示，Phase 6 删除 |
 | `DATABASE_URL` | `file:../data/app.db`，路径相对 schema 目录解析 |
 
 ### 故障注入
@@ -91,31 +99,40 @@ pnpm dev            # http://localhost:3100
 
 ---
 
-## 4. 代码地图（现状为 v2，Phase 1 起替换）
+## 4. 代码地图（v3 为现役，v2 保留至 Phase 6）
 
 ```
 app/
-  (workspace)/          工作台、库、评估、模板、设置（共享 AppShell 布局）
-  api/engine/generate/  流式生成（SSE，v3 改为 /api/generate Markdown 文本流）
-  api/engine/field/     单字段重算（v3 删）
-  api/run/              试运行（v3 删）
-  api/prompts/          提示词与版本 CRUD（v3 改为 /api/records）
-  api/stats/            成本与调用统计（保留）
+  (workspace)/studio/      v3 工作台（生成 / 优化 / 继续优化 / 修复）
+  (workspace)/library/     v3 提示词库（列表 + 详情抽屉）
+  (workspace)/templates/   v3 模板页
+  (workspace)/settings/    v3 设置（模型 / 成本 / 预算）
+  (workspace)/eval/        v2 评估页（Phase 6 删）
+  api/generate/            v3 生成与优化首轮（SSE）
+  api/records/             v3 记录 CRUD、继续优化、修复
+  api/templates/           v3 模板 CRUD
+  api/settings/            模型、参数与预算；settings/test 连通性
+  api/stats/               v3 成本聚合（generate / optimize / repair）
+  api/engine/ api/prompts/ api/run/ api/eval/   v2 API（Phase 6 删）
 components/
-  shell/AppShell.tsx    侧栏、顶栏、主题、模型状态徽标（保留）
-  studio/               v2 工作台约 20 个文件（v3 全量重写）
-  library/              v2 提示词库（v3 重写为记录行 + 详情抽屉）
+  shell/                   侧栏、顶栏、主题、模型状态徽标
+  studio-v3/               v3 工作台、流式状态、结果面、检查面板
+  library-v3/              v3 记录行与详情抽屉
+  templates-v3/            v3 模板卡与程序化封面
+  settings/                设置表单、成本趋势与分桶表、预算编辑
+  studio/ library/ eval/   v2 界面（Phase 6 删）
 lib/
-  llm/                  types（冻结）/ registry / ark / openai-compat / mock / ledger
+  llm/                     types（冻结）/ registry / openai-compat / mock / ledger / stats-v3
+  settings/                设置读取、参数继承与保存
   engine/
-    schema.ts           八字段契约（冻结至 Phase 1 新模型落地，Phase 6 删）
-    compose.ts 等       v2 引擎五阶段（intent/interview/compose/harden/evaluate/refine）
-    lint/               R001-R016（v3 迁移为 R101-R108 自由文本规则）
-    doc.ts / paths.ts / assumptions.ts / render.ts / export.ts / variables.ts（v3 删）
-    sse.ts              SSE 写出工具（保留改造）
-  db/                   Prisma 客户端、提示词、运行记录
-tests/                  global-setup.ts 建测试库；unit + integration
-scripts/e2e-http.mjs    HTTP 端到端
+    schema.ts              八字段契约（冻结至 Phase 6 删除）
+    check.ts               v3 本地检查 R101-R108
+    diff.ts / sse-v3.ts / stream-v3.ts   v3 diff 与流式协议
+    compose.ts 等          v2 引擎（Phase 6 删）
+  db/                      Prisma 客户端、记录与模板写路径
+  budget.ts                预算阈值与百分比展示（客户端安全）
+tests/                     global-setup.ts 建测试库；unit + integration
+scripts/e2e-http.mjs       HTTP 端到端
 ```
 
 v3 目标目录结构与新增模块见 [ARCHITECTURE.md](ARCHITECTURE.md) 第二节。
@@ -155,7 +172,7 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 ## 7. 测试与验收
 
-- 基线以实测为准：2026-11-13 实测 639 条（59 文件），typecheck 零错误。
+- 基线以实测为准：2026-11-14 实测 906 条（88 文件），typecheck 零错误。
 - 集成测试共用独立 `data/test.db`，文件串行执行（共享同一 SQLite）。
 - 测试基线数在 v3 中会先增（Phase 1 新测试）后减（Phase 6 删旧测试），不追求数量，以 ROADMAP-V3 各阶段验收为准。
 - 视觉：改样式先看 `components/ui/` 与 `DESIGN.md`；改令牌跑 `pnpm check:contrast`；改 DESIGN.md 跑 design-parser。
@@ -165,8 +182,8 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 ## 8. 下一步（按 docs/ROADMAP-V3.md）
 
-1. **Batch E：studio-v3 工作台 UI（下一步，对应 Phase 2）**：i18n `lib/i18n/zh.ts`、diff、R101-R108、`components/studio-v3/*`、Rating、替换 `/studio`、主题切换移到顶栏。验收 AC-1 到 AC-7、AC-19、AC-20。
-2. Phase 3 库 → Phase 4 模板 → Phase 5 设置与成本 → Phase 6 移除旧模块与收口。Phase 1 数据层与 API 已由 Batch A 到 D 完成。
+1. **Phase 6：移除旧模块与收口（下一步）**：删除 v2 八字段 schema、引擎 API、`/eval` 页面、`lib/engine/schema.ts` 与 `modelEvaluate` 残留；删表前再备份 `data/app.db`；按 ROADMAP-V3 Phase 6 验收。
+2. Phase 1 到 5 已由 Batch A 到 H 完成（数据层、API、工作台、库、模板、设置与成本）。
 
 约束：每个 Phase 独立提交；动 UI 先读 `DESIGN.md`；产品行为以 `PRODUCT.md` 为准。
 
