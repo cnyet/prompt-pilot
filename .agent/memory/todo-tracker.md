@@ -4,8 +4,6 @@
 - 无。
 
 ## Pending
-- [ ] DESIGN 主题切换位置 vs AppShell.tsx 侧栏底部对账 | Priority: P1 | Created: 2026-11-12 | 对账点: Phase 2（Batch E）
-- [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio）| Priority: P0 | Created: 2026-11-13
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
@@ -14,6 +12,9 @@
 - 无。
 
 ## Done
+- [x] Batch E 合入 main（fast-forward `cdc8ebc` → `f48833d`），特性分支与 SDD 工作区已删；merged main typecheck 0 / 78 文件 832 用例 / harness 24 pass / 0 fail；未 push | Completed: 2026-11-14
+- [x] Batch E：studio-v3 UI 全量（i18n、Markdown/diff、R101-R108、流式、工作台、导航）；final review 后 fix wave `f48833d`，scoped re-review 11/11 ADDRESSED；typecheck 0 / 78 文件 832 用例 / harness 24 pass | Completed: 2026-11-13
+- [x] DESIGN 主题切换位置对账：主题切换移至顶栏，导航四项 + 移动底栏（Batch E `7828b16`）| Completed: 2026-11-13
 - [x] Batch D 合入 main（快进 `369857c` → `1563ada`），特性分支与 SDD 工作区已删；merged main typecheck 0 / 639 用例 / harness 24 pass / 0 fail | Completed: 2026-11-13
 - [x] Batch D：records/templates/stats API + 12 模板 seed + 预算聚合；final review 后 fix wave `274df1f`，scoped re-review 7/7 ADDRESSED；typecheck 0 / 639 用例 / harness 25 pass | Completed: 2026-11-13
 - [x] finishing-a-development-branch：Batch A-C 合入 main（`5d607b1`），特性分支已删 | Completed: 2026-11-13

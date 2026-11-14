@@ -504,3 +504,39 @@
 - [x] 用户授权后 `feat/v3-batch-d` 合入 `main`：快进 `369857c` → `1563ada`，特性分支与 `.superpowers/sdd/2026-11-13-v3-batch-d/` 已删；merged main typecheck 0 / 59 文件 639 用例 / harness 24 pass 0 fail；未 push。
 - [ ] Batch E：studio-v3 UI（i18n zh.ts、diff、R101-R108、components/studio-v3/*、Rating、替换 /studio、主题切换移顶栏）。
 - [ ] 真实网关密钥端到端验证；补 DeepSeek V4.1 Flash / GPT 5.6 Luna 价格表或在设置覆盖。
+
+## 2026-11-13 Batch E（studio-v3 工作台整批）
+
+### Completed
+- [x] 分支 `feat/v3-batch-e`（base `cdc8ebc`，plan `f688f0c`）7 个计划任务全部完成：i18n zh.ts、Markdown/diff、R101-R108 本地检查、流式 reducer/usePromptStream/API、StudioWorkspace 替换 /studio、继续优化/修复/存模板、四项导航与移动底栏。
+- [x] 任务提交：`0cb096c`（T1）、`ce03a04`..`6119272`（T2）、`004423a`（T3）、`585c58a`..`6de3c2a`（T4）、`cbb463f`（T5）、`cbb463f`..`ee8a370`（T6）、`ee8a370`..`7828b16`（T7）。
+- [x] Final review（fable）：1 Critical C1（canceled 空输出覆盖 `latestOutput` 导致记录从库隐藏）+ Important I1 评分焦点丢失、I2 结算失败卡死、I3 优化记录可重新生成；另有 M1/M2/M7/M8/M9/M10/M11。
+- [x] Fix wave `f48833d`（20 文件，+715/-96）：C1 窄修在 `lib/db/records.ts`（canceled + 空正文才不写 latestOutput）；I1 `lib/ui/meta-coalesce.ts` 单飞合并、不原生 disable；I2 结算重试 3 次后 `settle-failed` 清 settling 并显示「用量信息不可用」；I3 `lib/ui/regenerate-guard.ts` 仅生成模式；M2 Esc 提升到 window；M7 `sawDone` 守卫；M9 文案、M10 代理对安全截断。
+- [x] Scoped re-review（`7828b16..f48833d`）：11/11 ADDRESSED，无新 Critical/Important。
+- [x] 控制器终验（`f48833d`）：`pnpm run typecheck` 0；78 文件 / 832 用例通过；harness 24 pass / 0 warn / 0 fail。fix 报告记录 build 与 contrast 通过。
+
+### Key Decisions / Rulings
+- 只新增 `react-markdown` + `remark-gfm` 两个依赖；jsdom/Playwright 未引入（Ruling 1）。
+- I1 键盘评分用真实 Chromium 冒烟验证（4×ArrowRight 焦点保持），不新增 DOM 测试依赖。
+- I2 采用「重试 3 次 + 终止态」而非加超时；无超时的悬空 fetch 仍是既有 Minor（Task 4 deferred）。
+- I3 只限制 UI；`/api/records/[id]/regenerate` 仍不校验模式，属 out-of-scope 观察，未扩大 write set。
+- AC-6 对比：单轮优化为「原文 vs 输出」，≥2 轮可选任意两轮；`lib/ui/compare.ts` 门控。
+- cancel=canceled 保留正文；failed 丢弃草稿保留已提交输出；`sawDone` 后传输错误不再改写完成态。
+- `/eval` 仅保留 URL 可达，导航与命令面板条目移除（Ruling 4）。
+- `prefers-reduced-motion` 全局把 animation/transition 归零（write set 扩展 `app/globals.css`）。
+
+### Deferred Minors
+- 复核新增 3 条 Minor：命令面板与流式 Esc 同在 window 层，面板打开时一次 Esc 同时关面板并取消流；I3 说明只挂在原生 disabled 按钮 title 上，鼠标与键盘都无法触达；继续优化后结算失败会沿用上一轮 detail meta，与「用量信息不可用」同屏矛盾。
+- 任务阶段遗留：diff LCS 性能、R108 12000 边界、结算 fetch 无超时、optimistic meta 被陈旧 detail 覆盖、1024px 展开轨、命令面板 backdrop-blur、无密钥路径未测等，均不阻塞。
+- 提示词库与模板页仍是 v2 UI（Phase 3/4）；AC-3 仅 DB/API 层验证。
+- `originTemplateId` 埋点未接线；P95 首字延迟仅 Mock 单样本 163.7ms。
+
+### Pitfalls
+- harness-verify 的 typecheck 失败多为子代理编辑中间态；以提交后 HEAD 复跑为准。
+- Mock valid 画像不产出改动说明/未知值，相关分支依赖单元测试。
+- 浏览器自动化无法可靠在 75ms Mock 流结束前发送 Esc；用 `slow_stream` 验证中断。
+- `pnpm test -- <path>` 不过滤；定向用 `pnpm exec vitest run <path>`。
+
+### Carry-over
+- [x] 用户选择本地合并：fast-forward `cdc8ebc` → `f48833d`；merged main typecheck 0 / 78 文件 832 用例 / harness 24 pass；特性分支与 `.superpowers/sdd/2026-11-13-v3-batch-e/` 已删；未 push。
+- [ ] Phase 3 提示词库 v3 UI、Phase 4 模板页 v3 UI、Phase 5 设置/成本 UI、Phase 6 v2 清理。
