@@ -600,3 +600,27 @@
 ### Carry-over
 - [x] 本地提交完成；未 push；特性分支无（直接在 main）。
 - [ ] Phase 5 设置/成本 UI、Phase 6 v2 清理。
+
+## 2026-11-14 Batch H（设置与成本计划）
+
+### Planned
+- v3 Phase 5（V3-50..54，AC-12/13/14/17/26）计划：`docs/superpowers/plans/2026-11-14-v3-batch-h.md`，7 个任务，尚未执行。
+- 任务：settings store 模型参数 → `/api/settings` 契约（模型/参数/预算）→ 测试连接角色 → 四个 v3 路由注入参数 → 设置页双模型槽与参数表单 → 成本页切 v3 stats + 预算编辑 → 文档/全量验证/独立验收。
+- 基线（2026-11-14）：typecheck 0；85 文件 / 887 用例通过。
+
+### Key Decisions / Rulings
+- 设置模型角色为 generate/optimize；`modelEvaluate` 仍保留在 store/API 直至 Phase 6，v3 设置 UI 不展示。
+- 参数默认 temperature 0.7、maxTokens 8192；`llm.optimize.*` 未显式设置时继承 `llm.generate.*`，视图 source 标记 `inherited`。
+- 设置页成本区改用 `getV3Stats`（generate/optimize/repair），不再用 v2 `getCostSummary`。
+- 预算 KPI 未设置显示「未设置」；未知费用「—」；本月 0 次调用是已知 0。
+- 设置页移除「数据」分区；移除客户端可见 `ARK_API_KEY` 文案以满足 AC-17。
+- 不新增设置来源；仍为 SQLite 覆盖 > 环境变量 > 代码默认。
+
+### Pitfalls
+- `PUT /api/settings` 当前静默丢弃 `modelOptimize`，且无预算字段；改动时必须先补契约测试。
+- 四个 v3 路由硬编码 `maxTokens: 8192`，且不传 temperature；改参数后需 `grep -R "maxTokens: 8192" app/api` 验证清零。
+- 成本页仍 import `lib/llm/ledger.ts` 的 `getCostSummary`；切换时注意 `STAGE_LABELS` 与 v2 `compose` 阶段残留。
+
+### Carry-over
+- [ ] 执行 Batch H（新会话按计划任务 1-7）。
+- [ ] Phase 6 v2 清理。

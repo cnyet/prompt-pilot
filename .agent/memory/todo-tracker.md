@@ -1,9 +1,10 @@
 # Todo Tracker
 
 ## In Progress
-- 无。
+- [ ] Batch H：Phase 5 设置/成本执行（计划 `docs/superpowers/plans/2026-11-14-v3-batch-h.md`）| Priority: P0 | Created: 2026-11-14 | Next: 任务 1 settings store 模型参数
 
 ## Pending
+- [ ] Phase 6 v2 清理（评估页/字段引擎/旧测试退役）| Priority: P2 | Created: 2026-11-14
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
