@@ -567,3 +567,36 @@
 ### Carry-over
 - [x] 用户选择本地合并：快进 `fc7ac2f` → `79a101d`，特性分支已删；merged main typecheck 0 / 83 文件 857 用例 / build ✓ / contrast ✓；未 push。
 - [ ] Phase 4 模板页、Phase 5 设置/成本、Phase 6 v2 清理。
+
+## 2026-11-14 Batch G（模板页 v3 UI）
+
+### Completed
+- v3 Phase 4（V3-40..44，AC-10/11）在 `main` 本地完成：三分类 Tabs 与计数、风格筛选、12 个内置模板卡、三套程序化 SVG 封面、「用它开始」预填、自定义模板创建/删除。
+- 提交：`8b7bb6d`（studio 预填与 origin）、`0610cfd`（模板库 UI）、`3e4baa9`（内置内容质量测试）、`ebde558`（卡片高度与封面可读性）、`a92c7da`（3D 标题单行）、`83b0743`（验收 Minor 修复）。
+- 关键文件：`components/templates-v3/{TemplateLibrary,TemplateCard,TemplateCover}.tsx`、`app/(workspace)/templates/page.tsx`、`lib/templates-v3.ts`、`app/(workspace)/studio/page.tsx`、`lib/i18n/zh.ts`、`prisma/seed.ts`。
+- 测试钉：`tests/unit/templates-v3.test.ts`、`tests/integration/templates-{store,seed,route}.test.ts`、`tests/unit/studio-v3/{composer,template-form}.test.ts`；seed 内容质量覆盖长度、禁用标点/emoji/空词、风格覆盖与预填解析。
+- 终验（`83b0743`）：typecheck 0；85 文件 / 887 用例；build ✓；check:contrast 全部通过；harness 24/0/0；CDP 冒烟 26/26；焦点与长风格专项 11/11。
+- 独立验收（fable max，`7f33a55..a92c7da`）：pass，0 Critical / 0 Important / 2 Minor（删除确认焦点与名称、长风格裁切）已在 `83b0743` 修复并用浏览器复验。
+
+### Key Decisions / Rulings
+- 模板页服务端解析 `?template=<id>`：`getTemplate` + `resolveTemplatePrefill`；`originTemplateId` 只挂到匹配模式的首条产出提交，模式切换或第二次提交不带。
+- 模板列表载荷不含 `body`；客户端用归一化 `TemplateCard`。分类计数基于全量，风格经 `resolveStyleSelection` 在删除最后一张后回落「全部风格」。
+- 数据加载失败不阻断页面骨架：客户端错误态 + 重试。无效 `?template` 回落到空生成态。
+- 封面只接受内联 SVG（text 400×240 / image 400×500 / video 400×225），`aria-hidden`，无渐变、外链或占位空壳；封面文字用 `--text-muted` 保证 4.5:1。
+- 内置图片模板标题由「3D 等距插画」改为「3D 插画」，避免封面单行断裂；slug 不变。
+- 长风格标签通过 `max-w-full min-w-0` 的 Chip + 内层 `min-w-0 truncate` span + `title` 截断；未改全局 Chip。
+- `Button` 显式声明 React 19 的 `ref` prop，供删除确认焦点管理使用。
+
+### Unverified / Residual
+- Turbopack 生产构建未在独立克隆复验（克隆的 `node_modules` 软链在 Turbopack root 外）；webpack 构建与开发服务器均通过。
+- 无真实模型调用（模板页不涉及）；无像素级截图评审，布局与对比度用 DOM/计算样式与对比脚本验证。
+- 本地 main 未 push。
+
+### Pitfalls
+- CDP 冒烟选择封面时用 `article > div[aria-hidden="true"] svg`；`article svg` 会混入 24px 图标。
+- `--text-faint` 在 `surface-inset` / `bg-sunken` 上低于 4.5:1，封面标签禁用。
+- 400×500 图片封面下，短标题（≤5 字）才稳定单行；内置标题按此约束。
+
+### Carry-over
+- [x] 本地提交完成；未 push；特性分支无（直接在 main）。
+- [ ] Phase 5 设置/成本 UI、Phase 6 v2 清理。
