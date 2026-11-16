@@ -4,7 +4,7 @@
 - 无。
 
 ## Pending
-- [ ] 提交 Phase 6 全部未提交改动（用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
+- [ ] 提交全部累积未提交改动（Phase 6 + impeccable 三连，用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
@@ -14,6 +14,7 @@
 - 无。
 
 ## Done
+- [x] `/impeccable` 三连：A layout（工作台 960px 上下单列、优化/生成 tabs、280px 输入）→ B polish 工作台（默认优化、now-pulse/stream-caret、停止按钮保留焦点、ADR-0002 增补）→ C polish 其他页面（settings 两处输入统一 `inputStyles`，修焦点环/危险态/缺失状态与重复）。核验：typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / 深浅主题浏览器实测；未提交未 push | Completed: 2026-11-16
 - [x] Phase 6：v2 清理与收口。Tasks 1-5 完成；harness 25-0-0 / typecheck 0 / 59 文件 537 用例 / build ✓ / e2e ✓ / contrast ✓ / 浏览器冒烟 ✓；最终 verifier Accept with minors，无 Critical/Important；旧表备份 `data/app.db.bak-20261114-2027` 后删除，保留五张表；未提交未 push | Completed: 2026-11-14
 - [x] Batch H 4 条 Minor 收口（设置页旧文案、KPI 标签、ARCHITECTURE 掩码示例、`maskKey` <4 字符边界）| Completed: 2026-11-14
 - [x] Batch H：Phase 5 设置/成本。实现 + 全量验证 + 独立 verifier 验收通过（Accept：AC-12/13/14/17/26 + Review Focus 8/8）；HEAD `f4d3749`；verifier 自跑 harness 24-0-0 / typecheck 0 / 906 用例 / build ✓ / contrast ✓ / AC-17 clean | Completed: 2026-11-14

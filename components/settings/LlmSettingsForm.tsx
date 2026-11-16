@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
+import { inputStyles } from '@/components/ui/Input'
 import { useModelStatus } from '@/components/shell/modelStatus'
 import { cn } from '@/lib/utils'
 import type { LlmSettingsView, SettingSource } from '@/lib/settings/store'
@@ -376,8 +377,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     </div>
   )
 
-  const inputClass =
-    'h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink shadow-[inset_0_1px_0_oklch(0.5_0.01_80/0.03)] transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none'
+  const inputClass = cn(inputStyles, 'h-9')
 
   const numberField = (
     key: FieldKey,

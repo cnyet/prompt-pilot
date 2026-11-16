@@ -88,6 +88,7 @@ function statusText(phase: StreamPhase, settling: boolean): string | null {
  * 屏幕上最亮的纸：paper-raised 底、顶部 2px 金色描边、正文 68ch。
  * 视图：渲染 / 源码 / 原文 / 对比原文。原文永远保留记录 sourceInput；
  * 对比只在优化记录且至少两轮迭代时出现。检查按需展开，正文变化即卸载。
+ * 流式进行中：顶部状态文字呼吸，正文末尾钉一枚金色输入符（aria-hidden）。
  * 继续优化与存模板常驻结果下方；未知元信息显示「—」。
  */
 export function ResultPanel({
@@ -170,6 +171,7 @@ export function ResultPanel({
               className={cn(
                 'text-caption',
                 failed ? 'text-danger' : 'text-ink-faint',
+                active && 'now-pulse',
               )}
             >
               {status}
@@ -243,7 +245,17 @@ export function ResultPanel({
         {hasOutput ? (
           <>
             {effectiveView === 'rendered' ? (
-              <MarkdownView source={source} className="rise" />
+              <>
+                <MarkdownView source={source} className="rise" />
+                {active ? (
+                  // 流式进行中的输入符：金色光标钉在已生成正文之后，
+                  // 状态语义由顶部 status 文本承担，这里 aria-hidden。
+                  <span
+                    aria-hidden
+                    className="stream-caret mt-1 inline-block h-[1.1em] w-[0.5em] rounded-[2px] bg-accent align-baseline"
+                  />
+                ) : null}
+              </>
             ) : effectiveView === 'source' ? (
               <pre className="rise overflow-x-auto whitespace-pre rounded-control border border-line bg-bg-sunken p-4 font-mono text-[0.875rem] leading-6 text-ink">
                 {source}

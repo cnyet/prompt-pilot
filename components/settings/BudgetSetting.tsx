@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { inputStyles } from '@/components/ui/Input'
 import {
   budgetLevel,
   formatBudgetPercent,
@@ -115,7 +116,7 @@ export function BudgetSetting({
               setMessage(null)
               setError(null)
             }}
-            className="h-9 w-full rounded-control border border-line bg-surface px-2.5 text-label text-ink tnum shadow-[inset_0_1px_0_oklch(0.5_0.01_80/0.03)] transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-accent focus:outline-none"
+            className={cn(inputStyles, 'h-9', 'tnum')}
           />
         </div>
         <Button

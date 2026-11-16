@@ -51,12 +51,12 @@ function emptyDraft(): ComposerDraft {
   return { sourceInput: '', instruction: '', targetType: 'text' }
 }
 
-/** 模板预填只写入对应模式的草稿，另一侧保持空。 */
+/** 模板预填只写入对应模式的草稿，另一侧保持空；无预填时默认优化模式。 */
 export function initialComposerState(
   initial?: ComposerInitialDraft,
 ): ComposerState {
   const state: ComposerState = {
-    mode: initial?.mode ?? 'generate',
+    mode: initial?.mode ?? 'optimize',
     generate: emptyDraft(),
     optimize: emptyDraft(),
   }

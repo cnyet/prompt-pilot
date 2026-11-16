@@ -42,9 +42,10 @@ export interface PromptComposerProps {
 /**
  * 工作台输入区（DESIGN.md Workspace Result Surface）。
  *
- * 模式 tabs 切换生成 / 优化，两侧草稿互不影响；目标类型只在生成模式出现。
- * ⌘Enter 提交、Esc 停止；输入法合成中不触发提交。没有可用模型时禁用主操作，
- * 就地说明原因并给出设置入口，绝不伪造输出。
+ * 模式 tabs 置于卡片顶部（优化在前，默认选中优化），两侧草稿互不影响；
+ * 目标类型只在生成模式出现。主输入面在 960px 单列里尽量放大。
+ * ⌘Enter 提交、Esc 停止；输入法合成中不触发提交。进行中主按钮原位切换为停止；
+ * 没有可用模型时禁用主操作，就地说明原因并给出设置入口，绝不伪造输出。
  */
 export function PromptComposer({
   state,
@@ -133,168 +134,171 @@ export function PromptComposer({
   return (
     <section
       aria-label={t('studio.mode.label')}
-      className="flex flex-col gap-4 rounded-panel border border-line bg-surface p-5 shadow-sm"
+      className="flex flex-col rounded-panel border border-line bg-surface shadow-sm"
     >
-      <Tabs
-        items={[
-          { value: 'generate', label: t('studio.mode.generate') },
-          { value: 'optimize', label: t('studio.mode.optimize') },
-        ]}
-        value={state.mode}
-        onValueChange={handleModeChange}
-        ariaLabel={t('studio.mode.label')}
-      />
-
-      {state.mode === 'generate' ? (
-        <div
-          role="group"
-          aria-label={t('studio.target.label')}
-          className="flex flex-wrap items-center gap-2"
-        >
-          <span className="text-caption text-ink-faint">
-            {t('studio.target.label')}
-          </span>
-          {TARGET_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              selected={draft.targetType === option.value}
-              aria-pressed={draft.targetType === option.value}
-              onClick={() => updateDraft({ targetType: option.value })}
-            >
-              {t(option.labelKey)}
-            </Chip>
-          ))}
-        </div>
-      ) : null}
-
-      <div>
-        <div className="flex items-baseline justify-between gap-3">
-          <label htmlFor={sourceId} className="text-label font-medium text-ink">
-            {state.mode === 'generate'
-              ? t('studio.source.generateLabel')
-              : t('studio.source.optimizeLabel')}
-          </label>
-          <span
-            id={sourceCountId}
-            className={cn(
-              'text-caption tabular-nums',
-              sourceOver ? 'text-danger' : 'text-ink-faint',
-            )}
-          >
-            {t('studio.count', {
-              count: validation.counts.source,
-              limit: sourceLimit,
-            })}
-          </span>
-        </div>
-        <Textarea
-          id={sourceId}
-          value={draft.sourceInput}
-          onChange={(event) => updateDraft({ sourceInput: event.target.value })}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            state.mode === 'generate'
-              ? t('studio.source.generatePlaceholder')
-              : t('studio.source.optimizePlaceholder')
-          }
-          invalid={sourceOver}
-          aria-describedby={sourceCountId}
-          className="mt-2 min-h-[184px] resize-y bg-surface py-3 text-body-lg leading-[1.75]"
+      <div className="px-5 pt-2">
+        <Tabs
+          items={[
+            { value: 'optimize', label: t('studio.mode.optimize') },
+            { value: 'generate', label: t('studio.mode.generate') },
+          ]}
+          value={state.mode}
+          onValueChange={handleModeChange}
+          ariaLabel={t('studio.mode.label')}
         />
-        {sourceOver && !unavailable ? (
-          <p role="alert" className="mt-1.5 text-caption text-danger">
-            {t('studio.count.over', { limit: sourceLimit })}
-          </p>
-        ) : null}
       </div>
 
-      {state.mode === 'optimize' ? (
+      <div className="flex flex-col gap-4 p-5">
+        {state.mode === 'generate' ? (
+          <div
+            role="group"
+            aria-label={t('studio.target.label')}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <span className="text-caption text-ink-faint">
+              {t('studio.target.label')}
+            </span>
+            {TARGET_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                selected={draft.targetType === option.value}
+                aria-pressed={draft.targetType === option.value}
+                onClick={() => updateDraft({ targetType: option.value })}
+              >
+                {t(option.labelKey)}
+              </Chip>
+            ))}
+          </div>
+        ) : null}
+
         <div>
           <div className="flex items-baseline justify-between gap-3">
-            <label
-              htmlFor={instructionId}
-              className="text-label font-medium text-ink"
-            >
-              {t('studio.instruction.label')}
+            <label htmlFor={sourceId} className="text-label font-medium text-ink">
+              {state.mode === 'generate'
+                ? t('studio.source.generateLabel')
+                : t('studio.source.optimizeLabel')}
             </label>
             <span
-              id={instructionCountId}
+              id={sourceCountId}
               className={cn(
                 'text-caption tabular-nums',
-                instructionOver ? 'text-danger' : 'text-ink-faint',
+                sourceOver ? 'text-danger' : 'text-ink-faint',
               )}
             >
               {t('studio.count', {
-                count: validation.counts.instruction,
-                limit: OPTIMIZE_INSTRUCTION_LIMIT,
+                count: validation.counts.source,
+                limit: sourceLimit,
               })}
             </span>
           </div>
           <Textarea
-            id={instructionId}
-            value={draft.instruction}
-            onChange={(event) =>
-              updateDraft({ instruction: event.target.value })
-            }
+            id={sourceId}
+            value={draft.sourceInput}
+            onChange={(event) => updateDraft({ sourceInput: event.target.value })}
             onKeyDown={handleKeyDown}
-            placeholder={t('studio.instruction.placeholder')}
-            invalid={instructionOver}
-            aria-describedby={instructionCountId}
-            className="mt-2 min-h-24 resize-y bg-surface"
+            placeholder={
+              state.mode === 'generate'
+                ? t('studio.source.generatePlaceholder')
+                : t('studio.source.optimizePlaceholder')
+            }
+            invalid={sourceOver}
+            aria-describedby={sourceCountId}
+            className="mt-2 min-h-[280px] resize-y bg-surface py-3.5 text-body-lg leading-[1.75]"
           />
-          {instructionOver && !unavailable ? (
+          {sourceOver && !unavailable ? (
             <p role="alert" className="mt-1.5 text-caption text-danger">
-              {t('studio.count.over', { limit: OPTIMIZE_INSTRUCTION_LIMIT })}
+              {t('studio.count.over', { limit: sourceLimit })}
             </p>
           ) : null}
         </div>
-      ) : null}
 
-      {unavailable ? (
-        <p
-          role="status"
-          className="flex flex-wrap items-center gap-2 rounded-control bg-tint-gold px-3 py-2 text-caption text-warning"
-        >
-          <Icon name="alert" size={14} />
-          <span>{unavailableMessage}</span>
-          <Link
-            href="/settings"
-            className="text-accent underline decoration-line-strong underline-offset-2 transition-colors hover:text-accent-hover"
+        {state.mode === 'optimize' ? (
+          <div>
+            <div className="flex items-baseline justify-between gap-3">
+              <label
+                htmlFor={instructionId}
+                className="text-label font-medium text-ink"
+              >
+                {t('studio.instruction.label')}
+              </label>
+              <span
+                id={instructionCountId}
+                className={cn(
+                  'text-caption tabular-nums',
+                  instructionOver ? 'text-danger' : 'text-ink-faint',
+                )}
+              >
+                {t('studio.count', {
+                  count: validation.counts.instruction,
+                  limit: OPTIMIZE_INSTRUCTION_LIMIT,
+                })}
+              </span>
+            </div>
+            <Textarea
+              id={instructionId}
+              value={draft.instruction}
+              onChange={(event) =>
+                updateDraft({ instruction: event.target.value })
+              }
+              onKeyDown={handleKeyDown}
+              placeholder={t('studio.instruction.placeholder')}
+              invalid={instructionOver}
+              aria-describedby={instructionCountId}
+              className="mt-2 min-h-24 resize-y bg-surface"
+            />
+            {instructionOver && !unavailable ? (
+              <p role="alert" className="mt-1.5 text-caption text-danger">
+                {t('studio.count.over', { limit: OPTIMIZE_INSTRUCTION_LIMIT })}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {unavailable ? (
+          <p
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-control bg-tint-gold px-3 py-2 text-caption text-warning"
           >
-            {t('studio.settingsLink')}
-          </Link>
-        </p>
-      ) : null}
+            <Icon name="alert" size={14} />
+            <span>{unavailableMessage}</span>
+            <Link
+              href="/settings"
+              className="text-accent underline decoration-line-strong underline-offset-2 transition-colors hover:text-accent-hover"
+            >
+              {t('studio.settingsLink')}
+            </Link>
+          </p>
+        ) : null}
 
-      {error ? (
-        <p role="alert" className="text-caption text-danger">
-          {error}
-        </p>
-      ) : null}
+        {error ? (
+          <p role="alert" className="text-caption text-danger">
+            {error}
+          </p>
+        ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-caption text-ink-faint">
-          {t('studio.hint.shortcuts')}
-        </p>
-        <div className="flex items-center gap-2">
-          {active ? (
-            <Button variant="secondary" icon="stop" onClick={onCancel}>
-              {t('studio.stop')}
-            </Button>
-          ) : null}
-          <Button
-            variant="primary"
-            icon={state.mode === 'generate' ? 'spark' : 'wand'}
-            onClick={handlePrimarySubmit}
-            // 进行中不用原生 disabled（会把焦点弹到 BODY），改用 aria-disabled
-            // 加守卫点击，保持视觉禁用样式（M2）。
-            disabled={!active && invalid}
-            aria-disabled={submitDisabled || undefined}
-            aria-describedby={sourceCountId}
-            className={active ? 'pointer-events-none opacity-40' : undefined}
-          >
-            {primaryLabel}
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-caption text-ink-faint">
+            {t('studio.hint.shortcuts')}
+          </p>
+          <div className="flex items-center gap-2">
+            {active ? (
+              // 进行中原位切换为停止：两个分支都是同一位置的 Button，React 调和
+              // 后 DOM 节点不变，焦点不会弹到 BODY（M2）。
+              <Button variant="secondary" icon="stop" onClick={onCancel}>
+                {t('studio.stop')}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                icon={state.mode === 'generate' ? 'spark' : 'wand'}
+                onClick={handlePrimarySubmit}
+                disabled={invalid}
+                aria-describedby={sourceCountId}
+              >
+                {primaryLabel}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </section>

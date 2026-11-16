@@ -13,6 +13,7 @@ function generateState(sourceInput: string, instruction = ''): ComposerState {
   const state = initialComposerState()
   return {
     ...state,
+    mode: 'generate',
     generate: { ...state.generate, sourceInput, instruction },
   }
 }
@@ -30,9 +31,9 @@ function optimizeState(
 }
 
 describe('initialComposerState', () => {
-  it('默认生成模式，草稿为空、目标类型为文本', () => {
+  it('默认优化模式，草稿为空、目标类型为文本', () => {
     const state = initialComposerState()
-    expect(state.mode).toBe('generate')
+    expect(state.mode).toBe('optimize')
     expect(state.generate).toEqual({
       sourceInput: '',
       instruction: '',
@@ -194,6 +195,7 @@ describe('模式切换', () => {
     const seeded = initialComposerState()
     const edited: ComposerState = {
       ...seeded,
+      mode: 'generate',
       generate: {
         ...seeded.generate,
         sourceInput: '保留的生成需求',

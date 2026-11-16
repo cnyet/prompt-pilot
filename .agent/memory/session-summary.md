@@ -686,3 +686,29 @@
 - 未提交、未 push；用户确认后可提交 Phase 6 变更并删除 `.superpowers` 工作区。
 - 接真实 ARK 密钥验证流式 usage、`reasoning_content`、错误码映射。
 - 可选项：处理 4 条 deferred minors。
+
+## 2026-11-16（impeccable 三连：layout → polish 工作台 → polish 其他页面）
+
+### Completed
+- **A `/impeccable layout`**：工作台改 960px 上下单列，tabs 置输入卡片顶部（优化在前）、主输入放大到 280px、结果面在下并于提交后滚入视野；结果优先、过程隐身。用户曾选「优化在前，默认生成」。
+- **B `/impeccable polish` 工作台**：默认 tab 改为优化（覆盖 A 的「默认生成」）；流式加 `now-pulse` 状态文字与 `stream-caret` 金色光标；进行中主按钮原位切换为「停止」（两个分支同位置 Button，React 调和保留焦点，不弹到 BODY）；改 ADR-0002 增补状态信号与「不用骨架屏/进度仪式代替结果」硬规则；composer 默认 mode='optimize'、测试同步。
+- **C `/impeccable polish 继续优化其他页面样式`**（Operate 模式，精度与克制，非重设计）：三页（/library /templates /settings）1440/390 深/浅主题浏览器核验后，定位唯一根因：settings 两处输入绕过了共享 `inputStyles`。`LlmSettingsForm.tsx` 的 `inputClass` 与 `BudgetSetting.tsx` 的行内 className 改为 `cn(inputStyles, 'h-9')`（预算再 + 'tnum'）。原一次性类有 `focus:outline-none` 却无替代焦点环、无 `aria-[invalid=true]` 危险态、无 `disabled:`/`read-only:`、带 ad-hoc inset bevel shadow，且两文件逐字重复。
+- 收尾核验：`git diff --check` clean；`pnpm run typecheck` 0；`pnpm test` 59 文件 537/537；harness 25 pass / 0 fail；impeccable detect `[]`；settings 实测 `focus-visible` 聚焦环、`aria-invalid` 危险环（`oklab(... / 0.25) 3px`）+ `role=alert` 校验文案生效；浅色主题 `#f3ead8` 页面渲染干净、金色聚焦环、无横向溢出。
+- 临时环境全清：隔离 dev 3101、`data/polish2-smoke.db`、bsk session `ygmq`、`/tmp/polish2-*`；`data/app.db`（831488 字节，mtime 11:00）未触碰。
+
+### Key Decisions / Rulings
+- B 的默认「优化」覆盖 A 的默认「生成」；PRODUCT/DESIGN/ARCHITECTURE/ADR-0002/README 相关条款与测试同步为优化。
+- C 严格按 polish 的「保留既有视觉世界」：不加 rise/reveal（ADR-0002 硬性「同类动效同屏只出现一次」、craft-floor「不为让 polish 可见而加动效」）；不改共享 shell 的 ModelStatusBanner 在 /settings 的自链（越界）；不启动 fan-out；不重设计、不换文案。无 critique snapshot 被读取，故不跑 `critique-storage close`。
+- `border-danger` 在 `aria-invalid` 时边框色仍是 `rgb(92,61,46)`、仅危险 ring 变化，是 `components/ui/Input.tsx` 全站既有 token 行为（LibraryFilters/Textarea 同款），非本次回归，刻意不动。
+- 改动全部未提交、未 push（用户未要求）；HEAD `09ac638`。本地 3100 仍是旧生产构建，看新 UI 需 `pnpm build && pnpm start`。
+
+### Pitfalls
+- bsk 每个共享 tab 动作（navigate/evaluate/fill/click/emulate）都需一个未使用的 `cooperate sync` 顶层 `observation_id` + `context_id`，动作间不得插入 screenshot/observe（会消耗它）；`grep head -1` 会抓到 stale 的 `previous_observation_id` 或嵌套值，改用 `python3 -c "json.loads(sys.stdin.read(),strict=False)"` 取顶层键；`json.load` 会因控制字符失败，必须 `strict=False`。
+- `bsk evaluate` 的 `<EXPRESSION>` 是位置参数，`--return-by-value true` 是布尔 flag，不是脚本值；`bsk click --ref ""` 会 invalid_params，改用 evaluate 里 `btn.click()`；React 受控输入用原生 setter + `input` 事件驱动。
+- `bsk session stop` 的 session id 是位置参数（`bsk session stop ygmq`），不是 `--session`。
+- Tailwind v4 `@utility`/`@layer` 嵌套让 CSSOM `selectorText` 遍历查 `border-danger` 返回空，不能据此判定样式不存在；以 computed style / 实测为准。
+- 程序化 `el.focus()` 不触发 `focus-visible`（Chrome 需键盘输入），聚焦环须靠 class 存在 + 键盘 Tab 核验。
+
+### Carry-over
+- 用户确认后统一提交三连 + Phase 6 累积改动，并删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区。
+- 接真实 ARK 密钥端到端。4 条 deferred minors 仍未处理。

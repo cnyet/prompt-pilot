@@ -41,7 +41,7 @@ import type { MetaValues } from './MetaRow'
 import { PromptComposer } from './PromptComposer'
 import { canRegenerateRecord } from './regenerate-guard'
 import { ResultPanel, type ResultFeedback } from './ResultPanel'
-import { isRequestActive } from './stream-reducer'
+import { isRequestActive, type StreamPhase } from './stream-reducer'
 import { usePromptStream } from './usePromptStream'
 
 export interface StudioWorkspaceProps {
@@ -64,9 +64,10 @@ function toTargetType(value: string): TargetType {
 /**
  * 工作台（PRODUCT.md 核心旅程 + DESIGN.md Workspace Result Surface）。
  *
- * 输入区与结果面左右分栏；首次提交按当前模式走 `postGenerate`（生成或优化），
- * 结果区展示 `draftOutput || committedOutput`。流式进行中可停止并保留正文；
- * 详情到达后用 `detail.record` 驱动元信息、收藏与评分；重新生成追加迭代。
+ * 输入区与结果面上下排在一条 960px 居中单列里：先在上方说明需求，再在下方
+ * 读结果。首次提交按当前模式走 `postGenerate`（生成或优化），结果区展示
+ * `draftOutput || committedOutput`。流式进行中可停止并保留正文；详情到达后
+ * 用 `detail.record` 驱动元信息、收藏与评分；重新生成追加迭代。
  * 收藏与评分乐观更新并合并补发（I1），请求失败时按已确认值回滚并提示。
  */
 export function StudioWorkspace({
@@ -119,6 +120,10 @@ export function StudioWorkspace({
   // 同步启动锁：reset 把 phase 拨回 idle 后，双击仍能靠它在同一 tick 内拦住第二次请求。
   // 用递增令牌而不是布尔，旧请求的 finally 不会误清新请求的锁。
   const requestToken = useRef(0)
+  // 上下布局里结果面在输入下方：全新提交时把它滚入视野，用户才看得到流式开始。
+  // 继续优化与重新生成发生在结果区内，不需要滚动。
+  const resultRef = useRef<HTMLDivElement | null>(null)
+  const prevPhaseRef = useRef<StreamPhase>('idle')
 
   useEffect(
     () => () => {
@@ -146,6 +151,20 @@ export function StudioWorkspace({
   }, [streamState.phase])
 
   const { phase, detail } = streamState
+
+  // 全新提交（idle → starting）把结果面滚到视野顶部；尊重系统的减弱动效设置。
+  useEffect(() => {
+    if (phase === 'starting' && prevPhaseRef.current === 'idle') {
+      const reduced = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      resultRef.current?.scrollIntoView({
+        behavior: reduced ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    }
+    prevPhaseRef.current = phase
+  }, [phase])
   const active = isRequestActive(phase)
   const detailRecord = detail?.record ?? null
   const recordId = streamState.recordId ?? detailRecord?.id ?? null
@@ -466,10 +485,8 @@ export function StudioWorkspace({
 
   return (
     <PageShell variant="workbench">
-      <div className="mx-auto w-full max-w-[1440px]">
+      <div className="mx-auto flex w-full max-w-[960px] flex-col gap-5 lg:gap-6">
         <BudgetNotice />
-      </div>
-      <div className="mx-auto grid w-full max-w-[1440px] items-start gap-5 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] xl:gap-6">
         <PromptComposer
           state={composer}
           onChange={setComposer}
@@ -479,36 +496,38 @@ export function StudioWorkspace({
           unavailable={composerUnavailable}
           error={streamState.error?.message ?? null}
         />
-        <ResultPanel
-          source={source}
-          phase={phase}
-          settling={streamState.settling}
-          settleFailed={streamState.settleFailed}
-          meta={meta}
-          recordId={recordId}
-          mode={recordMode}
-          targetType={recordTargetType}
-          sourceInput={recordSourceInput}
-          iterations={detailRecord?.iterations ?? []}
-          notes={streamState.notes}
-          continueAvailable={optimizeReady}
-          repairAvailable={optimizeReady}
-          canRegenerate={canRegenerate}
-          showSaved={showSaved}
-          favorite={favorite}
-          rating={rating}
-          canRate={canRate}
-          feedback={feedback}
-          onCopy={copyMarkdown}
-          onCopyPlain={copyPlain}
-          onDownload={download}
-          onRegenerate={regenerate}
-          onStop={stop}
-          onFavorite={toggleFavorite}
-          onRating={changeRating}
-          onContinue={continueOptimize}
-          onRepair={repair}
-        />
+        <div ref={resultRef} className="scroll-mt-4">
+          <ResultPanel
+            source={source}
+            phase={phase}
+            settling={streamState.settling}
+            settleFailed={streamState.settleFailed}
+            meta={meta}
+            recordId={recordId}
+            mode={recordMode}
+            targetType={recordTargetType}
+            sourceInput={recordSourceInput}
+            iterations={detailRecord?.iterations ?? []}
+            notes={streamState.notes}
+            continueAvailable={optimizeReady}
+            repairAvailable={optimizeReady}
+            canRegenerate={canRegenerate}
+            showSaved={showSaved}
+            favorite={favorite}
+            rating={rating}
+            canRate={canRate}
+            feedback={feedback}
+            onCopy={copyMarkdown}
+            onCopyPlain={copyPlain}
+            onDownload={download}
+            onRegenerate={regenerate}
+            onStop={stop}
+            onFavorite={toggleFavorite}
+            onRating={changeRating}
+            onContinue={continueOptimize}
+            onRepair={repair}
+          />
+        </div>
       </div>
     </PageShell>
   )

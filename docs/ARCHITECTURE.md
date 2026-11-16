@@ -25,7 +25,7 @@
 ```
 prompt-pilot/
 ├─ app/
-│  ├─ (workspace)/studio/page.tsx        工作台（生成 / 优化双模式）
+│  ├─ (workspace)/studio/page.tsx        工作台（优化 / 生成双模式，默认优化；上下单列布局）
 │  ├─ (workspace)/library/page.tsx       提示词库
 │  ├─ (workspace)/library/[id]/page.tsx  记录详情
 │  ├─ (workspace)/templates/page.tsx     模板
