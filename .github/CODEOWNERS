@@ -2,6 +2,5 @@
 * @cnyet
 
 # 冻结契约与发布相关文件单独标记
-/lib/engine/schema.ts @cnyet
 /lib/llm/types.ts @cnyet
 /.github/workflows/ @cnyet

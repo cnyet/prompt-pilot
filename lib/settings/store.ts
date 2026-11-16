@@ -1,7 +1,6 @@
 import { getPrisma } from '@/lib/db/prisma'
 import {
   ARK_DEFAULT_BASE_URL,
-  DEFAULT_EVALUATE_MODEL_ID,
   DEFAULT_GENERATE_MODEL_ID,
   normalizeArkBaseUrl,
 } from '@/lib/llm/registry'
@@ -18,7 +17,6 @@ export const LLM_SETTING_KEYS = {
   baseUrl: 'llm.baseUrl',
   modelGenerate: 'llm.modelGenerate',
   modelOptimize: 'llm.modelOptimize',
-  modelEvaluate: 'llm.modelEvaluate',
 } as const
 
 export type LlmSettingField = keyof typeof LLM_SETTING_KEYS
@@ -29,13 +27,11 @@ const ENV_BY_FIELD: Record<LlmSettingField, string> = {
   baseUrl: 'ARK_BASE_URL',
   modelGenerate: 'ARK_MODEL_GENERATE',
   modelOptimize: 'ARK_MODEL_OPTIMIZE',
-  modelEvaluate: 'ARK_MODEL_EVALUATE',
 }
 
 const DEFAULT_BY_FIELD: Partial<Record<LlmSettingField, string>> = {
   baseUrl: ARK_DEFAULT_BASE_URL,
   modelGenerate: DEFAULT_GENERATE_MODEL_ID,
-  modelEvaluate: DEFAULT_EVALUATE_MODEL_ID,
 }
 
 export class SettingsError extends Error {
@@ -82,7 +78,6 @@ export interface LlmSettingsView {
   baseUrl: { value: string; source: SettingSource }
   modelGenerate: { value: string; source: SettingSource }
   modelOptimize: { value: string; source: SettingSource }
-  modelEvaluate: { value: string; source: SettingSource }
   params: { generate: ModelParamSettings; optimize: ModelParamSettings }
 }
 
@@ -302,6 +297,9 @@ export async function getEffectiveLlmEnv(
 }
 
 function maskKey(value: string): string {
+  if (value.length <= 4) {
+    return '…'
+  }
   const tail = value.slice(-4)
   return `…${tail}`
 }
@@ -351,7 +349,6 @@ export async function getLlmSettingsView(
       : modelOptimizeEnv
         ? { value: modelOptimizeEnv, source: 'env' }
         : modelGenerate,
-    modelEvaluate: pick('modelEvaluate'),
     params: resolveModelParams(rows),
   }
 }
@@ -391,7 +388,6 @@ export interface LlmSettingsPatch {
   baseUrl?: string | null
   modelGenerate?: string | null
   modelOptimize?: string | null
-  modelEvaluate?: string | null
   generateTemperature?: number | null
   generateMaxTokens?: number | null
   optimizeTemperature?: number | null
@@ -451,9 +447,6 @@ export async function saveLlmSettings(
   )
   handle('modelOptimize', patch.modelOptimize, (next) =>
     assertModelId(next, '优化模型'),
-  )
-  handle('modelEvaluate', patch.modelEvaluate, (next) =>
-    assertModelId(next, '评估模型'),
   )
 
   const handleNumber = (

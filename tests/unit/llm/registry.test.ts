@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   ARK_DEFAULT_BASE_URL,
-  DEFAULT_EVALUATE_MODEL_ID,
   DEFAULT_GENERATE_MODEL_ID,
   createProvider,
   getDefaultModelConfig,
@@ -31,13 +30,10 @@ describe('模型注册表与 provider 选择', () => {
     expect(provider?.label).toContain(modelDisplayLabel(DEFAULT_GENERATE_MODEL_ID))
   })
 
-  it('默认生成与评估使用不同模型', () => {
+  it('默认生成模型指向默认网关', () => {
     const configs = listModelConfigs(withKey)
     expect(configs.find((config) => config.id === 'ark-generate')?.modelId).toBe(
       DEFAULT_GENERATE_MODEL_ID,
-    )
-    expect(configs.find((config) => config.id === 'ark-evaluate')?.modelId).toBe(
-      DEFAULT_EVALUATE_MODEL_ID,
     )
     expect(configs.find((config) => config.id === 'ark-generate')?.baseUrl).toBe(
       'https://opencode.ai/inference/go/openai/v1',
@@ -46,7 +42,6 @@ describe('模型注册表与 provider 选择', () => {
       { 'x-opencode-session': expect.any(String) },
     )
     expect(getDefaultModelConfig('generate', withKey)?.id).toBe('ark-generate')
-    expect(getDefaultModelConfig('evaluate', withKey)?.id).toBe('ark-evaluate')
   })
 
   it('ARK_MODEL_GENERATE 支持 Model ID 与 ep- 接入点 ID', () => {
@@ -140,7 +135,6 @@ describe('模型注册表与 provider 选择', () => {
 
   it('resolveProvider 按 modelConfigId 解析，未知 id 返回 null', () => {
     expect(resolveProvider('ark-generate', withKey)?.id).toBe('ark-generate')
-    expect(resolveProvider('ark-evaluate', withKey)?.id).toBe('ark-evaluate')
     expect(resolveProvider('missing', withKey)).toBeNull()
   })
 

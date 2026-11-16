@@ -10,7 +10,7 @@ import { getBudgetSetting } from '@/lib/settings/store'
 /**
  * v3 成本统计：生成 / 优化 / 修复三个阶段的本月 KPI 与 14 天趋势。
  *
- * 与 v2 的 `getCostSummary` 不同，这里按上海时区切月并追加预算使用率；
+ * 按上海时区切月并追加预算使用率；
  * 14 天趋势、按模型、按阶段三段直接复用 `summarizeCalls`，不重复实现。
  * null 一律表示「未知」，不写成 0。
  */

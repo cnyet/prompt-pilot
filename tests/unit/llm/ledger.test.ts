@@ -3,7 +3,6 @@ import {
   DEFAULT_MODEL_PRICING_CNY,
   classifyCallStatus,
   computeCostCny,
-  instrumentProvider,
   mergePricingTable,
   parsePricingOverrides,
   recordLlmCall,
@@ -13,12 +12,7 @@ import {
   type LlmCallStore,
   type LlmCallWrite,
 } from '@/lib/llm/ledger'
-import type {
-  ChatChunk,
-  ChatRequest,
-  ChatResult,
-  LLMProvider,
-} from '@/lib/llm/types'
+import type { ChatRequest } from '@/lib/llm/types'
 
 const PRO_MODEL = 'doubao-seed-2-1-pro-260915'
 
@@ -39,61 +33,6 @@ function memoryStore(): MemoryStore {
       return { id: `id-${rows.length}` }
     },
   }
-}
-
-interface FakeProviderOptions {
-  chunks?: readonly ChatChunk[]
-  chatResult?: ChatResult
-  streamFailure?: unknown
-  beforeStream?: () => void
-  beforeChat?: () => void
-}
-
-function fakeProvider(options: FakeProviderOptions = {}): LLMProvider {
-  return {
-    id: 'mock',
-    label: 'Mock',
-    async chat(): Promise<ChatResult> {
-      options.beforeChat?.()
-      return (
-        options.chatResult ?? {
-          text: 'ok',
-          finishReason: 'stop',
-          usage: { tokensIn: 12, tokensOut: 4, cachedTokens: 0, reasoningTokens: 0 },
-        }
-      )
-    },
-    async *stream(): AsyncIterable<ChatChunk> {
-      options.beforeStream?.()
-      for (const chunk of options.chunks ?? []) {
-        yield chunk
-      }
-      if (options.streamFailure !== undefined) {
-        throw options.streamFailure
-      }
-    },
-    async structured<T>(): Promise<T> {
-      throw new Error('本用例不调用 structured')
-    },
-    async ping() {
-      return { ok: true, latencyMs: 0 }
-    },
-  }
-}
-
-async function collect(
-  provider: LLMProvider,
-  signal?: AbortSignal,
-): Promise<ChatChunk[]> {
-  const chunks: ChatChunk[] = []
-  const chatRequest: ChatRequest = {
-    ...request(),
-    ...(signal ? { signal } : {}),
-  }
-  for await (const chunk of provider.stream(chatRequest)) {
-    chunks.push(chunk)
-  }
-  return chunks
 }
 
 describe('价格表', () => {
@@ -319,154 +258,6 @@ describe('取消与中断的区分', () => {
     expect(
       classifyCallStatus({ sawContent: false, hasCompletionSignal: false }),
     ).toBe('interrupted')
-  })
-})
-
-describe('provider 埋点', () => {
-  it('流式调用记录首字延迟、用量、attempts 与成功状态', async () => {
-    const store = memoryStore()
-    let fetchCount = 0
-    const wrapped = instrumentProvider(
-      fakeProvider({
-        chunks: [
-          { delta: '你' },
-          {
-            delta: '好',
-            finishReason: 'stop',
-            usage: {
-              tokensIn: 100,
-              tokensOut: 50,
-              cachedTokens: 20,
-              reasoningTokens: 10,
-            },
-          },
-        ],
-        beforeStream: () => {
-          fetchCount += 2
-        },
-      }),
-      {
-        traceId: 'trace_stream',
-        stage: 'compose',
-        provider: 'mock',
-        modelId: 'mock',
-        thinking: 'off',
-        fetchAttempts: () => fetchCount,
-        recordOptions: { store, pricingTable: DEFAULT_MODEL_PRICING_CNY },
-      },
-    )
-
-    const chunks = await collect(wrapped)
-    expect(chunks).toHaveLength(2)
-    expect(store.rows).toHaveLength(1)
-    expect(store.rows[0]).toMatchObject({
-      traceId: 'trace_stream',
-      stage: 'compose',
-      status: 'succeeded',
-      tokensIn: 100,
-      tokensOut: 50,
-      cachedTokens: 20,
-      reasoningTokens: 10,
-      finishReason: 'stop',
-      attempts: 2,
-    })
-    expect(store.rows[0]?.ttftMs).toBeTypeOf('number')
-    expect(store.rows[0]?.latencyMs).toBeTypeOf('number')
-  })
-
-  it('客户端中断流时记为 canceled 并保留已收到的用量', async () => {
-    const store = memoryStore()
-    const controller = new AbortController()
-    const wrapped = instrumentProvider(
-      fakeProvider({
-        chunks: [
-          { delta: '半' },
-          {
-            delta: '段',
-            finishReason: 'stop',
-            usage: { tokensIn: 10, tokensOut: 2 },
-          },
-        ],
-      }),
-      {
-        traceId: 'trace_cancel',
-        stage: 'compose',
-        provider: 'mock',
-        modelId: 'mock',
-        recordOptions: { store, pricingTable: DEFAULT_MODEL_PRICING_CNY },
-      },
-    )
-
-    const chatRequest: ChatRequest = { ...request(), signal: controller.signal }
-    for await (const chunk of wrapped.stream(chatRequest)) {
-      expect(chunk.delta.length).toBeGreaterThan(0)
-      controller.abort()
-      break
-    }
-
-    expect(store.rows[0]).toMatchObject({
-      status: 'canceled',
-      errorCode: 'LLM_ABORTED',
-    })
-  })
-
-  it('流中途抛错时记为 interrupted', async () => {
-    const store = memoryStore()
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const wrapped = instrumentProvider(
-      fakeProvider({
-        chunks: [{ delta: '半' }],
-        streamFailure: new Error('upstream closed'),
-      }),
-      {
-        traceId: 'trace_interrupt',
-        stage: 'compose',
-        provider: 'mock',
-        modelId: 'mock',
-        recordOptions: { store, pricingTable: DEFAULT_MODEL_PRICING_CNY },
-      },
-    )
-
-    await expect(collect(wrapped)).rejects.toThrow('upstream closed')
-    expect(store.rows[0]).toMatchObject({
-      status: 'interrupted',
-      errorCode: 'LLM_UNKNOWN',
-    })
-    warn.mockRestore()
-  })
-
-  it('非流式调用也能记录 attempts 与金额', async () => {
-    const store = memoryStore()
-    let fetchCount = 0
-    const wrapped = instrumentProvider(
-      fakeProvider({
-        chatResult: {
-          text: 'ok',
-          finishReason: 'stop',
-          usage: { tokensIn: 1000, tokensOut: 1000 },
-        },
-        beforeChat: () => {
-          fetchCount += 3
-        },
-      }),
-      {
-        traceId: 'trace_chat',
-        stage: 'compose',
-        provider: 'ark',
-        modelId: PRO_MODEL,
-        fetchAttempts: () => fetchCount,
-        recordOptions: { store, pricingTable: DEFAULT_MODEL_PRICING_CNY },
-      },
-    )
-
-    const result = await wrapped.chat(request())
-    expect(result.text).toBe('ok')
-    expect(store.rows[0]).toMatchObject({
-      status: 'succeeded',
-      attempts: 3,
-      costCny: 0.036,
-      ttftMs: null,
-    })
   })
 })
 

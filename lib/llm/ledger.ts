@@ -1,24 +1,7 @@
-import type { ZodType } from 'zod'
 import { getPrisma } from '../db/prisma'
-import {
-  classifyError,
-  classifyLengthCause,
-  errorCodeForKind,
-  type LengthCause,
-} from './errors'
+import { classifyError, type LengthCause } from './errors'
 import { ARK_MODEL_PRESETS } from './registry'
-import { runStructured } from './structured'
-import type {
-  ChatChunk,
-  ChatRequest,
-  ChatResult,
-  EngineStage,
-  FinishReason,
-  LLMProvider,
-  PingResult,
-  StructuredOptions,
-  TokenUsage,
-} from './types'
+import type { EngineStage, TokenUsage } from './types'
 
 /** 账本 stage：v2 引擎阶段之外追加 v3 的生成 / 优化 / 修复。 */
 export type LedgerStage = EngineStage | 'generate' | 'optimize' | 'repair'
@@ -436,30 +419,7 @@ export async function recordLlmCall(
   }
 }
 
-/* ---------- provider 埋点 ---------- */
-
-export interface LlmCallContext {
-  traceId: string
-  stage: EngineStage
-  provider: string
-  modelId: string
-  thinking?: string | null
-  contextWindow?: number
-  promptId?: string | null
-  versionId?: string | null
-  runId?: string | null
-  evalTaskId?: string | null
-  /** 本轮请求已发生的 HTTP 次数；用于把 withRetry 的 attempts 落账。 */
-  fetchAttempts?: () => number
-  /** 单测注入用，生产留空。 */
-  recordOptions?: RecordLlmCallOptions
-  /** 单测观察写入内容用。 */
-  onRecorded?: (input: LlmCallInput) => void
-}
-
-type LlmCallInputPatch = Partial<
-  Omit<LlmCallInput, 'stage' | 'provider' | 'modelId' | 'traceId'>
-> & { status: LlmCallStatus }
+/* ---------- 调用状态 ---------- */
 
 export const STREAM_INTERRUPTED_CODE = 'LLM_STREAM_INTERRUPTED'
 
@@ -491,187 +451,6 @@ export function classifyCallStatus(input: CallStatusInput): LlmCallStatus {
     return 'interrupted'
   }
   return 'succeeded'
-}
-
-class LedgerProvider implements LLMProvider {
-  readonly id: string
-  readonly label: string
-
-  constructor(
-    private readonly inner: LLMProvider,
-    private readonly context: LlmCallContext,
-  ) {
-    this.id = inner.id
-    this.label = inner.label
-  }
-
-  private attemptsSince(before: number | null): number {
-    const current = this.context.fetchAttempts?.()
-    if (before === null || current === undefined) {
-      return 1
-    }
-    return Math.max(1, current - before)
-  }
-
-  private lengthCauseFor(
-    req: ChatRequest,
-    finishReason: FinishReason,
-    usage: TokenUsage | undefined,
-  ): LengthCause | null {
-    if (finishReason !== 'length') {
-      return null
-    }
-    return classifyLengthCause({
-      ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
-      ...(req.maxCompletionTokens !== undefined
-        ? { maxCompletionTokens: req.maxCompletionTokens }
-        : {}),
-      ...(usage ? { usage } : {}),
-      ...(this.context.contextWindow !== undefined
-        ? { contextWindow: this.context.contextWindow }
-        : {}),
-    })
-  }
-
-  private emit(patch: LlmCallInputPatch): void {
-    const input: LlmCallInput = {
-      traceId: this.context.traceId,
-      stage: this.context.stage,
-      provider: this.context.provider,
-      modelId: this.context.modelId,
-      thinking: this.context.thinking ?? null,
-      promptId: this.context.promptId ?? null,
-      versionId: this.context.versionId ?? null,
-      runId: this.context.runId ?? null,
-      evalTaskId: this.context.evalTaskId ?? null,
-      ...patch,
-    }
-    try {
-      this.context.onRecorded?.(input)
-    } catch (error) {
-      console.warn('[ledger] 账本观察回调失败，已忽略：', errorMessage(error))
-    }
-    // fire-and-forget：写入失败在 recordLlmCall 内部吞掉，不影响响应。
-    void recordLlmCall(input, this.context.recordOptions)
-  }
-
-  async chat(req: ChatRequest): Promise<ChatResult> {
-    const startedAt = Date.now()
-    const before = this.context.fetchAttempts?.() ?? null
-    try {
-      const result = await this.inner.chat(req)
-      this.emit({
-        status: 'succeeded',
-        usage: result.usage,
-        latencyMs: Date.now() - startedAt,
-        ttftMs: null,
-        finishReason: result.finishReason,
-        lengthCause: this.lengthCauseFor(req, result.finishReason, result.usage),
-        attempts: this.attemptsSince(before),
-      })
-      return result
-    } catch (error) {
-      const llmError = classifyError(error, req.signal)
-      this.emit({
-        status:
-          llmError.kind === 'aborted' || req.signal?.aborted
-            ? 'canceled'
-            : 'failed',
-        latencyMs: Date.now() - startedAt,
-        ttftMs: null,
-        finishReason: null,
-        errorCode: errorCodeForKind(llmError.kind),
-        attempts: this.attemptsSince(before),
-      })
-      throw error
-    }
-  }
-
-  async *stream(req: ChatRequest): AsyncIterable<ChatChunk> {
-    const startedAt = Date.now()
-    const before = this.context.fetchAttempts?.() ?? null
-    let ttftMs: number | null = null
-    let usage: TokenUsage | undefined
-    let finishReason: FinishReason = null
-    let sawContent = false
-    let failure: unknown
-
-    try {
-      for await (const chunk of this.inner.stream(req)) {
-        const hasContent =
-          chunk.delta.length > 0 || chunk.reasoningDelta !== undefined
-        if (hasContent && ttftMs === null) {
-          ttftMs = Date.now() - startedAt
-        }
-        if (hasContent) {
-          sawContent = true
-        }
-        if (chunk.finishReason !== undefined && chunk.finishReason !== null) {
-          finishReason = chunk.finishReason
-        }
-        if (chunk.usage !== undefined) {
-          usage = chunk.usage
-        }
-        yield chunk
-      }
-    } catch (error) {
-      failure = error
-      throw error
-    } finally {
-      const latencyMs = Date.now() - startedAt
-      const hasCompletionSignal = finishReason !== null || usage !== undefined
-      const status = classifyCallStatus({
-        ...(failure !== undefined ? { failure } : {}),
-        ...(req.signal ? { signal: req.signal } : {}),
-        sawContent,
-        hasCompletionSignal,
-      })
-      const llmError =
-        failure === undefined ? undefined : classifyError(failure, req.signal)
-      const errorCode =
-        status === 'canceled'
-          ? errorCodeForKind('aborted')
-          : status === 'interrupted' && llmError === undefined
-            ? STREAM_INTERRUPTED_CODE
-            : llmError
-              ? errorCodeForKind(llmError.kind)
-              : null
-
-      this.emit({
-        status,
-        ...(usage ? { usage } : {}),
-        latencyMs,
-        ttftMs,
-        finishReason,
-        lengthCause: this.lengthCauseFor(req, finishReason, usage),
-        ...(errorCode ? { errorCode } : {}),
-        attempts: this.attemptsSince(before),
-      })
-    }
-  }
-
-  structured<T>(
-    req: ChatRequest,
-    schema: ZodType<T>,
-    opts?: StructuredOptions,
-  ): Promise<T> {
-    return runStructured(this, req, schema, opts)
-  }
-
-  ping(): Promise<PingResult> {
-    return this.inner.ping()
-  }
-}
-
-/**
- * 包一层账本埋点。返回对象仍是 LLMProvider，路由只换传入的 provider，
- * 流式事件顺序与内容完全不变。
- */
-export function instrumentProvider(
-  provider: LLMProvider,
-  context: LlmCallContext,
-): LLMProvider {
-  return new LedgerProvider(provider, context)
 }
 
 /* ---------- 聚合 ---------- */
@@ -994,35 +773,5 @@ export function summarizeCalls(
       }
     }),
     generatedAt: now.toISOString(),
-  }
-}
-
-/**
- * 读取全部账本并聚合。数据库不可用或查询失败时返回 null，
- * 设置页据此显示「数据暂不可用」，不会渲染伪造的 0。
- */
-export async function getCostSummary(): Promise<CostSummary | null> {
-  const prisma = getPrisma()
-  if (!prisma) {
-    return null
-  }
-  try {
-    const rows = await prisma.llmCall.findMany({
-      select: {
-        stage: true,
-        modelId: true,
-        status: true,
-        tokensIn: true,
-        tokensOut: true,
-        cachedTokens: true,
-        reasoningTokens: true,
-        costCny: true,
-        createdAt: true,
-      },
-    })
-    return summarizeCalls(rows)
-  } catch (error) {
-    console.warn('[ledger] 读取调用账本失败：', errorMessage(error))
-    return null
   }
 }

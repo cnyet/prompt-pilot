@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
-import { useModelStatus } from '@/components/studio/modelStatus'
+import { useModelStatus } from '@/components/shell/modelStatus'
 import { cn } from '@/lib/utils'
 import type { LlmSettingsView, SettingSource } from '@/lib/settings/store'
 
@@ -303,7 +303,6 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
       baseUrl: null,
       modelGenerate: null,
       modelOptimize: null,
-      modelEvaluate: null,
       generateTemperature: null,
       generateMaxTokens: null,
       optimizeTemperature: null,
@@ -445,7 +444,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           'API Key',
           view.apiKey.configured
             ? `已配置（${view.apiKey.hint ?? '末位不可见'}）。留空则继续使用当前密钥；填入新值会覆盖。密钥只存在本机数据库，不会回传浏览器。`
-            : '未配置密钥时使用离线模板模式。填入后立即切换到真实模型，无需重启。密钥只存在本机数据库。',
+            : '未配置密钥时生成与优化禁用，先在设置里接入模型。密钥只存在本机数据库。',
           view.apiKey.source,
           <input
             id="setting-apiKey"
@@ -644,7 +643,7 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
           {allUnconfigured ? (
             <p className="flex items-start gap-1.5 text-caption text-warning">
               <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
-              未配置 API Key，当前是离线模板模式，无法测试真实连通性。
+              未配置 API Key，无法测试真实连通性。
             </p>
           ) : (
             <ul className="flex flex-col gap-1">

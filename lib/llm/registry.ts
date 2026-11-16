@@ -34,7 +34,6 @@ const OPENCODE_GATEWAY_PREFIX = 'https://opencode.ai/inference/go'
 /** opencode Go 网关要求带稳定会话标识；本机单用户，进程内复用一个即可。 */
 const OPENCODE_SESSION_ID = randomUUID()
 export const DEFAULT_GENERATE_MODEL_ID = 'deepseek-v4.1-flash'
-export const DEFAULT_EVALUATE_MODEL_ID = 'gpt-5.6-luna'
 
 /**
  * 兼容早期保存的网关地址：`/inference/go` 与 `/inference/go/v1` 都指向
@@ -66,7 +65,6 @@ export function isOpencodeGateway(baseUrl: string): boolean {
 }
 export const DEFAULT_GENERATE_MODEL_CONFIG_ID = 'ark-generate'
 export const DEFAULT_OPTIMIZE_MODEL_CONFIG_ID = 'ark-optimize'
-export const DEFAULT_EVALUATE_MODEL_CONFIG_ID = 'ark-evaluate'
 
 export interface ModelPricing extends ModelPricingCny {
   contextWindow?: number
@@ -95,7 +93,7 @@ export const ARK_MODEL_PRESETS: Readonly<Record<string, ModelPricing>> = {
 }
 
 export type ProviderKind = 'ark' | 'openai_compatible' | 'mock'
-export type ModelRole = 'generate' | 'optimize' | 'evaluate' | 'judge'
+export type ModelRole = 'generate' | 'optimize'
 
 export interface ModelConfig {
   id: string
@@ -122,7 +120,7 @@ export interface ProviderOverrides {
   /** 单测注入假 transport；生产不传，走全局 fetch */
   fetch?: typeof globalThis.fetch
   retry?: RetryOptions
-  /** 允许在没有密钥时用 MOCK_LLM_FAULT=valid 的 Mock provider（试运行 / 评估用） */
+  /** 允许在没有密钥时用 MOCK_LLM_FAULT=valid 的 Mock provider（v3 本地验收用） */
   allowValidMock?: boolean
   /** 单次请求超时；连通性测试用它避免等满默认 120 秒 */
   timeoutMs?: number
@@ -162,7 +160,6 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
   const generateModel = envValue(env, 'ARK_MODEL_GENERATE') ?? DEFAULT_GENERATE_MODEL_ID
   // 未单独配置优化模型时复用生成模型（FR-8.3）
   const optimizeModel = envValue(env, 'ARK_MODEL_OPTIMIZE') ?? generateModel
-  const evaluateModel = envValue(env, 'ARK_MODEL_EVALUATE') ?? DEFAULT_EVALUATE_MODEL_ID
 
   const makeConfig = (
     id: string,
@@ -205,13 +202,6 @@ export function listModelConfigs(env: RegistryEnv = process.env): ModelConfig[] 
       'optimize',
       optimizeModel,
       `优化模型 · ${modelDisplayLabel(optimizeModel)}`,
-      false,
-    ),
-    makeConfig(
-      DEFAULT_EVALUATE_MODEL_CONFIG_ID,
-      'evaluate',
-      evaluateModel,
-      `评估模型 · ${modelDisplayLabel(evaluateModel)}`,
       false,
     ),
     {
@@ -349,8 +339,7 @@ export function getGenerateProvider(
   // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
   // generate 路由的失败分支；有 Key 时仍以真实方舟为准。
   if (!hasArkApiKey(env)) {
-    // valid 画像需要显式申请：试运行与评估要它，生成不要（生成应继续走
-    // 离线 composer，否则会用 mock 文本去解析结构化输出）。
+    // valid 画像需要显式申请：v3 本地验收要它，普通请求不注入。
     if (
       overrides.allowValidMock &&
       envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE
@@ -379,8 +368,7 @@ export function getOptimizeProvider(
   // 无 Key 时允许用 MOCK_LLM_FAULT 显式注入故障画像，供单测与本地验收走
   // optimize 路由的失败分支；有 Key 时仍以真实方舟为准。
   if (!hasArkApiKey(env)) {
-    // valid 画像需要显式申请：试运行与评估要它，优化不要（优化应继续走
-    // 离线 composer，否则会用 mock 文本去解析结构化输出）。
+    // valid 画像需要显式申请：v3 本地验收要它，普通请求不注入。
     if (
       overrides.allowValidMock &&
       envValue(env, MOCK_FAULT_ENV)?.trim() === MOCK_VALID_PROFILE

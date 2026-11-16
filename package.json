@@ -21,6 +21,7 @@
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e": "node scripts/e2e-http.mjs",
     "check:contrast": "node scripts/contrast-check.mjs",
     "test:watch": "vitest",
     "db:generate": "prisma generate",

@@ -16,7 +16,6 @@ const STRING_FIELDS = [
   'baseUrl',
   'modelGenerate',
   'modelOptimize',
-  'modelEvaluate',
 ] as const
 
 const NUMBER_FIELDS = [

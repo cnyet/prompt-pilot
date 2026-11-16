@@ -640,7 +640,49 @@
 - 同目录不能并行两个 `next dev`（Next 16 单实例锁）；隔离库冒烟需先停旧 server，或换目录跑。
 - `BudgetNotice` 中 `usage` 的 null 收窄必须显式 `if (usage === null)`，不能靠 `budgetLevel` 的返回值反推类型。
 
-### Carry-over（更新）
-- [ ] 新会话派 `verifier` 验收 Batch H（AC-12/13/14/17/26），通过后收口。
+### Independent Verification（2026-11-14）
+- verifier 独立验收 `9dbac52..2793ee4`（`2793ee4..f4d3749` 仅 memory），结论 Accept：AC-12/13/14/17/26 全 PASS，Review Focus 8/8 PASS，无 Critical/Important。
+- verifier 自跑证据：harness 24 pass / 0 fail；typecheck 0；88 文件 / 906 用例；build ✓；contrast ✓（最低 4.70:1）；AC-17 `.next/static` 无 `ARK_API_KEY` / `Bearer` / key 形态 `sk-`（40+ 命中均为 Tailwind/CSS 误报）。
+- 代码级确认：stats null 分支可读；长模型 ID / 「未设置」/「—」用 `min-w-0` / `break-words` / `flex-wrap` 防溢出；generate 与 optimize 可用同一模型。
+- 未复验：浏览器冒烟（verifier 未起 dev server）；stats null 与溢出为代码级判断。
+- Minor（不阻塞，Phase 6 或后续顺手）：v3 设置客户端仍有「离线模板模式」旧文案；KPI 标签「本月调用」vs FR-9.2「本月调用次数」；ARCHITECTURE 掩码示例 `••••9f3a` vs 实现 `…9f3a`；`maskKey` 对 <4 字符 key 返回全量。
+
+### Carry-over（verifier 后）
+- [x] Batch H 独立 verifier 验收通过（Accept），收口。
 - [ ] Phase 6 v2 清理。
 - [ ] 本地 main 未 push。
+- [ ] 可选：Batch H 4 条 Minor 文案/文档漂移收口。
+
+## 2026-11-14 Phase 6（v2 清理与收口）
+
+### Completed
+- Tasks 1-5 完成（未提交，按 ruling）：shell 脱离 `/api/run`；删除 v2 UI、`/eval`、v2 API/引擎/测试；移除 `modelEvaluate` 契约；重写 v3 HTTP E2E；归档 v2 文档；可访问性/响应式/减少动效检查；备份后删除十张 v2 旧表。
+- 库表只剩 `AppSetting`、`LlmCall`、`PromptRecord`、`PromptIteration`、`Template`；备份 `data/app.db.bak-20261114-2027`（831,488 字节，`PRAGMA integrity_check=ok`）。
+- 基线：harness 25 pass / 0 fail；typecheck 0；59 文件 / 537 用例；clean build ✓；`pnpm e2e` ✓；contrast 最低 4.70:1；浏览器冒烟 4 页 × 1440/1024、键盘顺序、抽屉、reduced motion 全过。
+- 最终独立 verifier（fresh context，opus）结论 Accept with minors，无 Critical/Important；其自跑 typecheck、537 用例、build、e2e、contrast、harness 与库表/备份检查均通过。
+
+### Key Decisions / Rulings
+- 不在未获用户要求时提交或 push；Phase 6 全部改动留在 main 工作树。保留 `.superpowers/sdd/2026-11-14-v3-phase-6/` 直到用户提交后再删，因账本是未提交变更的唯一记录。
+- 旧表删除前先备份并获用户明确确认；`LlmCall` 的历史关联列与索引保留，不重写账本。
+- E2E 查询参数用路由实际的 `q`（计划写 `query`）；测试输入追加 run tag 以保证标题命中；均记入 ledger。
+- 浏览器冒烟必须用 `localhost` 而非 `127.0.0.1`（Next dev 阻止跨源客户端资源，React 不 hydration）；库行打开控件是标题按钮，不是 `aria-label="查看记录"`。
+- `.env.example` 受权限策略阻止，记录为未验证文档项，未绕过。
+- 测试基线从 536 更新为 537（新增短密钥掩码用例）。
+
+### Pitfalls
+- `Page.navigate` 后仅等 `location.pathname` 会命中旧页面；必须等 `Page.loadEventFired` 并轮询 `document.body`。
+- 浏览器冒烟在无 hydration 时输入只改 DOM，不改 React 受控状态，按钮仍 disabled。
+- `next dev` 用 IP 源会阻止 `/_next/hmr` 等资源，导致客户端脚本不运行。
+- 归档 v2 文档后要扫 README/HANDOVER/ARCHITECTURE/ROADMAP 的旧链接与 "旧表待删" 措辞。
+- Prisma `db push --accept-data-loss` 只提示非空表；空表也会被静默删除，删除前仍以 `.tables` 与备份为准。
+
+### Deferred minors（final review）
+- HANDOVER 列了 `MOCK_LLM_FAULT=network`，但 mock 无该 profile，设置后静默无效。
+- `lib/llm/mock.ts` 的 mock 输出仍用「试运行 / 变量」等 v2 词，仅显式 valid mock 时可见。
+- ARCHITECTURE 两处「在备份 data/app.db 后删除」措辞有歧义，未点明备份文件路径。
+- `.env.example` 未验证（可能仍列 `ARK_MODEL_EVALUATE` / 缺 `ARK_MODEL_OPTIMIZE`）。
+
+### Carry-over
+- 未提交、未 push；用户确认后可提交 Phase 6 变更并删除 `.superpowers` 工作区。
+- 接真实 ARK 密钥验证流式 usage、`reasoning_content`、错误码映射。
+- 可选项：处理 4 条 deferred minors。

@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { parseTrialRunAvailability } from './useTrialRun'
+import { readModelStatus } from './modelStatusModel'
 
 export type ModelStatusState = 'loading' | 'available' | 'unavailable' | 'error'
 
@@ -37,8 +37,8 @@ const ModelStatusContext = createContext<ModelStatusValue>(INITIAL)
 /**
  * 模型可用性只在布局层探测一次，所有页面共用同一份结果。
  *
- * 没有模型凭据时也允许生成（离线模板），但试运行必须显式禁用，
- * 所以这里只负责「是不是真的能用模型」，不替代 RunDrawer 的按钮禁用逻辑。
+ * 数据源是 `GET /api/settings`：只看密钥是否已配置与生成模型 ID，
+ * 不在壳层复刻生成路由的可用性判定。
  */
 export function ModelStatusProvider({
   children,
@@ -55,22 +55,22 @@ export function ModelStatusProvider({
       status: 'loading',
       reason: '正在确认可用模型。',
     }))
-    fetch('/api/run', { signal: controller.signal, cache: 'no-store' })
+    fetch('/api/settings', { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error(`可用性检查返回了 ${response.status} 状态。`)
+          throw new Error(`设置接口返回了 ${response.status} 状态。`)
         }
         const payload: unknown = await response.json()
-        const parsed = parseTrialRunAvailability(payload)
+        const parsed = readModelStatus(payload)
         if (!parsed) {
-          throw new Error('可用性检查返回的数据格式不符合预期。')
+          throw new Error('设置接口返回的数据格式不符合预期。')
         }
         setValue({
-          status: parsed.availability.available ? 'available' : 'unavailable',
-          available: parsed.availability.available,
-          reason: parsed.availability.reason,
-          modelLabel: parsed.availability.model?.label ?? null,
-          providerId: parsed.availability.model?.providerId ?? null,
+          status: parsed.status,
+          available: parsed.status === 'available',
+          reason: parsed.reason,
+          modelLabel: parsed.modelLabel,
+          providerId: parsed.providerId,
           refresh: () => setToken((current) => current + 1),
         })
       })
@@ -81,7 +81,7 @@ export function ModelStatusProvider({
         setValue({
           status: 'error',
           available: false,
-          reason: '无法确认模型可用性，检查网络后重试。',
+          reason: '无法确认模型是否可用，检查网络后重试。',
           modelLabel: null,
           providerId: null,
           refresh: () => setToken((current) => current + 1),
@@ -111,37 +111,27 @@ export function useModelStatus(): ModelStatusValue {
 }
 
 /**
- * 顶栏之外的第二层状态条：只在没有真实模型可用时出现。
- * 它要一直挂着，不能做成 toast，用户随时能看见当前为什么不能试运行。
+ * 顶栏之外的第二层状态条：只在没有可用模型或状态未知时出现。
+ * 它要一直挂着，不能做成 toast，用户随时能看见当前为什么不能生成。
  */
 export function ModelStatusBanner() {
-  const { status, reason, providerId, refresh } = useModelStatus()
-  const mockOnly = status === 'available' && providerId === 'mock'
-  const visible = status === 'unavailable' || status === 'error' || mockOnly
-  if (!visible) {
+  const { status, reason, refresh } = useModelStatus()
+  if (status !== 'unavailable' && status !== 'error') {
     return null
   }
 
-  const state = status === 'error' ? 'error' : mockOnly ? 'mock' : 'offline'
-  const title =
-    status === 'error'
-      ? '模型状态未知'
-      : mockOnly
-        ? '离线模板模式 · Mock 试运行'
-        : '离线模板模式'
+  const title = status === 'error' ? '模型状态未知' : '未配置模型'
   const explanation =
     status === 'error'
-      ? '无法确认模型是否可用，试运行可能不可用。'
-      : mockOnly
-        ? '未配置模型凭据。生成使用本地模板，试运行使用本地 Mock 模型。'
-        : reason.length > 0
-          ? reason
-          : '未配置模型凭据，生成使用本地模板，试运行不可用。'
+      ? '无法确认模型是否可用，检查网络后重试。'
+      : reason.length > 0
+        ? reason
+        : '未配置模型凭据，先在设置里接入模型。'
 
   return (
     <div
       data-testid="model-status"
-      data-state={state}
+      data-state={status}
       className="border-b border-line bg-bg-sunken"
     >
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 text-caption lg:px-6">
@@ -174,29 +164,24 @@ export function ModelStatusBanner() {
 }
 
 /**
- * 顶栏的状态徽标。原来这里写死「L1 离线模板」，用户配了密钥之后仍然显示，
- * 与真实状态不符。改为读同一份探测结果，文案与 tooltip 都跟着状态走。
+ * 顶栏的状态徽标。只显示在线与确认中；离线/异常由常驻横幅说明，
+ * 避免顶栏和横幅同屏说同一件事。
  */
 export function ModelStatusBadge() {
   const value = useModelStatus()
-  const { status, providerId } = value
-  const online = status === 'available' && providerId !== 'mock'
-  // 离线/异常时全局横幅（ModelStatusBanner）已经常驻说明，徽标只留在线与加载中，
-  // 避免顶栏和横幅同屏说同一件事。
-  if (!(online || status === 'loading')) {
+  const { status } = value
+  if (status !== 'available' && status !== 'loading') {
     return null
   }
-  const label = online ? '在线模型' : modelStatusLabel(value)
+  const label = status === 'available' ? '在线模型' : modelStatusLabel(value)
   const title =
     status === 'loading'
       ? '正在确认模型服务是否可用'
-      : online
-        ? '已配置模型服务，生成与试运行都走真实模型'
-        : '未配置模型凭据，当前使用本地 Mock 模型'
+      : '已配置模型服务，生成与优化都走真实模型'
   return (
     <span
       data-testid="model-status-badge"
-      data-state={online ? 'online' : 'offline'}
+      data-state={status === 'available' ? 'online' : 'loading'}
       title={title}
       className="rounded-chip border border-line px-2 py-0.5 text-caption text-ink-muted"
     >
@@ -205,16 +190,16 @@ export function ModelStatusBadge() {
   )
 }
 
-/** 工作台左栏与空态共用的短标签，避免各写一份「离线模板」。 */
+/** 工作台左栏与空态共用的短标签，避免各写一份模型状态文案。 */
 export function modelStatusLabel(value: ModelStatusValue): string {
   if (value.status === 'loading') {
     return '模型状态确认中'
   }
-  if (value.status === 'available' && value.providerId !== 'mock') {
+  if (value.status === 'available') {
     return '在线模型'
   }
   if (value.status === 'error') {
     return '模型状态未知'
   }
-  return '离线模板'
+  return '未配置模型'
 }

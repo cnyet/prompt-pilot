@@ -2,7 +2,7 @@
 
 只记录本项目里有特定含义、容易理解错的词。通用编程词汇不收。
 
-v3 起废弃的词：**字段、版本、基线 v0、试运行、评估、假设 chip、建议（suggestion）**。它们属于 v2 八字段范式，界面与文档不再使用；代码层残留至 Phase 6 清理。
+v3 起废弃的词：**字段、版本、基线 v0、试运行、评估、假设 chip、建议（suggestion）**。它们属于 v2 八字段范式，界面与文档不再使用，代码层已在 Phase 6 清理。
 
 ## 产品概念
 
@@ -31,4 +31,4 @@ v3 起废弃的词：**字段、版本、基线 v0、试运行、评估、假设
 
 - **零依赖基调**：不引入动效库、图标库、CSS-in-JS、状态库。图标为内联 SVG；Markdown 渲染只用 `react-markdown` + `remark-gfm`。
 - **动效两类**：内容出现（`rise`）与容器展开（`reveal`），只动 `opacity` / `transform`；glow 淡入（`glow-in`）的 `box-shadow` 过渡是唯一例外。120-180ms，`prefers-reduced-motion` 下全部归零。
-- **冻结契约**：`lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删除。
+- **冻结契约**：`lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 已在 Phase 6 删除。

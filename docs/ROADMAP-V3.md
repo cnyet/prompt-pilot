@@ -55,7 +55,7 @@
 
 ### 2.1 数据模型
 
-新增三个模型。旧模型在 Phase 6 前保留，避免不可逆迁移。
+新增三个模型。旧模型已在 Phase 6 收口时备份后删除，避免不可逆迁移。当前库只保留 `AppSetting`、`LlmCall`、`PromptRecord`、`PromptIteration`、`Template`。
 
 ```prisma
 model PromptRecord {
@@ -274,14 +274,14 @@ done   { recordId, iterationId, status: completed | canceled | failed }
 
 ### Phase 6 移除旧模块与收口（2 人日）
 
-- V3-60 删除 `/eval`、试运行、字段编辑、旧导航与相关组件。
-- V3-61 退役旧引擎模块与对应测试，重建测试基线。
-- V3-62 可访问性、响应式、减少动效。
-- V3-63 E2E 脚本更新，覆盖完整主路径。
-- V3-64 截图与文档最终同步。
-- V3-65 备份后删除旧表。
+- V3-60 删除 `/eval`、试运行、字段编辑、旧导航与相关组件。（已完成）
+- V3-61 退役旧引擎模块与对应测试，重建测试基线。（已完成：59 文件 / 537 条）
+- V3-62 可访问性、响应式、减少动效。（已完成）
+- V3-63 E2E 脚本更新，覆盖完整主路径。（已完成：`pnpm e2e`，隔离 `data/e2e.db`）
+- V3-64 截图与文档最终同步。（已完成）
+- V3-65 备份后删除旧表。（已完成：备份 `data/app.db.bak-20261114-2027`，保留五张表）
 
-验收：AC-15、AC-16、AC-18；AC-1 到 AC-28 全量回归；全量命令通过。
+验收：AC-15、AC-16、AC-18；AC-1 到 AC-28 全量回归；全量命令通过。2026-11-14 实测：harness 25 项全过，typecheck 零错误，59 文件 / 537 测试通过，clean build 成功，`pnpm e2e` 通过。
 
 ## 4. 测试计划
 
@@ -301,7 +301,7 @@ E2E 场景：
 5. 设置模型，测试连接（mock），设置预算触发提示。
 6. 无密钥与断网状态下的禁用与提示。
 
-测试基线以实测为准（2026-11-13 实测 512 条，41 个文件），不要求保留数量。旧引擎测试随模块退役，新基线以 Phase 6 的结果为准。
+测试基线以实测为准（2026-11-14 Phase 6 实测 537 条，59 个文件），不要求保留数量。旧引擎测试已随模块退役。
 
 ## 5. 风险与对策
 
@@ -319,10 +319,10 @@ E2E 场景：
 ## 6. 回滚
 
 - 每阶段独立分支或独立提交，可用 `git revert` 单阶段回退。
-- 数据库改动只增不删，Phase 6 前旧表可继续读。
-- 删除旧表前执行：`cp data/app.db data/app.db.bak-$(date +%Y%m%d-%H%M)`。
+- 旧表已无代码引用；删除前备份在 `data/app.db.bak-20261114-2027`，回滚时可恢复。
+- Phase 6 删表前已执行：`cp data/app.db data/app.db.bak-$(date +%Y%m%d-%H%M)`；后续破坏性迁移沿用同一流程。
 - 不改 `.env` 与密钥；回滚不涉及配置。
-- Phase 6 之前不发布，避免半成品状态暴露给用户。
+- Phase 6 已收口；发布前仍按 AC-1 到 AC-28 回归。
 
 ## 7. 文档更新清单
 
@@ -345,6 +345,7 @@ pnpm run typecheck
 pnpm test
 pnpm build
 pnpm check:contrast
+pnpm e2e
 ```
 
 测试已与开发库隔离（`tests/global-setup.ts` 建独立 `data/test.db`，`tests/setup-env.ts` 设 `DATABASE_URL` 并清真实密钥），跑测试不再需要停 3100，但测试绝不读写 `data/app.db`。CI 顺序保持 contrast、`next typegen`、typecheck、test、build。

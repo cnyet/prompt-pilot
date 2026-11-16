@@ -2,7 +2,7 @@
 
 > 本文档描述 v3「结果优先」的目标架构与契约，事实源是 `PRODUCT.md` 与 `docs/ROADMAP-V3.md`。
 >
-> **现状**：数据与 API 层已是 v3（Batch A 到 D 已收口）；工作台等界面仍运行 v2（八字段结构化范式）。v2 引擎与本文描述的新协议并存到 Phase 6，冲突时以本文为准；v2 细节见 git 历史（ADR-0007 之前）。`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地，Phase 6 删除。
+> **现状**：v3 数据层、API、工作台、提示词库、模板、设置与成本均已上线（Batch A 到 H，Phase 1 到 5）。Phase 6 已完成：v2 页面、API、引擎与测试全部移除，十张 v2 旧表在备份 `data/app.db.bak-20261114-2027` 后删除，当前库保留五张表。v2 细节见 git 历史（ADR-0007 之前）。
 
 ## 一、技术选型
 
@@ -55,7 +55,7 @@ prompt-pilot/
 └─ tests/{unit,integration,e2e}/
 ```
 
-Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构化 JSON 视图、变量区、试运行、版本时间线、`lib/engine/schema.ts` 与 `doc.ts` / `paths.ts` / `assumptions.ts` / 结构化 `render.ts` / 多格式 `export.ts`。
+Phase 6 已完成代码清理：`/eval` 页面与 API、字段编辑器、假设 chip、结构化 JSON 视图、变量区、试运行、版本时间线、`lib/engine/schema.ts` 与 `doc.ts` / `paths.ts` / `assumptions.ts` / 结构化 `render.ts` / 多格式 `export.ts` 均已删除。十张 v2 旧表在备份 `data/app.db` 后删除，`LlmCall` 与 `AppSetting` 保留。
 
 ## 三、数据模型
 
@@ -67,12 +67,12 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 
 配套：
 
-- `ModelConfig.role` 取值 `generate | optimize`；未单独配置优化模型时复用生成模型。旧 evaluate / judge 行保留但停用。
+- 模型角色只有 `generate | optimize`；未单独配置优化模型时复用生成模型。evaluate / judge 不再产生新配置。
 - `AppSetting` 增加 `budget.monthlyCny`，未设置为空字符串。
 - `LlmCall.stage` 落库值定为 `generate | optimize | repair`；没有「说明」阶段，改动说明随优化结果一并产出。历史 `compose` 等值保留只读。
 - 用量与费用遵守「未知为 null，不写 0」；未评分 null；未设置预算空串。
 
-旧模型（`Prompt` / `PromptVersion` / `Run` / `EvalTask` / `CriterionCheck` 等）Phase 6 前保留可读，不写入新数据；删除前再次备份。
+旧模型（`Prompt` / `PromptVersion` / `Run` / `EvalTask` / `CriterionCheck` 等十张表）不再被代码引用；Phase 6 收口时备份 `data/app.db` 后删除。`LlmCall` 与 `AppSetting` 保留。
 
 ## 四、API 契约
 
@@ -241,11 +241,10 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 ```json
 {
   "settings": {
-    "apiKey": { "configured": true, "hint": "••••9f3a", "source": "settings" },
+    "apiKey": { "configured": true, "hint": "…9f3a", "source": "settings" },
     "baseUrl": { "value": "https://opencode.ai/inference/go/openai/v1", "source": "env" },
     "modelGenerate": { "value": "deepseek-v4.1-flash", "source": "settings" },
     "modelOptimize": { "value": "gpt-5.6-luna", "source": "env" },
-    "modelEvaluate": { "value": "", "source": "none" },
     "params": {
       "generate": {
         "temperature": { "value": 0.7, "source": "default" },
@@ -261,7 +260,7 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 }
 ```
 
-`source` 取值 `settings | env | default | none | inherited`。密钥只回已配置状态与末四位提示，不回明文。`modelEvaluate` 只为 v2 评估路由保留，v3 UI 不展示，Phase 6 删除。
+`source` 取值 `settings | env | default | none | inherited`。密钥只回已配置状态与末四位提示（`…` 加末四位；四个字符及以下只回 `…`），不回明文。
 
 **PUT `/api/settings`**
 
@@ -269,7 +268,7 @@ Phase 6 删除：`/eval` 页面与 API、字段编辑器、假设 chip、结构�
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `apiKey`、`baseUrl`、`modelGenerate`、`modelOptimize`、`modelEvaluate` | string 或 null | null 或空串删除覆盖，回落到环境变量 |
+| `apiKey`、`baseUrl`、`modelGenerate`、`modelOptimize` | string 或 null | null 或空串删除覆盖，回落到环境变量 |
 | `generateTemperature`、`optimizeTemperature` | number 或 null | 0 到 2；null 删除覆盖 |
 | `generateMaxTokens`、`optimizeMaxTokens` | number 或 null | 1 到 65536 的整数；null 删除覆盖 |
 | `budgetMonthlyCny` | number 或 null | 大于 0；null 清除预算 |
@@ -347,7 +346,7 @@ export interface LLMProvider {
 }
 ```
 
-v3 主路径不再消费 `structured()`（结构化 JSON 输出），该方法随 v2 引擎在 Phase 6 退役；v2 代码运行期间仍可用。
+v3 主路径不消费 `structured()`（结构化 JSON 输出）；该方法与 `lib/llm/structured.ts` 作为适配层能力保留，v2 引擎已移除。
 
 ### 角色与模型分配
 
@@ -417,7 +416,7 @@ v3 主路径不再消费 `structured()`（结构化 JSON 输出），该方法�
 ## 十三、迁移与备份
 
 - 无 `prisma/migrations/`，用 `pnpm exec prisma db push` + `pnpm exec prisma generate`。
-- Phase 0 已备份 `data/app.db.bak-20261113-1047`；Phase 1 只增不删（新表与设置键，旧表保持可读）；Phase 6 删表前再备份一次。
+- Phase 0 已备份 `data/app.db.bak-20261113-1047`；Phase 6 删表前再备份一次 `data/app.db`，并用 `PRAGMA integrity_check` 验证备份可读。
 - 测试与开发库隔离：`tests/global-setup.ts` 建独立 `data/test.db`，测试绝不读写 `data/app.db`。
 - 迁移失败不启动，给明确文案，避免用户在半坏的数据上继续操作。
 
@@ -427,9 +426,9 @@ v3 主路径不再消费 `structured()`（结构化 JSON 输出），该方法�
 |---|---|
 | 保留 | LLM 适配器、registry、ledger、设置、成本聚合、UI 基础组件、外壳 |
 | 适配 | 生成路由、设置路由、统计路由测试 |
-| 退役 | 八字段 schema、doc、paths、assumptions、字段级 lint、评估、试运行、多格式导出测试 |
+| 已退役 | 八字段 schema、doc、paths、assumptions、字段级 lint、评估、试运行、多格式导出测试 |
 | 新增 | 元数据解析（缺分隔符 / 坏 JSON / 提前出现）、Markdown 复制一致性、diff、R101-R108、记录 API、模板 API、预算、SSE 集成、幂等 |
 
-E2E 六场景：生成入库复制下载；优化对比继续迭代对比两轮；收藏评分搜索删除；模板「用它开始」与自定义模板；设置模型与预算提示；无密钥与断网禁用。测试基线以实测为准（2026-11-13 为 639 条），旧引擎测试随模块退役，新基线以 Phase 6 结果为准。
+E2E 覆盖 v3 主路径：设置读取；生成入库；优化追加迭代；收藏、评分、搜索、删除；模板列表、创建与删除；预算写入与统计读取；无密钥与断网禁用。2026-11-14 Phase 6 实测基线：59 个文件 / 537 条测试；`pnpm e2e` 使用隔离的 `data/e2e.db`。
 
 验证门槛：`pnpm run typecheck`、`pnpm test`、`pnpm build`、`pnpm check:contrast`、`node ~/.claude/scripts/claude-project-harness-check.mjs .` 全绿。

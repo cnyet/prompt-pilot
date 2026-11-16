@@ -1,9 +1,9 @@
 import { AppShell } from '@/components/shell/AppShell'
-import { MobileNav } from '@/components/studio/MobileNav'
+import { MobileNav } from '@/components/shell/MobileNav'
 import {
   ModelStatusBanner,
   ModelStatusProvider,
-} from '@/components/studio/modelStatus'
+} from '@/components/shell/modelStatus'
 
 export default function WorkspaceLayout({
   children,

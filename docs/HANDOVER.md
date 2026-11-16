@@ -8,7 +8,7 @@
 
 PromptPilot 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-产品已重置为 v3「结果优先」范式（ADR-0007）。v3 数据层、API、工作台、提示词库、模板、设置与成本已全部上线（Batch A 到 H，Phase 1 到 5 完成）；v2 的八字段编辑器、评估页面与旧 API 仍留在仓库中，但不再进入 v3 导航，Phase 6 统一移除。下一步是 Phase 6 清理与收口。
+产品已重置为 v3「结果优先」范式（ADR-0007）。v3 数据层、API、工作台、提示词库、模板、设置与成本已全部上线（Batch A 到 H，Phase 1 到 5 完成）；Phase 6 已收口，v2 页面、API、引擎与测试已从仓库移除，十张 v2 旧表备份后删除。备份：`data/app.db.bak-20261114-2027`。
 
 ---
 
@@ -18,7 +18,7 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 
 - `PRODUCT.md` v3、`DESIGN.md` v3、`docs/ROADMAP-V3.md`、`.impeccable/design.json` 四件套为事实源。
 - `CONTEXT.md` 词表、`docs/ARCHITECTURE.md` v3 契约、本文件、`README.md`、ADR-0007 已收口；v2 的 `docs/ROADMAP.md` 已删除。
-- 分支 `feat/v3-result-first`；开发库备份 `data/app.db.bak-20261113-1047`。
+- 分支 `main`；开发库备份 `data/app.db.bak-20261113-1047`，Phase 6 删表前备份 `data/app.db.bak-20261114-2027`。
 - 网关端点规范化与测试库隔离已收口（`fc00f4c`）：默认端点 `https://opencode.ai/inference/go/openai/v1`，测试用独立 `data/test.db`。
 
 ### v3 数据层与 API（Batch A 到 D 已完成）
@@ -34,13 +34,14 @@ PromptPilot 把一句话需求或一份已有提示词，变成可直接投产�
 - **Batch F**：提示词库 v3 UI。搜索防抖、筛选、分页、行内收藏 / 评分 / 重命名、详情抽屉、迭代时间线、任意两轮对比。
 - **Batch G**：模板页 v3。三分类与风格筛选、12 个内置模板、三套程序化 SVG 封面、「用它开始」预填、自定义模板创建与删除。
 - **Batch H**：设置与成本。生成 / 优化双模型槽与每角色 temperature / maxTokens（默认 0.7 / 8192，优化未设置时继承生成）；`/api/settings` 同时读写模型、参数与月度预算；连通性测试覆盖 generate / optimize；成本页改用 `getV3Stats`，四个 KPI、14 天趋势、按阶段与按模型两张表；预算 80% 提示、100% 强提示但不阻断。
-- 2026-11-14 实测：typecheck 零错误；88 个文件 / 906 条测试通过。
+- 2026-11-14 Phase 6 实测：typecheck 零错误；59 个文件 / 537 条测试通过；clean build 成功；`pnpm e2e` 通过；harness 25 项全过。
 
-### v2 代码仍在仓库（Phase 6 移除）
+### Phase 6 代码清理（已完成）
 
-- v2 八字段编辑器、单字段重算、假设 chip、试运行、版本库与 `/eval` 页面仍可直接访问，但不在 v3 导航中。
-- 旧引擎 API（`/api/engine/*`、`/api/prompts/*`、`/api/run/*`、`/api/eval/*`）保留到 Phase 6，v3 新代码不依赖它们。
-- 设置页的 `modelEvaluate` 覆盖值仅为 v2 评估保留，v3 UI 不展示；Phase 6 一并删除。
+- v2 八字段编辑器、单字段重算、假设 chip、试运行、版本库与 `/eval` 页面已删除。
+- 旧引擎 API（`/api/engine/*`、`/api/prompts/*`、`/api/run/*`、`/api/eval/*`）与 `lib/eval`、v2 引擎模块、`lib/llm/streaming-json.ts` 已删除。
+- 设置契约不再包含 `modelEvaluate`；模型角色只有 `generate` 与 `optimize`。
+- 十张 v2 旧表已在备份 `data/app.db.bak-20261114-2027` 后删除；当前库只保留 `AppSetting`、`LlmCall`、`PromptRecord`、`PromptIteration`、`Template` 五张表，`LlmCall` 的历史关联列与索引保留。
 
 ### 未验证
 
@@ -65,7 +66,7 @@ pnpm db:seed        # 写入 12 条内置模板，按 slug 幂等，可重复执
 pnpm dev            # http://localhost:3100
 ```
 
-不填 `ARK_API_KEY` 时 v3 的生成与优化禁用，界面就地说明原因并给出设置入口（FR-8.7）；库、模板、复制与导出仍可用。v2 旧页面保留离线模板模式，仅供 Phase 6 前回看。
+不填 `ARK_API_KEY` 时 v3 的生成与优化禁用，界面就地说明原因并给出设置入口（FR-8.7）；库、模板、复制与导出仍可用。
 
 ### 常用命令
 
@@ -77,7 +78,7 @@ pnpm dev            # http://localhost:3100
 | `pnpm typecheck` | 类型检查 |
 | `pnpm db:push` / `pnpm db:studio` | 同步 schema / 图形化看数据 |
 | `pnpm db:seed` | 写入或恢复 12 条内置模板（按 slug 幂等，可重复执行；需 Node >= 24） |
-| `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
+| `pnpm e2e` | HTTP 端到端，自带服务与清理，使用隔离的 `data/e2e.db` |
 | `pnpm check:contrast` | 双主题对比度校验 |
 
 ### 环境变量
@@ -90,7 +91,6 @@ pnpm dev            # http://localhost:3100
 | `ARK_BASE_URL` | 默认 `https://opencode.ai/inference/go/openai/v1` |
 | `ARK_MODEL_GENERATE` | 生成模型 ID（不能用展示名）；也用于优化模型未单独配置时的继承 |
 | `ARK_MODEL_OPTIMIZE` | 优化模型 ID（v3 generate / optimize 双角色）；留空时复用生成模型 |
-| `ARK_MODEL_EVALUATE` | v2 评估模型，仅为旧评估 API 保留；v3 UI 不展示，Phase 6 删除 |
 | `DATABASE_URL` | `file:../data/app.db`，路径相对 schema 目录解析 |
 
 ### 故障注入
@@ -99,7 +99,7 @@ pnpm dev            # http://localhost:3100
 
 ---
 
-## 4. 代码地图（v3 为现役，v2 保留至 Phase 6）
+## 4. 代码地图（v3）
 
 ```
 app/
@@ -107,39 +107,36 @@ app/
   (workspace)/library/     v3 提示词库（列表 + 详情抽屉）
   (workspace)/templates/   v3 模板页
   (workspace)/settings/    v3 设置（模型 / 成本 / 预算）
-  (workspace)/eval/        v2 评估页（Phase 6 删）
   api/generate/            v3 生成与优化首轮（SSE）
   api/records/             v3 记录 CRUD、继续优化、修复
   api/templates/           v3 模板 CRUD
   api/settings/            模型、参数与预算；settings/test 连通性
   api/stats/               v3 成本聚合（generate / optimize / repair）
-  api/engine/ api/prompts/ api/run/ api/eval/   v2 API（Phase 6 删）
 components/
   shell/                   侧栏、顶栏、主题、模型状态徽标
   studio-v3/               v3 工作台、流式状态、结果面、检查面板
   library-v3/              v3 记录行与详情抽屉
   templates-v3/            v3 模板卡与程序化封面
   settings/                设置表单、成本趋势与分桶表、预算编辑
-  studio/ library/ eval/   v2 界面（Phase 6 删）
 lib/
-  llm/                     types（冻结）/ registry / openai-compat / mock / ledger / stats-v3
+  llm/                     types（冻结）/ registry / openai-compat / mock / ledger / stats-v3 / structured
   settings/                设置读取、参数继承与保存
   engine/
-    schema.ts              八字段契约（冻结至 Phase 6 删除）
     check.ts               v3 本地检查 R101-R108
     diff.ts / sse-v3.ts / stream-v3.ts   v3 diff 与流式协议
-    compose.ts 等          v2 引擎（Phase 6 删）
+    prompts/               生成、优化、修复的系统提示词与元数据解析
+    idempotency.ts         requestId 幂等
   db/                      Prisma 客户端、记录与模板写路径
   budget.ts                预算阈值与百分比展示（客户端安全）
 tests/                     global-setup.ts 建测试库；unit + integration
-scripts/e2e-http.mjs       HTTP 端到端
+scripts/e2e-http.mjs       HTTP 端到端（v3，隔离 data/e2e.db）
 ```
 
 v3 目标目录结构与新增模块见 [ARCHITECTURE.md](ARCHITECTURE.md) 第二节。
 
 ### 术语约定
 
-v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化、对比原文、检查（R101-R108）、收藏、评分、模板**。v2 的「字段、版本、试运行、评估、假设 chip」在界面与文档中禁用，代码残留至 Phase 6。
+v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化、对比原文、检查（R101-R108）、收藏、评分、模板**。v2 的「字段、版本、试运行、评估、假设 chip」在界面与文档中禁用，代码已在 Phase 6 清理。
 
 界面文案中文，禁止感叹号、禁止 em dash、禁止 emoji；未知值显示「—」不写 0；未评分显示「未评分」。
 
@@ -147,12 +144,7 @@ v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化�
 
 ## 5. 数据模型
 
-现状 Prisma + SQLite，12 个模型。v2 核心四个：
-
-- `Prompt`：一条提示词；`PromptVersion`：版本，`versionNo = 0` 为基线 v0（服务端 409 保护）
-- `Run`：一次试运行；`LlmCall`：一次模型调用，用量字段全部可空
-
-v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCHITECTURE.md 第三节），Phase 1 落地，只增不删；旧表保留可读到 Phase 6，删表前再备份。
+现状 Prisma + SQLite。v3 业务模型：**PromptRecord / PromptIteration / Template**（契约见 ARCHITECTURE.md 第三节），加上 `LlmCall` 调用账本与 `AppSetting` 设置键。十张 v2 旧表（`Prompt` / `PromptVersion` / `Run` / `EvalTask` 等）已无代码引用，已在备份 `data/app.db.bak-20261114-2027` 后删除；当前库只有上述五张表。
 
 ---
 
@@ -162,17 +154,17 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 **2. 密钥安全。** 密钥只存本机 SQLite 或环境变量，接口只回末四位，客户端产物零密钥字符串（构建期扫描）。任何改动不得引入第三方分析脚本或远程日志。
 
-**3. 迁移只增不删。** 无 `prisma/migrations/`，用 `db push`；Phase 6 删表前再备份。
+**3. 迁移只增不删。** 无 `prisma/migrations/`，用 `db push`；Phase 6 删表前已备份。今后破坏性 schema 变更仍需先备份并确认。
 
-**4. 冻结契约。** `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 冻结至 Phase 1 新模型落地。改 `package.json`、`prisma/schema.prisma` 需先确认。
+**4. 冻结契约。** `lib/llm/types.ts` 冻结；`lib/engine/schema.ts` 已在 Phase 6 删除。改 `package.json`、`prisma/schema.prisma` 需先确认。
 
-**5. v2 运行期约定（Phase 6 前有效）。** 流式只写 pending、修复写入不置脏（`origin: 'patch'`）、覆盖式补丁保留 dirty、v0 服务端不可改删。这些服务于八字段编辑器，v3 重写后随之退役，但在 v2 代码存活期间不得破坏。
+**5. v3 流式约定。** 中断保留已生成内容并标记「已中断」；失败轮不写入含半成品正文的迭代；修复追加新迭代，不覆盖历史。
 
 ---
 
 ## 7. 测试与验收
 
-- 基线以实测为准：2026-11-14 实测 906 条（88 文件），typecheck 零错误。
+- 基线以实测为准：2026-11-14 Phase 6 实测 537 条（59 文件），typecheck 零错误。
 - 集成测试共用独立 `data/test.db`，文件串行执行（共享同一 SQLite）。
 - 测试基线数在 v3 中会先增（Phase 1 新测试）后减（Phase 6 删旧测试），不追求数量，以 ROADMAP-V3 各阶段验收为准。
 - 视觉：改样式先看 `components/ui/` 与 `DESIGN.md`；改令牌跑 `pnpm check:contrast`；改 DESIGN.md 跑 design-parser。
@@ -182,8 +174,8 @@ v3 目标模型：**PromptRecord / PromptIteration / Template**（契约见 ARCH
 
 ## 8. 下一步（按 docs/ROADMAP-V3.md）
 
-1. **Phase 6：移除旧模块与收口（下一步）**：删除 v2 八字段 schema、引擎 API、`/eval` 页面、`lib/engine/schema.ts` 与 `modelEvaluate` 残留；删表前再备份 `data/app.db`；按 ROADMAP-V3 Phase 6 验收。
-2. Phase 1 到 5 已由 Batch A 到 H 完成（数据层、API、工作台、库、模板、设置与成本）。
+1. **接真实 ARK 密钥验证（下一步）**：流式 usage 落库、`reasoning_content` 不混正文、限流与额度错误码映射。
+2. Phase 1 到 6 已完成（数据层、API、工作台、库、模板、设置与成本、旧模块与旧表清理）；本地 AC 回归与 `pnpm e2e` 通过。
 
 约束：每个 Phase 独立提交；动 UI 先读 `DESIGN.md`；产品行为以 `PRODUCT.md` 为准。
 

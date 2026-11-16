@@ -108,7 +108,7 @@ export default async function SettingsPage() {
               <>
                 <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <Kpi label="本月费用" value={formatCny(month.costCny)} />
-                  <Kpi label="本月调用" value={formatNumber(month.calls)} />
+                  <Kpi label="本月调用次数" value={formatNumber(month.calls)} />
                   <Kpi
                     label="平均单次费用"
                     value={formatCny(month.averageCostCny)}

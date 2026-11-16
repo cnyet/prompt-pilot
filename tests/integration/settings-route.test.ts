@@ -131,6 +131,19 @@ describe('设置接口', () => {
     expect(JSON.stringify(body)).not.toContain(SECRET)
   })
 
+  it('短密钥只回省略号，不回显全文', async () => {
+    await saveLlmSettings({ apiKey: 'abc' })
+
+    const response = await getSettingsRoute()
+    const body = (await response.json()) as {
+      settings: { apiKey: { configured: boolean; hint: string | null } }
+    }
+    expect(response.status).toBe(200)
+    expect(body.settings.apiKey.configured).toBe(true)
+    expect(body.settings.apiKey.hint).toBe('…')
+    expect(JSON.stringify(body)).not.toContain('abc')
+  })
+
   it('PUT 校验失败返回 400 与可读原因', async () => {
     const response = await callPut({ baseUrl: 'ftp://example.com' })
     expect(response.status).toBe(400)

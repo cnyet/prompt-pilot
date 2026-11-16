@@ -4,13 +4,13 @@
 
 把一句话需求或一份已有提示词，变成可直接投产的 Markdown 提示词。只展示结果，不展示中间过程。
 
-**当前状态：v3「结果优先」重置进行中。** 数据与 API 层已是 v3（Batch A 到 D），工作台 UI 仍运行 v2 流程，下一步 Batch E 重写工作台。进度见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md)。639 条测试通过。
+**当前状态：v3「结果优先」已上线。** 数据层、API、工作台、提示词库、模板、设置与成本全部为 v3（Batch A 到 H）；Phase 6 完成，v2 页面、API、引擎与测试已移除，旧表已备份后删除，当前库保留五张表。进度见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md)。59 个文件 / 537 条测试通过。
 
 ## 文档索引
 
 | 文档 | 内容 | 什么时候看 |
 |---|---|---|
-| [PRODUCT.md](PRODUCT.md) | 产品定义：用户、四个缺口、生成与优化两条主路径、FR-1 到 FR-11、AC-1 到 AC-20、成功指标 | 想确认"做什么、不做什么"时 |
+| [PRODUCT.md](PRODUCT.md) | 产品定义：用户、四个缺口、生成与优化两条主路径、FR-1 到 FR-11、AC-1 到 AC-28、成功指标 | 想确认"做什么、不做什么"时 |
 | [DESIGN.md](DESIGN.md) | 设计系统：烛光羊皮纸材质、双主题令牌、工作台结果面、评分、库行、模板卡等组件规格 | 想确认"长什么样、怎么用"时 |
 | [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md) | v3 实施计划：Phase 0 到 6 共 16 人日、数据模型、SSE 协议、每阶段验收 | 想确认"先做什么、做到哪了"时 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技术方案：v3 数据模型、API、SSE 与元数据协议、diff、检查规则 | 想确认"怎么实现"时 |
@@ -64,12 +64,11 @@ pnpm dev                     # http://localhost:3100
 | `pnpm test` | 全量测试（独立测试库 `data/test.db`，不碰开发库） |
 | `pnpm db:push` | 同步 schema 到本地 SQLite |
 | `pnpm db:seed` | 写入或恢复 12 条内置模板（按 slug 幂等，可重复执行；需 Node >= 24） |
-| `node scripts/e2e-http.mjs` | HTTP 端到端，自带服务与清理 |
+| `pnpm e2e` | HTTP 端到端，自带服务与清理，使用隔离的 `data/e2e.db` |
 
 ## 接下来
 
-按顺序推进，细节见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md) 与 [docs/HANDOVER.md](docs/HANDOVER.md)：
+细节见 [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md) 与 [docs/HANDOVER.md](docs/HANDOVER.md)：
 
-1. Batch E：工作台 UI 重写（双模式、结果面、diff、继续优化，对应 Phase 2）
-2. Phase 3 与 Phase 4：提示词库与模板 UI
-3. Phase 5 与 Phase 6：设置与成本 UI，移除 v2 模块与收口
+1. Phase 6 已收口：旧表已备份并删除，保留 `AppSetting`、`LlmCall`、`PromptRecord`、`PromptIteration`、`Template` 五张表。
+2. 接真实 ARK 密钥验证流式 usage、`reasoning_content` 与错误码映射；AC-1 到 AC-28 回归与 `pnpm e2e` 已在本地通过。

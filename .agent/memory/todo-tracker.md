@@ -1,18 +1,22 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] Batch H：Phase 5 设置/成本。实现与全量验证完成（HEAD `2793ee4`：typecheck 0 / 906 用例 / build ✓ / contrast ✓ / harness 24-0-0 / CDP 22-22）| Priority: P0 | Created: 2026-11-14 | Next: 新会话派 `verifier` 验收 AC-12/13/14/17/26
+- 无。
 
 ## Pending
-- [ ] Phase 6 v2 清理（评估页/字段引擎/旧测试退役）| Priority: P2 | Created: 2026-11-14
+- [ ] 提交 Phase 6 全部未提交改动（用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
+- [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
 
 ## Blocked
 - 无。
 
 ## Done
+- [x] Phase 6：v2 清理与收口。Tasks 1-5 完成；harness 25-0-0 / typecheck 0 / 59 文件 537 用例 / build ✓ / e2e ✓ / contrast ✓ / 浏览器冒烟 ✓；最终 verifier Accept with minors，无 Critical/Important；旧表备份 `data/app.db.bak-20261114-2027` 后删除，保留五张表；未提交未 push | Completed: 2026-11-14
+- [x] Batch H 4 条 Minor 收口（设置页旧文案、KPI 标签、ARCHITECTURE 掩码示例、`maskKey` <4 字符边界）| Completed: 2026-11-14
+- [x] Batch H：Phase 5 设置/成本。实现 + 全量验证 + 独立 verifier 验收通过（Accept：AC-12/13/14/17/26 + Review Focus 8/8）；HEAD `f4d3749`；verifier 自跑 harness 24-0-0 / typecheck 0 / 906 用例 / build ✓ / contrast ✓ / AC-17 clean | Completed: 2026-11-14
 - [x] Batch F：提示词库 v3 UI（列表 + 详情抽屉 + 继续优化/修复 + v2 库删除）；final fix `618f0b2`；已本地合入 main（快进 `fc7ac2f` → `79a101d`），分支已删；merged main typecheck 0 / 83 文件 857 用例 / build ✓ / contrast ✓；未 push | Completed: 2026-11-14
 - [x] Batch E 合入 main（fast-forward `cdc8ebc` → `f48833d`），特性分支与 SDD 工作区已删；merged main typecheck 0 / 78 文件 832 用例 / harness 24 pass / 0 fail；未 push | Completed: 2026-11-14
 - [x] Batch E：studio-v3 UI 全量（i18n、Markdown/diff、R101-R108、流式、工作台、导航）；final review 后 fix wave `f48833d`，scoped re-review 11/11 ADDRESSED；typecheck 0 / 78 文件 832 用例 / harness 24 pass | Completed: 2026-11-13

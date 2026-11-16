@@ -13,7 +13,7 @@ describe('WORKSPACE_NAV', () => {
     expect(WORKSPACE_NAV).toHaveLength(4)
   })
 
-  it('不再包含评估入口，/eval 只保留 URL 可达', () => {
+  it('不再包含评估入口', () => {
     expect(WORKSPACE_NAV.some((item) => item.href === '/eval')).toBe(false)
   })
 

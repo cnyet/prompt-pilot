@@ -28,21 +28,21 @@ pnpm db:studio     # prisma studio
 ## Repository Layout
 
 ```text
-app/(workspace)/   五个主页面：studio / library / templates / eval / settings
-app/api/           engine（五阶段）、run、eval、prompts、models、templates 路由
-lib/engine/        Prompt 引擎：schema、compose、harden、refine、lint(R001–R016)、render、diff、export
-lib/llm/           LLM 适配层：ark / openai-compat / mock / SSE / 结构化修复重试
-lib/eval/          评估：成功标准逐条判定 + 基线 v0 盲评胜率
-components/        shell / studio / library / eval / settings / ui
+app/(workspace)/   四个主页面：studio / library / templates / settings
+app/api/           generate、records、templates、settings、stats 路由
+lib/engine/        v3 引擎：check(R101–R108) / diff / sse-v3 / stream-v3 / prompts / idempotency
+lib/llm/           LLM 适配层：registry / openai-compat / mock / SSE / structured / ledger
+lib/settings/      设置读取、参数继承与保存
+components/        shell / studio-v3 / library-v3 / templates-v3 / settings / ui
 prisma/            数据模型（SQLite）
-docs/              PRODUCT / DESIGN / ARCHITECTURE / ROADMAP / REVIEW / EXECUTION / HANDOVER + adr
+docs/              PRODUCT / DESIGN / ARCHITECTURE / ROADMAP-V3 / HANDOVER + adr
 scripts/           e2e-http.mjs 等脚本
 ```
 
 ## Platform Constraints
 
 - macOS 本地开发为主；无外部服务依赖（SQLite 落 `data/`）。
-- LLM 默认火山方舟（豆包），适配层可切任意 OpenAI 兼容端点；无 ARK_API_KEY 时走 L1 离线模板模式。
+- LLM 默认火山方舟（豆包），适配层可切任意 OpenAI 兼容端点；无 ARK_API_KEY 时生成与优化禁用并说明原因。
 - 密钥等敏感配置不进仓库；MCP 凭据不落明文。
 
 ## Release Or Deployment

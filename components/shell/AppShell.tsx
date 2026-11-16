@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 import { BrandMark } from '@/components/brand/BrandMark'
-import { ModelStatusBadge } from '@/components/studio/modelStatus'
+import { ModelStatusBadge } from '@/components/shell/modelStatus'
 import { CommandPalette } from './CommandPalette'
 import { IconButton } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
@@ -13,13 +13,10 @@ import { cn } from '@/lib/utils'
 import { t } from '@/lib/i18n/zh'
 import { WORKSPACE_NAV } from '@/lib/ui/nav'
 
-/** 顶栏 h1 取当前路由名；/eval 不在导航中，但保留页面标题。 */
-const PATH_LABEL: Record<string, string> = {
-  ...Object.fromEntries(
-    WORKSPACE_NAV.map((item) => [item.href, t(item.labelKey)]),
-  ),
-  '/eval': '评估',
-}
+/** 顶栏 h1 取当前路由名。 */
+const PATH_LABEL: Record<string, string> = Object.fromEntries(
+  WORKSPACE_NAV.map((item) => [item.href, t(item.labelKey)]),
+)
 
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
