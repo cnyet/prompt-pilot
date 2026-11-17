@@ -1,18 +1,13 @@
 # Todo Tracker
 
 ## In Progress
-- 无（会话预算上限已收口，PERSIST 后开新会话）。宽度一致性 + 部署影响面评估均已在 `522f25f` 提交并推送（HEAD == origin/main），旧「6 文件未提交 / 未 push」为过期信息，已消解。本会话完成部署前置范围选定（`部署前置（仅本地）`）与只读 `impact-mapper` 影响地图，未写产品文件 / 未跑 build / 未连服务器；方案拍板与实现顺延新会话，见 Pending。
+- 无（会话预算上限已收口，PERSIST + 记账 commit 后开新会话）。本会话完成 4 项拍板 → `devops-engineer` 单 writer 实现 8 文件 → 完整验证 → 独立 `verifier` **Reject**（1 Important / 2 Minor）。8 产品文件为未提交工作区改动，未 push、未部署。修复与复验顺延新会话，见 Pending 首项。详见 `session-summary.md` 2026-11-17「部署前置实现 + 独立验收 Reject」节。
 
 ## Pending
-- [ ] **新会话第一步**：把部署前置方案 + `ARK_API_KEY` 注入路径（§4.3）取舍建议交用户拍板（用户明确要拍板，不写成已决）；前置改动与密钥路径解耦，不阻塞落地 | Priority: P1 | Created: 2026-11-17
-- [ ] 定夺 3 项未决：standalone 与否、Prisma CLI 运行时方案（纳入生产依赖改锁文件 vs 独立初始化阶段）、Node 基础镜像 libc/OpenSSL + buildx/QEMU 能力 | Priority: P1 | Created: 2026-11-17
-- [ ] 方案确认后按 `spawn-prompts.md` 最小封套派 `devops-engineer`（唯一 writer，write_set 仅 Dockerfile / .dockerignore / scripts/docker-entrypoint.sh / package.json / pnpm-lock.yaml / next.config.ts / DEPLOYMENT.md §4,5,6,10 / HANDOVER.md §7 / runtime.md；不改 lib/llm/types.ts / DESIGN.md / .env，不部署 / 连服务器 / 注入真实密钥 / commit-push）| Priority: P1 | Created: 2026-11-17
-- [ ] 实现后完整验证 + 独立 `verifier` 验收（L/XL + 发布高风险，实现者不自签收）：harness / typecheck / test / diff --check / build（首次失败重试、不升级）/ 产物洁净门禁 / .dockerignore 覆盖 / standalone 产物与 Prisma 引擎收录；明确标注「只能在 Linux Docker 内实测、本轮不做」项并汇报已验证 / 未验证 / 残余风险 / 回滚 | Priority: P1 | Created: 2026-11-17
-- [ ] 定夺 `ARK_API_KEY` 注入路径：设置页录入 vs 服务器 root-only（0600）env 文件（文档 §4.3）| Priority: P1 | Created: 2026-11-16 | 取舍建议已写入 session-summary（倾向设置页录入为默认，路径 2 可选进阶），待用户拍板
+- [ ] **新会话第一动作**：resume `devops-engineer` 定向修复 verifier 的 Important（`Dockerfile:32` 去掉 `ARK_MODEL_OPTIMIZE` ENV，订正 `Dockerfile:26` 注释与 `DEPLOYMENT.md:134` 措辞，可顺带收 2 条 Minor）→ 独立 `verifier` 复验 → Accept 后由用户授权功能 commit/push；实现者不自签收 | Priority: P1 | Created: 2026-11-17
+- [ ] 上线前置（本轮按拍板 4 未做、均属未验证）：amd64 实机构建 + 镜像架构、容器首启 `db push`+seed+12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1/SIGTERM、hadolint | Priority: P1 | Created: 2026-11-17
+- [ ] 修复复验 Accept 且获功能 commit 授权后，按 `docs/DEPLOYMENT.md` §5 直连部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: verifier 未 Accept、无 commit 授权
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
-- [ ] 按 `docs/DEPLOYMENT.md` §4 补齐前置（Dockerfile + .dockerignore、产物洁净门禁、SQLite 绝对路径与挂载、密钥注入），再按 §5 直连步骤部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 密钥注入路径未定、前置未实施
-- [ ] 部署前置需一并解决本轮评估新发现的发布链路风险：首启 `db push` / `db:seed` 无启动钩子（`start` 仅 `next start`）；`prisma` CLI 是 devDependency 与「运行阶段只带生产依赖」矛盾；Linux 构建阶段必须重生成 Prisma 引擎（本机仅 darwin-arm64，generator 无 `binaryTargets`）；`next.config.ts` 无 `output: 'standalone'`；clean build 触发 Next.js 16.4.2 安全闸门首次失败需重试；本机 3100 占用与 `ssh -L 3100:...` 冲突；§5 step-7 增补 SSH 隧道下 SSE 长流探针 | Priority: P1 | Created: 2026-11-17 | Blocker: 前置未实施
-- [ ] 裁剪 `docs/DEPLOYMENT.md` §6 上线验证里的 390px / 移动底栏项，与用户「移动端显示排除验收」对齐（当前文档与验收范围冲突）| Priority: P2 | Created: 2026-11-17
 - [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
@@ -24,6 +19,10 @@
 - 无。
 
 ## Done
+- [x] 用户 4 项拍板（AskUserQuestion，均 recommended）：`ARK_API_KEY` 设置页默认 + 0600 `--env-file` 可选 + 设置页优先；非 standalone + `prisma` CLI 入 dependencies + `next start -p 3100`；`node:24-bookworm-slim` / linux/amd64；验证仅静态+本地不起 Docker | Completed: 2026-11-17
+- [x] 部署前置实现（`devops-engineer` 唯一 writer，8 文件**未提交**）：新建 Dockerfile / .dockerignore / scripts/docker-entrypoint.sh（0755）；改 package.json + pnpm-lock.yaml（prisma 6.19.3 devDeps→deps）、DEPLOYMENT.md §4/5/6/10、HANDOVER.md §7、runtime.md；§6 390px 验收裁剪已做 | Completed: 2026-11-17
+- [x] 完整验证 + 独立 `verifier`（L/XL + 发布高风险）：typecheck 0 / 59 文件 537 用例 / harness 23-1（既存本卡 4601/4096 字节，非回归）/ `sh -n` / `git diff --check` clean / `pnpm build` 首次 SecurityFatalError 重试同命令 exit0；verdict **Reject**（1 Important `Dockerfile:32` 固化 `ARK_MODEL_OPTIMIZE` 破坏 FR-8.3 回落 + 2 Minor，其余 11 条 PASS）| Completed: 2026-11-17 | **未修复、未复验、未自签收、未提交产品文件**
+- [x] 会话预算上限收口 PERSIST：ACTIVE_CONTEXT 瘦身到 3980B（修掉唯一 harness fail）、session-summary 追加本节、todo 更新、handoff 5 问补齐、`memory-archive.mjs --persist-round`、记账类 memory commit（不 push）| Completed: 2026-11-17
 - [x] 会话预算上限收口 PERSIST：纠偏状态卡（宽度 6 文件 + 部署文档均已在 `522f25f` 提交推送，HEAD==origin/main；旧记录里所有「未提交未 push」字样就此失效）；追加本会话 session-summary 节、补齐 handoff 5 问、跑 `memory-archive.mjs --persist-round`、记账类 memory commit（不 push）| Completed: 2026-11-17
 - [x] 部署前置范围选定（用户选「部署前置（仅本地）」）+ 只读 `impact-mapper` 影响地图（task ab8a6761d897ae0b0）：新建/条件改文件清单、构建契约链、arm64→amd64 架构错配、standalone/Prisma CLI/密钥未决项、产物洁净性与 SSE 验证建议；未写产品文件 / 未跑 build / 未连服务器 / 未派实现者 | Completed: 2026-11-17
 - [x] 部署到服务器的影响面评估（只读）：未连服务器 / 未改文件 / 未部署；结论服务器影响面小且隔离（回环 3100 + 1 容器 + 1 宿主目录 + 1 SSH 隧道），风险集中在发布链路。查明 Dockerfile/.dockerignore 缺位、首启无初始化钩子、Prisma 引擎跨平台（仅 darwin-arm64）、无 standalone、Next.js 16.4.2 构建安全闸门、本机 3100 与 SSH 隧道端口冲突、§6 390px 验收与移动端排除冲突。见 `session-summary.md` 2026-11-17 同节 | Completed: 2026-11-17

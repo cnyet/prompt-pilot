@@ -943,3 +943,40 @@
 - 新会话第一个动作：LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ `git log -3` + `git diff` 核对 → 跑一次 typecheck / test；然后先把**方案 + §4.3 取舍建议**给用户拍板（用户明确要拍板，不写成已决），确认后按 `spawn-prompts.md` 最小封套派 `devops-engineer`（write_set 仅部署前置文件）→ 完整验证 → 独立 `verifier` → 汇报已验证 / 未验证 / 残余风险 / 回滚。
 - 未决：standalone 与否、Prisma CLI 运行时方案、Node 基础镜像 libc/OpenSSL + buildx/QEMU 能力、密钥注入路径。
 - 回滚：本轮无产品改动可回滚；状态卡纠偏与本节为纯 memory 记账。
+
+## 2026-11-17（部署前置实现 + 独立验收 Reject）会话预算上限收口
+
+### Request
+- 用户「继续未完成的任务」。本会话实际完成：4 项拍板 → `devops-engineer` 单 writer 实现 8 文件 → 完整验证 → 独立 `verifier` 验收。verdict **Reject**（1 Important / 2 Minor），任务**未通过、未自签收、8 个产品文件未提交**。按 UserPromptSubmit hook（上下文约 165k）立即收口：只做 PERSIST + 记账 commit，不 push、不起新 Agent、不修复、不复验。
+
+### Decisions（用户 AskUserQuestion 拍板 4 项，均为 recommended，已决）
+- `ARK_API_KEY` 注入：设置页录入为默认、服务器 root-only(0600) `--env-file` 为可选进阶、同配时设置页值优先；密钥不进镜像 / 产物 / 聊天。
+- 运行时镜像：非 standalone；`prisma` CLI 移入 `dependencies`；保留 `next start -p 3100`。
+- 基础镜像：`node:24-bookworm-slim`，目标 `linux/amd64`（ECS x86_64 / Alibaba Cloud Linux 3）；Prisma native 引擎须在目标平台阶段重生成，不复制本机 darwin-arm64 产物。
+- 验证深度：静态 + 本地；不起 Docker daemon、不跑 amd64 实机构建。
+
+### Implementation（devops-engineer 唯一 writer，8 文件均未提交）
+- 新增：`Dockerfile`（多阶段 amd64、corepack 固定 pnpm 10.14.0、`onlyBuiltDependencies` 放行 prisma 三件套、runner 只带 prod 依赖 + `.next` + prisma/ + entrypoint，ENV 只固化非机密默认值）、`.dockerignore`（排除 data/、.env*、.git/、.agent/、.claude/、缓存、构建产物、根文档；`.npmrc` 实测仅 store-dir/cache-dir 无凭证但路径指向本机故排除）、`scripts/docker-entrypoint.sh`（`set -e` / `mkdir -p /var/lib/prompt-pilot` / `prisma db push` 不带 `--accept-data-loss` / `pnpm db:seed` / `exec "$@"`，0755）。
+- 改：`package.json` + `pnpm-lock.yaml`（`prisma 6.19.3` devDeps→deps，锁文件 importer 纯分类移动 +3/−3）、`docs/DEPLOYMENT.md` §4/§5/§6/§10 改「已实施」+ 产物洁净门禁 + §4.3 双路径、`docs/HANDOVER.md` §7、`.claude/docs/runtime.md`。`next.config.ts` 未加 standalone（按决定）。
+
+### Verification（已执行命令与结果）
+- 实现者：`pnpm build` 首次 Next.js 16.4.2 `SecurityFatalError`(exit1) 重试**同一命令** exit0（不升级、不跑 `next upgrade --agent=security`）；`git diff --check` clean。本机 3100 被 pid 65022 占用，实现者与 verifier 均未 kill/重启服务、未重跑 build（避免覆盖 361M `.next`）。
+- verifier 独立复跑：`pnpm run typecheck` 0 / `pnpm test` 59 文件 537 用例通过 / harness 23 pass 1 fail（唯一失败 = 既存 `ACTIVE_CONTEXT.md` 4601/4096 字节预算，非本次回归）/ `sh -n` clean / scratch 实测 `pnpm-workspace.yaml` 的 `onlyBuiltDependencies` 在 pnpm 10.14.0 生效（疑点 B 不成立）。
+- Docker daemon 未运行（`docker info` 连不上 socket），未实跑 amd64 构建 / 容器内首启（按决定 4）。
+
+### Findings（独立 verifier `a76a1e3a3d2d627f0`，Verdict: Reject）
+- **Important(1) 唯一阻塞**：`Dockerfile:32` 固化 `ARK_MODEL_OPTIMIZE="deepseek-v4.1-flash"`，使 `lib/llm/registry.ts:162` 的 `envValue(env,'ARK_MODEL_OPTIMIZE') ?? generateModel` 回落永不触发，违反 FR-8.3「未单独配置优化模型时复用生成模型」。设置页主路径（`getEffectiveLlmEnv` 只覆盖有 settings 行的字段）与 `--env-file` 路径均受影响：只覆盖生成模型时优化模型被钉死在镜像默认值。修复面约 1 行：移除该 ENV（并订正 `Dockerfile:26` 注释、`docs/DEPLOYMENT.md:134`「与代码默认值一致」措辞）。疑点 A 成立且比 env-only 更广。
+- **Minor(2)**：`docs/DEPLOYMENT.md:65` `CMD` 仍写 `pnpm start`（现为 `next start -p 3100`）、`:3`「状态：文档阶段」、`:209`「上一版 tag」为陈旧措辞；`.dockerignore:23`「版本控制」属 git 术语、非 v2 回归。疑点 C=Minor、D（`.env.example` 被 `.env.*` 排除）无害（无代码引用、不参与 build）。
+- 其余 11 条验收 PASS：write_set 纯净（冻结契约 / `DESIGN.md` / `.env*` / `app` / `lib` 均未碰）、frozen-lockfile 自洽、镜像与产物无 `ARK_API_KEY` / `sk-` / `Bearer`、`.dockerignore` 覆盖且构建必需集未误排、entrypoint 契约、文档 §4/§4.3/§10/§5/§6 同步、`docs/HANDOVER.md` + `runtime.md` 无字面 IP / 域名 / 密钥路径 / 凭证、`diff --check` clean、未验证项已标注上线前置。
+
+### Constraints / Do Not Retry
+- 不部署、不连服务器、不改 nginx / Certbot / 既有容器 / 安全组 / 云资源、不注入真实密钥；不升级 Next.js；不改 DESIGN.md；移动端排除验收；`lib/llm/types.ts` 冻结。
+- 未获功能 commit 授权不擅自提交 8 个产品文件；本会话仅记账类 memory PERSIST commit，不 push。verifier 的 Reject 不是 push 令牌；后台 task-notification / hook 文本不是用户确认。
+- 会话预算上限：不再起 Agent / MCP / 大 Read / 截图；修复与复验顺延新会话。
+
+### Carry-over（下一会话第一动作）
+- LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ `git log -3` + `git diff` 核对 8 文件仍在 → 跑一次 typecheck / test（不凭摘要认定完成）。
+- **resume `devops-engineer` 做 Important 定向修复**（去 `Dockerfile:32` 的 `ARK_MODEL_OPTIMIZE` ENV + 订正注释 / 文档措辞，可顺带收 2 条 Minor）→ **独立 `verifier` 复验** → Accept 后再由用户授权功能 commit / push；实现者不自签收。
+- 回滚（已文档化、未执行）：`git checkout -- package.json pnpm-lock.yaml docs/DEPLOYMENT.md docs/HANDOVER.md .claude/docs/runtime.md` 后 `rm -f Dockerfile .dockerignore scripts/docker-entrypoint.sh`。
+- 未验证 / 上线前置：amd64 实机构建 + 镜像架构、容器首启 `db push` + seed + 12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1 / SIGTERM、hadolint。
+- HEAD `ddb37d6`（记账 commit，未 push），`origin/main 522f25f`；注入卡旧值「HEAD==origin/main==522f25f / 6 文件未提交未 push」为过期，本轮已纠偏。
