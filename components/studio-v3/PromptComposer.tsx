@@ -45,6 +45,7 @@ export interface PromptComposerProps {
  * 模式 tabs 置于卡片顶部（优化在前，默认选中优化），两侧草稿互不影响；
  * 目标类型只在生成模式出现。主输入面在 960px 单列里尽量放大。
  * ⌘Enter 提交、Esc 停止；输入法合成中不触发提交。进行中主按钮原位切换为停止；
+ * 两份草稿同时只读，输入面退到 sunken 层，底部给出进行中的状态信号；
  * 没有可用模型时禁用主操作，就地说明原因并给出设置入口，绝不伪造输出。
  */
 export function PromptComposer({
@@ -72,6 +73,8 @@ export function PromptComposer({
   const submitDisabled = invalid || active
 
   function updateDraft(patch: Partial<ComposerDraft>) {
+    // 只读期间不改写草稿：正文仍可选中复制，但输入与目标类型都不再变化。
+    if (active) return
     if (state.mode === 'generate') {
       onChange({
         ...state,
@@ -86,6 +89,7 @@ export function PromptComposer({
   }
 
   function handleModeChange(value: string) {
+    if (active) return
     if (value !== 'generate' && value !== 'optimize') return
     if (value === state.mode) return
     onChange({ ...state, mode: value })
@@ -134,13 +138,23 @@ export function PromptComposer({
   return (
     <section
       aria-label={t('studio.mode.label')}
+      aria-busy={active || undefined}
+      data-active={active || undefined}
       className="flex flex-col rounded-panel border border-line bg-surface shadow-sm"
     >
       <div className="px-5 pt-2">
         <Tabs
           items={[
-            { value: 'optimize', label: t('studio.mode.optimize') },
-            { value: 'generate', label: t('studio.mode.generate') },
+            {
+              value: 'optimize',
+              label: t('studio.mode.optimize'),
+              disabled: active,
+            },
+            {
+              value: 'generate',
+              label: t('studio.mode.generate'),
+              disabled: active,
+            },
           ]}
           value={state.mode}
           onValueChange={handleModeChange}
@@ -163,7 +177,9 @@ export function PromptComposer({
                 key={option.value}
                 selected={draft.targetType === option.value}
                 aria-pressed={draft.targetType === option.value}
+                aria-disabled={active || undefined}
                 onClick={() => updateDraft({ targetType: option.value })}
+                className={cn(active && 'cursor-not-allowed opacity-40')}
               >
                 {t(option.labelKey)}
               </Chip>
@@ -196,6 +212,7 @@ export function PromptComposer({
             value={draft.sourceInput}
             onChange={(event) => updateDraft({ sourceInput: event.target.value })}
             onKeyDown={handleKeyDown}
+            readOnly={active}
             placeholder={
               state.mode === 'generate'
                 ? t('studio.source.generatePlaceholder')
@@ -241,6 +258,7 @@ export function PromptComposer({
                 updateDraft({ instruction: event.target.value })
               }
               onKeyDown={handleKeyDown}
+              readOnly={active}
               placeholder={t('studio.instruction.placeholder')}
               invalid={instructionOver}
               aria-describedby={instructionCountId}
@@ -277,9 +295,24 @@ export function PromptComposer({
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-caption text-ink-faint">
-            {t('studio.hint.shortcuts')}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-caption text-ink-faint">
+              {t('studio.hint.shortcuts')}
+            </p>
+            {active ? (
+              // 只读期的状态信号：圆点只动 opacity，文字承担语义，不靠颜色单独表达。
+              <p
+                role="status"
+                className="rise flex items-center gap-2 text-caption text-ink-muted"
+              >
+                <span
+                  aria-hidden
+                  className="now-pulse size-1.5 shrink-0 rounded-full bg-accent"
+                />
+                {t('studio.composer.generating')}
+              </p>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             {active ? (
               // 进行中原位切换为停止：两个分支都是同一位置的 Button，React 调和

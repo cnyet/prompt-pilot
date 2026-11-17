@@ -712,3 +712,152 @@
 ### Carry-over
 - 用户确认后统一提交三连 + Phase 6 累积改动，并删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区。
 - 接真实 ARK 密钥端到端。4 条 deferred minors 仍未处理。
+
+## 2026-11-16（阿里云部署文档，仅文档阶段）
+
+### Completed
+- 用户说「本项目将部署到阿里云服务器，先编写部署文档，部署工具用 `~/agents/skills/qianwenai-deploy`」。新增 `docs/DEPLOYMENT.md`（253 行）+ README 文档索引一行。**未部署、未建云资源、未装 CLI、未提交/未 push**。
+- 路径纠正：工具真实位置 `~/.agents/skills/qianwenai-deploy`（带前导点），`~/.openclaw/skills/qianwenai-deploy` 是其软链；用户给的路径少了点。
+- 文档覆盖：适用范围与国内站限定、三种模式、14 步硬门禁、项目画像（APP_NAME `prompt-pilot` / app_port 3100 / nginx_mode proxy / 无 RDS 跳过步骤 5）、四项项目侧前置改动、上线验证、热更新/释放、费用、未决项。
+- 核验：`git diff --check` clean；README 12 条本地链接 0 broken；`data/` 为 app.db 831488B + 4 个备份；`prisma/seed.ts` 确认 12 条模板按 slug `upsert` 幂等；`aliyun` CLI 仍 absent；无 `.qianwenai-deploy*` 状态文件。逐条重验了 skill 模板声明（systemd.sh Node 20 + `yarn install --production` 且无 build；nginx_proxy.sh `proxy_read_timeout 60s` / 无 `proxy_http_version 1.1` / `/healthz` 桩；docker.sh `docker run --rm` 无卷且 `--env-file` 仅 RDS 路径；ros_single.yaml AppPort 默认 8080、SG 80/443 `0.0.0.0/0`；upload_artifacts.py 排除表不含 `data/`/`.env*`）。
+- doc-only 任务，**未重跑** typecheck / test / harness（上一阶段 2026-11-16 全绿：537/537、harness 25-0-0）。
+
+### Key Decisions / Rulings
+- **不能直接用内置 systemd+node 路径**：装 Node 20（项目要 >=24）、`yarn install --production` 跳过 prisma/tailwind 等 devDeps、完全不跑 `prisma generate`/`next build`/`db push`/`db:seed`，`next start` 无 `.next/` 必失败。建议补多阶段 Dockerfile 走 `--app-type docker --app-mode docker-image`；**Dockerfile 本次未创建**（工具不改用户代码，且需用户确认后单独阶段）。
+- **产物洁净性**：`upload_artifacts.py` 排除表不含 `data/` 与 `.env*`；`data/app.db` 含记录正文与设置页保存的 `ARK_API_KEY`（FR-8.1），从仓库根打 binary 包会送进临时 OSS 桶。docker-image 模式产物仅 image.tar，天然规避；binary 模式必须改用干净暂存目录。compose 模式还会自动加载 `/opt/qianwenai/.env`。
+- **SQLite 持久化**：docker.sh `docker run --rm` 不挂卷、systemd 热更新整体 `mv /opt/qianwenai`，两者都丢库。决策改绝对路径 `file:/var/lib/prompt-pilot/app.db` + 宿主目录挂载，路径在应用目录之外；ECS 系统盘是唯一副本，释放前必须备份。
+- **密钥注入缺口**：跳过 RDS 后 `docker.sh` 不再有 `--env-file`，systemd.sh 的 `EnvironmentFile` 也只在 RDS 场景填充。镜像只固化非机密默认值；`ARK_API_KEY` 走设置页录入（落到持久化库）或 ECS 本机 `/etc/qianwenai/db.env`（0600）+ 改造单元；不进镜像/产物/聊天。
+- **公网暴露是实质风险**：工具只给 HTTP、不做域名/HTTPS，SG 对 `0.0.0.0/0` 开 80/443，而产品无鉴权且设置页可写密钥、可删全部记录。文档列为部署前必须决策项（收紧 SourceCidrIp / 前置鉴权 / 仅内网）。
+- `.claude/docs/runtime.md` 仍写「无部署流水线」，本次为控范围**未改**，列为待同步项。
+
+### Pitfalls
+- 本轮两次 `.env.example` 读取被权限策略拒绝（上一阶段），**未重试、未绕过**；环境变量名以 `docs/HANDOVER.md` 84-94 节与 `lib/llm/registry.ts` 为准，`.env.example` 内容记为未验证项。
+- Nginx `/healthz` 是 `nginx_proxy.sh` 的桩，恒返 200，不代表应用就绪；步骤 12 的 `app: manual` 云助手核验不可省。
+- 服务端 SSE 已带 `X-Accel-Buffering: no` / `no-cache, no-transform`，nginx 不缓冲；但 `proxy_read_timeout 60s` 且未设 `proxy_http_version 1.1`，长流仍需实测。
+
+### Carry-over
+- 部署前补齐四项：Dockerfile + .dockerignore、产物洁净门禁、SQLite 绝对路径与挂载、公网鉴权方案；之后按 1-14 步实际部署（需 `aliyun` CLI 3.x + OAuth + RAM + 步骤 9 费用确认）。
+- 用户确认后统一提交累积改动（含本轮 DEPLOYMENT.md 与 README 索引行）。
+
+## 2026-11-16（部署文档补充：现有 ECS 与环境变量核验）
+
+- 用户补充：连接方式 `ssh -i <本地密钥路径> root@<ECS 公网 IP>`，并说明「环境变量已补充阿里云信息」。具体路径与公网 IP **不写入仓库文档与 memory**（避免随提交外发），文档只留占位符。
+- 本地只读核验（未读取任何凭证内容）：SSH 私钥存在、权限 600、411 B；仓库 `.env` 从 35 B 增至 168 B；当前 shell 中阿里云相关变量 **0 个**；`aliyun` CLI 仍 absent；无 `.qianwenai-deploy*`。结论：补充信息**未导出到 CLI 进程环境**，步骤 1 仍阻塞。
+- 又一次涉及 `.env` / profile 的 Bash 命令被权限策略拒绝，**未重试、未绕过**；`.env` / `.env.example` 内容继续记为未验证项。
+- `.env` 当前权限 `644`，含云凭证应为 `600`；本轮未改（配置改动需备份→改→校验，属另开阶段）。
+- **新增未决项**：qianwenai-deploy 全栈部署经 ROS 新建 ECS/EIP，**不会复用**这台已有服务器。若目标是装到现有 ECS，需改走直连部署；文档 §6 的 1-14 步与 §9/§10 的费用、释放描述都基于「新建资源栈」。
+- 文档更新：`docs/DEPLOYMENT.md` 增 §3.1、§6 步骤 1 与 §11 两行，共 285 行；`git diff --check` clean；仓库内确认无字面 IP / 密钥路径。
+- 待用户定夺：新建 ROS 栈 vs 复用现有 ECS；是否现在 SSH 只读核验服务器环境（属 outward-facing 动作，未获明确授权前不连）。
+
+## 2026-11-16（部署目标定为复用现有 ECS + 服务器只读核验）
+
+- 用户选定「复用现有 ECS」（不走 ROS 新建栈）＋「是，只读核验」。据此把 `docs/DEPLOYMENT.md` 整体重写为直连部署方案（196 行），README 索引行同步改文案。
+- **qianwenai-deploy 不适用于本目标**：全栈会新建 ECS/EIP，热更新需 `.qianwenai-deploy` 状态，删除走 `delete_stack.sh`，都作用到新建资源上。文档改为「本地 build → `docker save` → scp → `docker load` → 容器 + nginx 独立 server block」，只沿用工具对产物洁净/密钥/探活的约定。无新增云资源，无步骤 9 费用门禁，不用 `delete_stack.sh`。
+- 服务器只读核验（两次 SSH，未改动服务器、未输出凭证值）：Alibaba Cloud Linux 3 / root；**Node、npm、yarn absent**；pnpm 10.28.2；Docker 26.1.3 + Compose v2.27.0；nginx 1.24.0；git 2.43.7；sqlite3 3.26.0；`aliyun` CLI 3.3.14；磁盘 40G 用 28G 剩 11G（73%）；内存 1.8Gi 可用 1.2Gi。
+- 端口/既有服务：80/443 由 nginx 占用（IPv4+IPv6），3100 无监听（curl 80→404、443→400、3100→000）；已有容器 `community-affairs`（`0.0.0.0:3001->3000`）与 `community-db`（`postgres:16-alpine`，`127.0.0.1:5432`）；nginx 已有 `server_name <既有域名>` + `proxy_pass http://127.0.0.1:3001`，443 SSL 由 Certbot 管理。**必须共存，不得改动**。
+- 云端凭证：服务器非交互与 login shell 中阿里云相关变量 0 个（首次粗筛的 `alias` 行是 `which` shell 函数误匹配，已用纯变量名复核）；`aliyun configure get region` 未设置；`sts GetCallerIdentity` 无有效身份响应；`/root/.aliyun` 存在但凭证未就绪。直连部署不依赖 `aliyun` CLI。
+- 硬约束推导：宿主无 Node + 内存 1.8Gi → `next build` 放本地；应用走 `127.0.0.1:3100` 只由 nginx 反代；SQLite 绝对路径 `/var/lib/prompt-pilot/app.db` + bind mount；nginx 需 `proxy_http_version 1.1` / `proxy_buffering off` / `proxy_read_timeout >=120s`。
+- 仓库文档与 memory 均未写入字面公网 IP、密钥路径、既有域名（避免随提交外发），已 grep 确认。
+- 核验：`git diff --check` clean；README 链接 0 broken；`docs/DEPLOYMENT.md` 196 行。本轮仍 doc-only，未重跑 typecheck/test/harness。
+- 待用户定夺：新站域名/HTTPS 证书覆盖、公网鉴权方案、`ARK_API_KEY` 注入路径；实施 Dockerfile + nginx 共存配置。
+
+## 2026-11-16（卸载不再使用的全栈部署技能）
+
+- 用户确认「已用不到就删除」。按可逆原则执行：先把 `~/.agents/.skill-lock.json` 备份到 `~/.agents/skills-archive/20261116-qianwenai-deploy-uninstall/.skill-lock.json.before`，再把技能目录 `mv` 进同一归档、删除 `~/.openclaw/skills/` 下软链，最后从安装锁移除 `qianwenai-deploy` 条目。**归档保留，未硬删除**：36 个技能文件 / 181577 B，可原路回滚。
+- 同源 `qianwenai-observe` 与 `qianwenai-operate` **未删**（用户只点名 deploy）；二者说明依赖 `.qianwenai-deploy` 状态文件，deploy 卸载后可能不可用，待用户明确是否一并移除。
+- 仓库侧：`docs/DEPLOYMENT.md` 重写为不依赖该工具的直连方案（189 行），清掉 §1/§2/§4/§5/§7/§8/§9/§11 全部工具与脚本名引用；README 索引行本就无引用，未改。此前各节的历史记录保留原样，属于当时的选型记录，不回写。
+- 核验：`git diff --check` clean；README 本地链接 0 broken；README/docs 无工具引用；无字面 IP/域名/密钥路径；lock JSON valid（v3 / 34 技能 / deploy 已移除 / observe、operate 在）；两安装路径 gone；归档 37 文件（含锁备份）；技能树 sha256 `5faa581fdb2b50318c0111baad09148e09af2b9283bc93e5611f14ec46806809`、改后锁 sha256 `35389b7c2e44dd1c3936fb5f1f98ab24ace1f5affb8904de4b7d5ccd9606c403`（tree hash 按「相对路径+内容」流式算法复核一致）。
+- 有效冒烟：`openclaw skills list --agent main --json` 列出 113 个技能，**无名为 `qianwenai-deploy` 的项**；observe/operate 仍在，但 `blockedByAgentFilter=true` / `modelVisible=false`。此前不带 `--agent` 的 `skills list --json` 实际返回 `cli_error`（多 agent 需显式 owner），那次「deploy 未出现」属无效证据，已作废更正。
+- 回滚：把归档内 `qianwenai-deploy` 移回 `~/.agents/skills/`、重建 `~/.openclaw/skills/qianwenai-deploy` 软链、用 `.skill-lock.json.before` 覆盖当前锁文件。
+- 本轮未改产品代码，未重跑 typecheck/test/harness；未部署、未连服务器、未创建云资源、未提交、未 push。
+
+## 2026-11-16（impeccable polish：工作台生成中输入锁定与过渡）
+
+- 用户要求：`/impeccable polish 工作台输入框应该增加正在生成中的过渡效果，并且禁止输入`。Operate 模式，沿用既有羊皮纸/烛光世界，不换设计语言。
+- 改动只落两个文件：`components/studio-v3/PromptComposer.tsx` + `lib/i18n/zh.ts`（新增 1 键 `studio.composer.generating`）。进行中（`isRequestActive(phase)` = starting/streaming/canceling）时：两份草稿 `readOnly`（非 `disabled`，保留选中复制、不丢焦点）、`updateDraft` / `handleModeChange` 提前 return、Tabs 两项 `disabled`、目标 chip `aria-disabled` + `opacity-40` + `cursor-not-allowed`、section `aria-busy` / `data-active`、底部 `role="status"` 的 `.rise` 文字 + `.now-pulse` 金色圆点。输入面靠 `Input.tsx` 既有 `read-only:bg-bg-sunken` + `transition-colors duration-150` 退到凹陷层。
+- 刻意不加进度条、金线、常驻 glow：PRODUCT.md 禁「进度仪式」，DESIGN.md 有 One Candle / State-Only Glow；状态用文字 + 圆点双编码（Semantic Pair Rule），动效只动 opacity。
+- 浏览器实测（3101 隔离 dev server + `MOCK_LLM_FAULT=slow_stream` 10s 首字延迟 + 独立 `data/pp-ui-smoke.db`；3100 旧生产构建未动）：idle 两份 textarea 可编辑、tabs 启用、无状态文案；active 两份 `readOnly=true` 且草稿保留、tabs 禁用、状态文案「正在生成，输入已锁定」+ `pp-now-pulse` 圆点、`aria-busy=true`、主按钮原位变「停止」；浅色 read-only 底 `#eadfc8` / 深色 `#120a06`（`--bg-sunken` 深浅各正确，先前一次异常读数是 `transition-colors` 未 settle 的中间值）；生成模式三个目标 chip 全 `aria-disabled=true` 且点击后 `aria-pressed` 不变（守卫生效）；390×844 无横向溢出（`scrollWidth==clientWidth==390`），状态文案与快捷键同行不挤。深浅 + 窄屏截图均已阅。
+- bsk 用法补记：`evaluate` 需有效 `--context`，页面异步变化用 `--unverified` 并在脚本内自检前置条件；`emulate` 需 sync 的顶层 `observation_id`（`--observation`）；找主按钮须排除 `[role="tab"]`（tab 也是 `<button>`，文字同为「优化」）。
+- 核验：`pnpm run typecheck` 0 错误；`pnpm test` 59 文件 / 537 用例；harness `status pass` 24-0-0；`impeccable detect --json` → `[]`；`git diff --check` clean；3100 `/studio` 仍 200，3101 已停，bsk session 已 close，临时 DB/脚本/截图已删。
+- 未验证：真实网关密钥端到端（无密钥）；未重跑 `pnpm build`（本轮纯客户端状态，typecheck + 浏览器已覆盖）；`.env` 权限阻塞项未重试；未提交 / 未 push / 未部署 / 未建云资源。
+- 回滚：`git restore components/studio-v3/PromptComposer.tsx lib/i18n/zh.ts` 会把前几轮未提交的 polish 改动一并回退；更稳的是用 `git diff` 单独剔除本轮新增块。
+
+## 2026-11-16（部署范围定夺：不对外开放、仅自用、暂不申请域名）
+
+### Completed
+- 用户定：「本项目不对外开放，只是自用，暂不申请域名」；追问部署形态后选「仍上 ECS，仅本机可达」（三选项中的推荐项）。据此把 `docs/DEPLOYMENT.md` 从「nginx 独立 server block 反代」收敛为私网方案，README 文档索引行同步。
+- 消解两项 P0 未决：新站域名/子域/HTTPS 证书覆盖、公网鉴权方案。§7 原「公网可达意味着任何人都能耗用额度、读写删数据」的前提不再成立；§10 决策状态表新增「已决」三行与「将来对外开放的前置」一行。
+- 文档侧改动：§1 结论加范围声明、§2 硬约束 2 与 nginx 段、§3 整节（SSH 本地端口转发 `ssh -N -L 3100:127.0.0.1:3100 <host>`、SSE 不经反代）、§4.3 保留待定、§4.4 去掉「专用 nginx block」、§5 步 6/7/8、§6 探活与 SSE、§7 整节、§8 回滚/卸载去掉 nginx 步骤、§10 表。原文备份 `/tmp/DEPLOYMENT.md.bak-20261116`（sha256 `508f9fe3293676dd22bfecf1ad616016d365e4d757b476fc00930570d2ca0a5e`）。
+- 决策按 conversation-accuracy-skill PERSIST 落盘：ACTIVE_CONTEXT / todo-tracker / 本节 + `memory-archive.mjs --persist-round`。
+
+### Key Decisions
+- 保留「复用现有 ECS 直连」不变，只改对外面：容器 `127.0.0.1:3100:3100`，本机 SSH 隧道访问；不新增 nginx server block、不备份/改/reload nginx、不动既有域名 443 与 Certbot。理由：既有服务必须共存，私网自用无需反代层，改动面最小。
+- 「暂不申请域名」按可逆处理：§3/§7/§10 写明将来对外开放需另开阶段补域名、证书覆盖、公网鉴权与 nginx 共存方案；本阶段不做、也不删掉相关知识。
+- 不替用户决定 `ARK_API_KEY` 注入路径（设置页录入 vs 0600 env 文件，§4.3 两条保留），仍列为剩余唯一决策。
+
+### Verification
+- doc-only：未重跑 typecheck/test（上一阶段 537/537 全绿）；本轮跑了 `harness-check.mjs`：首测 23-1-0（`ACTIVE_CONTEXT.md` 4132B 超 4KB 预算），备份后瘦身至 4009B，复测 24-0-0。
+- `git diff --check` clean；README 本地链接 0 broken；文档内无字面公网 IP / 真实域名 / 密钥路径 / 凭证值（占位符 `<host>`、`<既有域名>` 不算）；空白字符与末尾换行 0 处问题。
+- PERSIST 归档门禁先 dry-run 再实跑：`overBudget` / `archived` / `changed` 均为空，仅递增轮次；未触发历史归档。
+- 未部署、未连服务器、未建云资源、未提交 / 未 push。
+
+### Carry-over
+- 剩余决策仅 `ARK_API_KEY` 注入路径；之后按 §4 补 Dockerfile/.dockerignore/产物门禁/SQLite 挂载，再按 §5 部署（用户确认后另开阶段）。
+- 回滚：`cp /tmp/DEPLOYMENT.md.bak-20261116 docs/DEPLOYMENT.md`（sha256 `508f9fe3…`）；状态卡瘦身前版本 `/tmp/ACTIVE_CONTEXT.md.bak-20261116`（sha256 `8c60cd1a…`）；README/todo-tracker 用 `git diff` 单独剔除本轮块。
+
+## 2026-11-17（/impeccable layout：模板页卡片统一 + 项目级插件启用）
+
+### Completed
+- 用户请求 `layout 建议【模版】页面列表卡片尺寸和样式保持一致`；结构化提问后选「尺寸统一，留一条金边（推荐）」：三类卡等宽等高、封面统一比例、移除 featured 跨列，只保留 featured 的 2px 金色顶边。Operate 模式，空间论点为「等价条目线性浏览」。
+- 三处 UI 文件：`components/templates-v3/TemplateCover.tsx` 导出 `COVER_ASPECT='aspect-[5/3]'` 与统一 `viewBox 0 0 400 240`，ImageCover 重画为横构图（圆 + 矩形 + 金色小条 + 分隔线 + 标题），VideoCover 下 letterbox 移到 `y=214`；`TemplateLibrary.tsx` 把按分类的 GRID / 骨架比例合并为单一 `grid items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-3`，删除 featured `lg:col-span-2`、骨架改用 COVER_ASPECT 并去掉 category 参数；`TemplateCard.tsx` 根加 `h-full border-t-2`（普通卡中性 2px、featured 金色，几何一致），自定义模板删除入口并入页脚第一行（与「用它开始」同排，`aria-expanded`），确认/失败行仍为瞬时第二行，完整保留 `confirmRef` / `restoreFocus` 焦点回归与失败重试。
+- 历史：`ebde558` 曾刻意把 `grid items-start` + 删除 `h-full` 做成参差；本轮按用户选择覆盖该实现。
+- 项目级启用 `/Users/yet/plugins/local-tools-marketplace` 三个插件（交 `harness-maintainer`，write_set 仅 `.claude/settings.json`）：新增 `qwen-harness-tools` / `redfox-data` / `quark-scan-ocr` 三个 `@local-tools` 键为 `true`，`enabledMcpjsonServers` 保持 `[]`；备份 `/tmp/prompt-pilot-settings.json.bak-20261117`（600），前后 sha256 `4ecb0771…` → `49f424e9…`；`python3 -m json.tool` / `claude plugin validate` / `claude plugin list` 均通过，CLI 确认项目设置覆盖用户级 `false`。用户问「是否需要设置 .mcp.json」→ 不需要：三个插件自带 `.mcp.json`，`${BAILIAN_API_KEY}` 由登录 shell 注入，项目根不新建。
+
+### Key Decisions
+- 卡片几何完全一致优先于 DESIGN.md 的「异构网格」；金色只作为 featured 的唯一状态信号（One Candle）。所有卡共用 2px 顶边是为了消除 1px 封面错位。
+- 不按 skill 顺手修文档漂移：`Never repair drift as a side effect of a design task`。DESIGN.md Template Card 段仍写「异构网格 / 卡片尺寸随内容变化 / 禁止等尺寸网格 / Featured 其余不加」，与实现相反，只报告不改；`.impeccable/design.json` 是否相关未核对。
+- 未执行 Next.js 升级：构建时 CLI 报 `SecurityFatalError: Your version of Next.js is affected by a known security vulnerability`（16.4.2），重试同命令即继续并成功。升级超出本轮范围，未运行 `next upgrade`。
+- 用户追加「本项目暂时不用考虑移动端屏幕的显示效果」：按验收范围约束处理，不改代码、不删响应式断点与移动底栏（DESIGN.md Responsive / NFR-8 / AC-18 仍写在文档里，暂不修改）；后续阶段不再做窄屏截图、移动端 polish 或移动专项验收。本轮 390×844 截图是已完成但按新范围不再需要的证据，保留在 `/tmp/templates-light-390.png` 仅作记录。
+
+### Verification
+- `pnpm run typecheck` 0 错误；`pnpm test` 59 文件 / 537 用例；`git diff --check` clean；`claude-project-harness-check.mjs` 25-0-0；`impeccable detect --json` 三个改动文件 → `[]`（只跑一次，不在 concept selection 阶段）。
+- `pnpm build` 重试后成功（首次被安全提示中断）；curl 新构建确认 `items-stretch` 1 处、`border-t-2` 4 处、`aspect-[5/3]` 4 处，无 `col-span-2` / `aspect-[4/5]` / `aspect-[16/9]`。
+- 停掉旧 3100 `next-server` 并以新构建 `pnpm start` 重启（后台任务 `bt39ap0t8`），`/templates` 200。服务状态补记：该后台任务在 10 分钟 timeout 后收到 SIGTERM（exit 143），3100 一度不可用；已改用 detached `nohup pnpm start > /tmp/prompt-pilot-start-20261117.log 2>&1 &` 重启，跨工具调用复核 pid 47578 / 200 / `items-stretch`，`.next` 已是新构建。后续会话若发现 3100 空闲，直接 `pnpm start` 即可，无需重跑 build。bsk 阅图：1440 浅色文本类三列等宽等高 + 页脚「生成模板 / 用它开始」对齐、滚动后第 4 张同宽、图片类与视频类封面统一 5:3 且构图语言保留、1440 深色金边正确、390×844 单列 + 底部四项标签栏无破版。全页截图受 `cdp_failed/page_hidden` 限制，改用 wheel 滚动 + viewport 截图覆盖页脚。
+- 未验证：自定义模板（当前库无自定义模板）删除确认态的视觉与焦点回归；插件 MCP 工具需新开会话才加载（`claude mcp list` 本轮跳过）；真实网关密钥端到端。
+
+### Carry-over
+- DESIGN.md / `.impeccable/design.json` 与实现漂移待用户定夺是否另开阶段同步；启用三插件共 8 个 MCP server，超出治理默认「不超过 3 个」，可按需只开 `qwen-harness-tools`。
+- 回滚：三个 UI 文件 `git restore components/templates-v3/TemplateCover.tsx components/templates-v3/TemplateLibrary.tsx components/templates-v3/TemplateCard.tsx` 会一并回退前几轮未提交改动，稳妥做法是 `git diff` 单独剔除本轮块；插件 `cp /tmp/prompt-pilot-settings.json.bak-20261117 .claude/settings.json`；构建产物 `.next` 重新 `pnpm build` 可覆盖。
+- 仅本地工作树：未提交 / 未 push / 未部署 / 未连服务器 / 未建云资源。
+
+## 2026-11-17（页面宽度一致性：只读排查，未实现；会话收口）
+
+### Current State
+- 用户反馈「工作台主体宽度与提示词库、模版、设置页面不一致」。随后用户要求「persist 收口，开新会话继续」，UserPromptSubmit hook 报上下文约 167k / 134 轮 / 162 次工具调用，要求立即 PERSIST + commit、禁止 Agent / MCP / 大 Read / 截图。本轮因此只做只读排查，零编辑 / 零验证命令 / 零截图 / 零 Agent / 零 MCP。
+- 事实源：`app/(workspace)/layout.tsx` 只含 `AppShell` + `MobileNav` + `ModelStatusBanner`，不提供宽度容器，差异全在页级。
+
+### Findings（三套宽度 + 两套 padding）
+- 工作台 `components/studio-v3/StudioWorkspace.tsx:487-488`：`<PageShell variant="workbench">`（`w-full px-5 py-5 lg:px-7 lg:py-6`，无 max-width / 无 mx-auto）+ 内层 `mx-auto flex w-full max-w-[960px]` → 内容列 960px。
+- 设置页 `app/(workspace)/settings/page.tsx:52`：自定 `mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-6 py-8 lg:flex-row lg:gap-10 lg:px-10` → 1080px 两栏；外层 div 于 `:166-167` 闭合（文件 169 行，`:53` `SettingsNav`、`:54` 内容列）。
+- 提示词库 `components/library-v3/LibraryV3.tsx:197` / 模板 `components/templates-v3/TemplateLibrary.tsx:116`：`<PageShell variant="grid">` → `mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-10`。
+- `components/ui/PageShell.tsx`（36 行）：三变体 `reading`(760，全仓无消费者) / `workbench` / `grid`(默认)。`ShellVariant` 仅自身与 `docs/archive/v2/UI-REFACTOR-PLAN.md` 引用。`.impeccable/design.json:379` 记 1280px；`DESIGN.md:327` 写 960px 单列、`:398` 写 1280/1440 基准。
+- 无测试断言 `PageShell` / `max-w-[960` / `variant="workbench"` / 宽度数值；`MarkdownView.tsx:45-74` 自带 `max-w-[68ch]`、原文/空态 44ch，放宽外层不破坏 68ch 可读性，源码 `<pre>` 与 diff 更受益；`cn`（twMerge）与 `className` 组合无冲突。
+
+### Candidate（未获批准、未落地）
+- 四页统一 `grid` 壳：`mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-10`（默认变体、2/4 页已用、design.json 记 1280）。
+- 收敛 `PageShell` 为单一 canonical shell（去 cva / `ShellVariant` / `reading`），三个消费者去掉 `variant="grid"`；工作台去内层 960 与 `variant="workbench"`；settings 改 `<PageShell className="flex flex-col gap-6 lg:flex-row lg:gap-10">`；同步 `StudioWorkspace.tsx:67` 与 `PromptComposer.tsx:46` 的 960px 注释。
+- 备选（最小改动）：保留 cva，仅令 `workbench` 与 `grid` 同值，但留冗余变体。
+- `SettingsNav.tsx` 窄屏分段条含 `-mx-6`，与 `lg:px-10` 需核对；用户已排除移动端显示，不改断点与底栏。
+- `DESIGN.md:327` 的 960px 漂移按 impeccable「不顺手修文档」记为 deferred，并入 todo 第 15 条；不改文档。
+
+### Next Step（新会话第一个动作）
+- 先读 `app/(workspace)/settings/page.tsx` 尾部定位 `:52` 外层 div 闭合标签，再按候选落地 className 改动（只改 `PageShell.tsx` / `StudioWorkspace.tsx` / `PromptComposer.tsx` 注释 / `settings/page.tsx`，若收敛变体再加 `LibraryV3.tsx` / `TemplateLibrary.tsx`）。
+- 验证：`node ~/.claude/scripts/claude-project-harness-check.mjs .` + `pnpm run typecheck` + `pnpm test` + `git diff --check`（可选 `pnpm build` 与一次 `impeccable detect --json <changed targets>`）；小布局不派 verifier；不做截图、不做移动端核验。
+- 4 页 curl 200（detached `nohup pnpm start`，pid 47578 / `/tmp/prompt-pilot-start-20261117.log`）为唯一新增运行时证据。
+
+### Constraints / Do Not Retry
+- 不在本轮实现（hook 要求收口）；不擅自改 DESIGN.md；不删响应式断点与移动底栏；commit 后不 push；不启动 Agent / MCP / 截图。
+
+### Carry-over
+- 回滚：`git diff` 单独剔除本轮 className 改动即可，无数据 / 配置 / schema 迁移。
+- 收口：本轮执行 conversation-accuracy-skill PERSIST（`ACTIVE_CONTEXT.md` 先压缩腾位 / `session-summary.md` / `todo-tracker.md`）+ `memory-archive.mjs --persist-round`，并按 hook 要求 commit 全部累积未提交改动（不 push）。

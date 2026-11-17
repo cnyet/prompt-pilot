@@ -29,6 +29,7 @@ import {
 } from '@/lib/templates-v3'
 import { cn } from '@/lib/utils'
 import { TemplateCard } from './TemplateCard'
+import { COVER_ASPECT } from './TemplateCover'
 
 const CATEGORY_LABEL = {
   text: 'studio.target.text',
@@ -36,17 +37,8 @@ const CATEGORY_LABEL = {
   video: 'studio.target.video',
 } as const
 
-const GRID: Readonly<Record<TemplateCategory, string>> = {
-  text: 'grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3',
-  image: 'grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3',
-  video: 'grid items-start gap-4 lg:grid-cols-2',
-}
-
-const SKELETON_ASPECT: Readonly<Record<TemplateCategory, string>> = {
-  text: 'aspect-[5/3]',
-  image: 'aspect-[4/5]',
-  video: 'aspect-[16/9]',
-}
+/** 三类模板等宽等高，featured 不再跨列；只保留一条金色顶边区分重要模板。 */
+const GRID = 'grid items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-3'
 
 /**
  * 模板库（PRODUCT.md FR-7 + DESIGN.md Template Card）。
@@ -181,7 +173,7 @@ export function TemplateLibrary({
         ) : null}
 
         {loading ? (
-          <TemplateSkeletons category={category} />
+          <TemplateSkeletons />
         ) : loadFailed ? (
           <EmptyState
             icon="alert"
@@ -218,20 +210,9 @@ export function TemplateLibrary({
             }
           />
         ) : (
-          <ul className={GRID[category]}>
+          <ul className={GRID}>
             {visible.map((template) => (
-              <li
-                key={template.id}
-                className={cn(
-                  'min-w-0',
-                  category === 'text' &&
-                    template.featured &&
-                    'lg:col-span-2',
-                  category === 'video' &&
-                    template.featured &&
-                    'lg:col-span-2',
-                )}
-              >
+              <li key={template.id} className="min-w-0">
                 <TemplateCard
                   template={template}
                   onDeleted={handleDeleted}
@@ -245,25 +226,16 @@ export function TemplateLibrary({
   )
 }
 
-function TemplateSkeletons({
-  category,
-}: {
-  category: TemplateCategory
-}): ReactElement {
+function TemplateSkeletons(): ReactElement {
   return (
-    <div
-      aria-busy="true"
-      className={GRID[category]}
-    >
+    <div aria-busy="true" className={GRID}>
       <span className="sr-only">{t('templates.loading')}</span>
       {[0, 1, 2].map((index) => (
         <div
           key={index}
           className="overflow-hidden rounded-panel border border-line bg-surface shadow-sm"
         >
-          <div
-            className={cn('animate-pulse bg-bg-sunken', SKELETON_ASPECT[category])}
-          />
+          <div className={cn('animate-pulse bg-bg-sunken', COVER_ASPECT)} />
           <div className="flex flex-col gap-2 p-4">
             <div className="h-5 w-2/3 animate-pulse rounded-chip bg-bg-sunken" />
             <div className="h-4 w-full animate-pulse rounded-chip bg-bg-sunken" />

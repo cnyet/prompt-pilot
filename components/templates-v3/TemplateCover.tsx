@@ -4,28 +4,19 @@ import {
   buildCoverModel,
   type CoverModel,
   type TemplateCard,
-  type TemplateCategory,
 } from '@/lib/templates-v3'
-
-const ASPECT: Readonly<Record<TemplateCategory, string>> = {
-  text: 'aspect-[5/3]',
-  image: 'aspect-[4/5]',
-  video: 'aspect-[16/9]',
-}
-
-const VIEWBOX: Readonly<Record<TemplateCategory, string>> = {
-  text: '0 0 400 240',
-  image: '0 0 400 500',
-  video: '0 0 400 225',
-}
 
 /**
  * 程序化封面（ROADMAP-V3 §2.6）。
  *
- * 三种视觉语言：文本类用排版构成，图片类用平面色块，视频类用画幅与序列。
- * 全部内联 SVG，只用 CSS 变量取色，不依赖外部图片、不使用渐变。
- * 封面是装饰层，标题与说明在卡片正文，因此对读屏隐藏。
+ * 三类封面共用一块 5:3 画布，卡片尺寸一致；分类只决定构图语言：文本类用
+ * 排版构成，图片类用平面色块，视频类用画幅与序列。全部内联 SVG，只用 CSS
+ * 变量取色，不依赖外部图片、不使用渐变。封面是装饰层，标题与说明在卡片
+ * 正文，因此对读屏隐藏。
  */
+export const COVER_ASPECT = 'aspect-[5/3]'
+const VIEWBOX = '0 0 400 240'
+
 export function TemplateCover({
   template,
   className,
@@ -40,12 +31,12 @@ export function TemplateCover({
       aria-hidden="true"
       className={cn(
         'overflow-hidden border-b border-line-subtle bg-bg-sunken',
-        ASPECT[template.category],
+        COVER_ASPECT,
         className,
       )}
     >
       <svg
-        viewBox={VIEWBOX[template.category]}
+        viewBox={VIEWBOX}
         className="block h-full w-full"
         focusable="false"
       >
@@ -126,27 +117,29 @@ function TextCover({ model }: { model: CoverModel }): ReactElement {
 }
 
 function ImageCover({ model }: { model: CoverModel }): ReactElement {
-  const circleX = 240 + (model.seed % 80)
-  const rectX = 28 + (model.seed % 28)
+  const circleX = 268 + (model.seed % 44)
+  const rectX = 28 + (model.seed % 24)
+  const titleStart = model.titleLines.length > 1 ? 208 : 222
+  const titleSize = model.titleLines.length > 1 ? 16 : 20
 
   return (
     <>
       <rect
         width="400"
-        height="500"
+        height="240"
         style={{ fill: 'var(--surface-inset)' }}
       />
       <circle
         cx={circleX}
-        cy={188}
-        r="120"
+        cy="100"
+        r="80"
         style={{ fill: 'var(--surface)' }}
       />
       <rect
         x={rectX}
-        y="252"
-        width="170"
-        height="178"
+        y="80"
+        width="150"
+        height="96"
         rx="2"
         style={{
           fill: 'var(--surface-raised)',
@@ -155,17 +148,17 @@ function ImageCover({ model }: { model: CoverModel }): ReactElement {
         }}
       />
       <rect
-        x="292"
-        y="360"
+        x="300"
+        y="158"
         width="52"
         height="10"
         style={{ fill: 'var(--accent)' }}
       />
       <line
         x1="24"
-        y1="430"
+        y1="190"
         x2="376"
-        y2="430"
+        y2="190"
         style={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
       />
 
@@ -191,8 +184,8 @@ function ImageCover({ model }: { model: CoverModel }): ReactElement {
         <text
           key={`${line}-${index}`}
           x="28"
-          y={460 + index * 26}
-          fontSize="20"
+          y={titleStart + index * 22}
+          fontSize={titleSize}
           fontWeight="600"
           style={{ ...DISPLAY_FONT, fill: 'var(--text)' }}
         >
@@ -211,7 +204,7 @@ function VideoCover({ model }: { model: CoverModel }): ReactElement {
     <>
       <rect
         width="400"
-        height="225"
+        height="240"
         style={{ fill: 'var(--bg-sunken)' }}
       />
       <rect
@@ -220,7 +213,7 @@ function VideoCover({ model }: { model: CoverModel }): ReactElement {
         style={{ fill: 'var(--surface-inset)' }}
       />
       <rect
-        y="199"
+        y="214"
         width="400"
         height="26"
         style={{ fill: 'var(--surface-inset)' }}

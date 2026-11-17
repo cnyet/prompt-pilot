@@ -64,6 +64,7 @@ export const zh = {
   'studio.count': '{count} / {limit} 字',
   'studio.count.over': '已超出上限，请删减到 {limit} 字以内',
   'studio.hint.shortcuts': '⌘Enter 提交，Esc 停止',
+  'studio.composer.generating': '正在生成，输入已锁定',
   'studio.primary.generate': '生成',
   'studio.primary.optimize': '优化',
   'studio.stop': '停止',

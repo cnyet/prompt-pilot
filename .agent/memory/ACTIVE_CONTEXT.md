@@ -1,39 +1,37 @@
 # Active Context
 
-> Last updated: 2026-11-16T11:30:00Z
+> Last updated: 2026-11-17T11:00:00Z
 
 ## Current Task
-- `/impeccable` 三连已收口：A layout（工作台 960px 上下单列、优化/生成 tabs、280px 输入）、B polish 工作台（默认优化、now-pulse/stream-caret、停止按钮原位切换保留焦点）、C polish 其他页面（仅 settings 两处输入统一 inputStyles）。
-- 改动全未提交、未 push（用户未要求）；HEAD `09ac638`，变更在 main 工作树（含 DESIGN/PRODUCT/globals.css/ARCHITECTURE/ADR-0002/测试）。
-- 下一步：用户确认后统一提交。本地 3100 是旧生产构建，看到新 UI 需 `pnpm build && pnpm start`。
+- **在制品（未实现）**：工作台主体宽度与库/模版/设置不一致。只读排查完成，零编辑/验证/截图/Agent。三套宽度：工作台 `workbench` 壳 + 内层 960、设置页自定 1080、库/模板 `grid` 1280；两套 padding。方案（未批准）：四页统一 `grid` 1280 壳，收敛 `PageShell` 为单一 shell。定位 / 改动清单 / 下一步见 `session-summary.md` 2026-11-17「页面宽度一致性」节。**开新会话先读该节**。
+- 按 hook 执行 PERSIST + commit 全部累积改动，未 push / 未部署 / 未建云资源。
+- 部署：**不对外开放、仅自用、暂不申请域名**；复用现有 ECS，容器只绑 `127.0.0.1:3100` + SSH 隧道；域名/证书/公网鉴权消解，不动 nginx/Certbot。详见 `docs/DEPLOYMENT.md`。
+- 2026-11-17 已完成：模板页 layout（三卡等宽等高、封面 5:3、仅 featured 2px 金边）+ 项目级启用 3 个 `local-tools` 插件；3100 已重启。**移动端显示暂不考虑**（不改代码，不要求窄屏截图）。
+- 剩余决策仅 `ARK_API_KEY` 注入路径（§4.3）；前置确认后另开阶段。observe/operate 与 DESIGN.md 漂移待定夺。
 
-## Verification（2026-11-16）
-- `git diff --check` clean；typecheck 0；`pnpm test` 59 文件 537/537；harness 25 pass / 0 fail；impeccable detect `[]`。
-- 浏览器（隔离 dev 3101 + data/polish2-smoke.db，均已清理）：三页 × 1440/390 深/浅主题无横向溢出；settings 输入聚焦环、`aria-invalid` 危险环 + `role=alert` 校验提示实测生效。data/app.db 未触碰。
-- 临时资源全清：bsk session ygmq、3101 dev server、polish2-smoke.db、/tmp/polish2-*。
+## Verification（2026-11-17）
+- layout：typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / diff --check clean；build 成功。宽度任务仅只读排查，未验证。细节见 `session-summary.md`。
 
 ## Current Decisions
-- 默认模式=优化（B 覆盖 A 的「默认生成」）；tabs 优化在前；结果面提交后自动滚入视野。
-- C 按 Operate 精度/克制，不重设计：未加 rise/reveal（ADR-0002 同类动效同屏只一次）、未改 ModelStatusBanner 自链、未扩 fan-out；无 critique snapshot 故不跑 critique-storage close。
-- settings 输入改用共享 `inputStyles`（components/ui/Input.tsx），修掉「focus:outline-none 无替代焦点环 / 无 aria-invalid / 无 disabled/read-only」；h-9 与 tnum 经 cn 保留。border-danger 是全站既有 token 行为，非本次回归。
+- 默认模式=优化；tabs 优化在前；settings 输入统一 `inputStyles`。进行中 `readOnly` + `.now-pulse` / `.rise`，不加进度条与 glow。模板卡：单一 `items-stretch` 三列，封面 5:3，所有卡 2px 顶边、featured 金色；用户选择覆盖 DESIGN.md 异构网格，不改文档。
+- 直连 build → `docker save`/scp/`docker load` → `127.0.0.1:3100` → SSH 隧道；宿主无 Node，需 Dockerfile（未创建）。SQLite `file:/var/lib/prompt-pilot/app.db` + bind mount；首启 `db push` + `db:seed`。已有服务必须共存、不得改动；SSE 已设 `X-Accel-Buffering: no`。「暂不申请域名」按可逆处理。
+- 插件：项目 `.claude/settings.json` 启用 3 个 `@local-tools`；项目根不建 `.mcp.json`，`${BAILIAN_API_KEY}` 由登录 shell 注入；共 8 个 MCP server，超治理默认 3 个。
 
 ## Deferred Minors
-- HANDOVER MOCK_LLM_FAULT=network 无 profile；mock 输出仍含 v2 词；ARCHITECTURE 备份措辞歧义；.env.example 权限阻塞未验证。
+- `.env` 644 待改 600（权限阻塞不重试/不绕过）；`.claude/docs/runtime.md` 仍写「无部署流水线」；DESIGN.md / `.impeccable/design.json` 漂移待定（宽度任务落地新增 DESIGN.md:327 960px 漂移，按 impeccable 不顺手改文档）；Next.js 16.4.2 构建报安全漏洞，升级未执行。
 
 ## Hard Constraints
-- `lib/llm/types.ts` 冻结；v2 模块/旧表已删，不得重新引入，不恢复 modelEvaluate。
-- `LlmCall` 是成本账本唯一来源，历史关联列与 `[promptId, createdAt]` 索引保留。
-- stage 仅 generate/optimize/repair；未知 null 不写 0；未评分「未评分」；未设置预算「未设置」。
-- 密钥只存本机 SQLite，只回末四位；测试 data/test.db、E2E data/e2e.db，绝不读写 data/app.db。
-- 无 prisma/migrations/，用 db push + generate；破坏性 schema 变更先备份并获确认。
+- `lib/llm/types.ts` 冻结；v2 模块/旧表已删，不得重新引入；不恢复 modelEvaluate。
+- `LlmCall` 是成本账本唯一来源；stage 仅 generate/optimize/repair；未知 null 不写 0；未评分「未评分」；未设置预算「未设置」。
+- 密钥只存本机 SQLite，只回末四位；测试 `data/test.db`、E2E `data/e2e.db`，绝不读写 `data/app.db`。
+- 无 prisma/migrations/，用 db push + generate；破坏性 schema 变更先备份并确认。
 - 界面不写 prompt；禁感叹号/em dash/emoji/空词；不用「评估/版本/字段/假设 chip/试运行/变量集/结构化 JSON」。
+- IP/域名/密钥路径/凭证值不写入仓库文档与 memory；`app_timeline.jsonl` 不写凭据。
 
 ## Do Not Retry
-- 冒烟用 localhost（非 127.0.0.1），等 `Page.loadEventFired`；bsk 共享 tab 动作需 cooperate sync 顶层 observation_id + context_id，动作间不得插入截图。
-- 不用裸 `grep "sk-"` 判 AC-17；分模式核验。`.env.example` 不绕过权限策略。
-- 不重建 v2 页面/API/引擎/测试；不删 LlmCall 历史列。
+- 冒烟用 localhost 等 load；bsk 用 sync 顶层 observation_id + context_id；`evaluate` 用 `--unverified` + 有效 `--context`。全页截图 `page_hidden`，改用 wheel + viewport。
+- 不用裸 `grep "sk-"` 判 AC-17；`.env`/`.env.example` 不绕过权限策略；不重建 v2；不删 LlmCall 历史列。
+- 无云资源、无 nginx 变更；卸载只停容器、删镜像、按需删 `/var/lib/prompt-pilot`。
 
 ## Current References
-- 备份 `data/app.db.bak-20261114-2027`、旧备份 `data/app.db.bak-20261113-1139`。
-- Phase 6 计划 `docs/superpowers/plans/2026-11-14-v3-phase-6.md`；ledger `.superpowers/sdd/2026-11-14-v3-phase-6/progress.md`。
-- 三连细节见 `session-summary.md` 2026-11-16 节；历史见 Batch E/F/G/H 与 Phase 6 节。
+- 备份 `/tmp/DEPLOYMENT.md.bak-20261116`、`/tmp/prompt-pilot-settings.json.bak-20261117`、`data/app.db.bak-20261114-2027`；UI 回滚见 `session-summary.md` 2026-11-17 节。

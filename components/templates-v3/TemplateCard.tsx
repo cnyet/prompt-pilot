@@ -24,8 +24,9 @@ const TARGET_LABEL = {
 /**
  * 模板卡（DESIGN.md Template Card）。
  *
- * 封面优先、内容真实：标题、说明、风格与目标类型、模式与入口。
- * 内置模板不渲染删除控件；自定义模板先在卡内二次确认再调用 DELETE，
+ * 网格里所有卡共用 2px 顶边与等高正文：featured 的顶边是金色，其余是默认
+ * 描边，几何完全一致。封面优先、内容真实：标题、说明、风格与目标类型、模式
+ * 与入口。内置模板不渲染删除控件；自定义模板先在卡内二次确认再调用 DELETE，
  * 删除期间按钮禁用并拦截重复提交，失败就地显示原因。
  */
 export function TemplateCard({
@@ -76,7 +77,10 @@ export function TemplateCard({
       className={cardStyles({
         variant: template.featured ? 'accent' : 'default',
         padding: 'none',
-        className: cn('flex min-w-0 flex-col overflow-hidden', className),
+        className: cn(
+          'flex h-full min-w-0 flex-col overflow-hidden border-t-2',
+          className,
+        ),
       })}
     >
       <TemplateCover template={template} />
@@ -115,18 +119,35 @@ export function TemplateCard({
                   : 'templates.mode.generate',
               )}
             </span>
-            <Button asChild variant="ghost" size="sm">
-              <Link
-                href={templateHref(template.id)}
-                aria-label={t('templates.useAria', { title: template.title })}
-              >
-                {t('templates.use')}
-                <Icon name="chevron-right" size={14} />
-              </Link>
-            </Button>
+            <div className="flex items-center gap-1">
+              {!template.builtin ? (
+                <Button
+                  ref={deleteTriggerRef}
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('templates.deleteAria', {
+                    title: template.title,
+                  })}
+                  aria-expanded={confirming}
+                  onClick={() => setConfirming(true)}
+                  disabled={deleting}
+                >
+                  {t('templates.delete')}
+                </Button>
+              ) : null}
+              <Button asChild variant="ghost" size="sm">
+                <Link
+                  href={templateHref(template.id)}
+                  aria-label={t('templates.useAria', { title: template.title })}
+                >
+                  {t('templates.use')}
+                  <Icon name="chevron-right" size={14} />
+                </Link>
+              </Button>
+            </div>
           </div>
 
-          {!template.builtin ? (
+          {!template.builtin && (deleteFailed || confirming) ? (
             <div className="border-t border-line-subtle pt-2">
               {deleteFailed ? (
                 <p role="alert" className="mb-2 text-caption text-danger">
@@ -168,19 +189,7 @@ export function TemplateCard({
                     {t('common.cancel')}
                   </Button>
                 </div>
-              ) : (
-                <Button
-                  ref={deleteTriggerRef}
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t('templates.deleteAria', {
-                    title: template.title,
-                  })}
-                  onClick={() => setConfirming(true)}
-                >
-                  {t('templates.delete')}
-                </Button>
-              )}
+              ) : null}
             </div>
           ) : null}
         </div>

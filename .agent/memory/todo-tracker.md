@@ -1,19 +1,30 @@
 # Todo Tracker
 
 ## In Progress
-- 无。
+- [ ] 工作台主体宽度与提示词库、模版、设置页面不一致：只读排查完成（960 / 1080 / 1280 三套宽度 + 两套 padding），四页统一 1280px 方案未批准、未实现、未验证；按 hook 收口，开新会话先读 `session-summary.md` 2026-11-17「页面宽度一致性」节 | Priority: P1 | Created: 2026-11-17
 
 ## Pending
-- [ ] 提交全部累积未提交改动（Phase 6 + impeccable 三连，用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
+- [ ] 定夺 `ARK_API_KEY` 注入路径：设置页录入 vs 服务器 root-only（0600）env 文件（文档 §4.3）| Priority: P1 | Created: 2026-11-16
+- [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
+- [ ] 按 `docs/DEPLOYMENT.md` §4 补齐前置（Dockerfile + .dockerignore、产物洁净门禁、SQLite 绝对路径与挂载、密钥注入），再按 §5 直连步骤部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 密钥注入路径未定、前置未实施
+- [ ] 提交全部累积未提交改动（Phase 6 + impeccable 三连 + 部署文档，用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
+- [ ] 同步 DESIGN.md Template Card 段（异构网格 / 禁止等尺寸网格 / Featured 金边）与 `.impeccable/design.json` 到本轮统一网格实现；宽度任务落地后再补 DESIGN.md:327 的 960px 单列漂移；按 impeccable skill 未在设计任务中顺手修 | Priority: P2 | Created: 2026-11-17
 
 ## Blocked
 - 无。
 
 ## Done
+- [x] `/impeccable layout` 模板页卡片统一：`TemplateCover.tsx` / `TemplateLibrary.tsx` / `TemplateCard.tsx` 改为等宽等高三列、封面共用 5:3、仅 featured 2px 金边、删除入口并入页脚；typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / build ✓ / bsk 1440 浅深 + 三类 + 390px 阅图 | Completed: 2026-11-17
+- [x] 项目级启用 `local-tools` 三个插件（`.claude/settings.json` 的 `enabledPlugins`）；不新建项目根 `.mcp.json`，`enabledMcpjsonServers` 保持 `[]`；备份 `/tmp/prompt-pilot-settings.json.bak-20261117`；json.tool / plugin validate / plugin list 通过 | Completed: 2026-11-17
+- [x] 定夺部署对外范围：不对外开放、仅自用、暂不申请域名；域名/HTTPS 证书与公网鉴权两项消解。仍复用现有 ECS，容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不新增 nginx block、不动 Certbot/既有服务；§7 公网暴露风险不成立。`docs/DEPLOYMENT.md` 收敛为私网方案（§1/§3/§5/§6/§7/§8/§10），README 索引行同步 | Completed: 2026-11-16
+- [x] impeccable polish：工作台生成中状态。两份草稿 `readOnly` + 守卫、tabs 禁用、目标 chip `aria-disabled`、`aria-busy`、`.rise` 状态文案 + `.now-pulse` 圆点、输入面退 sunken；`zh.ts` +1 键。核验 typecheck 0 / 537 用例 / harness 24-0-0 / detect [] / diff --check clean；bsk 深浅 1440 + 390px idle/active 实测并阅图；3100 仍 200，临时 DB/服务/截图已清 | Completed: 2026-11-16
+- [x] 卸载不再使用的全栈部署技能：技能目录移入本机归档（可逆）、移除 `~/.openclaw/skills/` 软链、从 `~/.agents/.skill-lock.json` 删除条目；`docs/DEPLOYMENT.md` 清掉全部工具/脚本引用并重写为独立直连方案（189 行）。同源 observe/operate 两技能未动，待用户定夺。核验 lock valid 34 技能 / 归档 37 文件 / diff --check clean / README 0 broken / 无工具引用与字面 IP | Completed: 2026-11-16
+- [x] 部署目标定为**复用现有 ECS 直连部署**（不走 ROS 新建栈）；两次 SSH 只读核验服务器现状；`docs/DEPLOYMENT.md` 重写为 196 行直连方案 + README 索引行同步。核验 diff --check clean、README 链接 0 broken、无字面 IP/域名/密钥路径入库 | Completed: 2026-11-16
+- [x] 阿里云部署文档阶段：新增 `docs/DEPLOYMENT.md` + README 索引行；仅文档，未部署/未建云资源/未提交。核验 skill 模板声明逐条重验、seed 幂等确认 | Completed: 2026-11-16
 - [x] `/impeccable` 三连：A layout（工作台 960px 上下单列、优化/生成 tabs、280px 输入）→ B polish 工作台（默认优化、now-pulse/stream-caret、停止按钮保留焦点、ADR-0002 增补）→ C polish 其他页面（settings 两处输入统一 `inputStyles`，修焦点环/危险态/缺失状态与重复）。核验：typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / 深浅主题浏览器实测；未提交未 push | Completed: 2026-11-16
 - [x] Phase 6：v2 清理与收口。Tasks 1-5 完成；harness 25-0-0 / typecheck 0 / 59 文件 537 用例 / build ✓ / e2e ✓ / contrast ✓ / 浏览器冒烟 ✓；最终 verifier Accept with minors，无 Critical/Important；旧表备份 `data/app.db.bak-20261114-2027` 后删除，保留五张表；未提交未 push | Completed: 2026-11-14
 - [x] Batch H 4 条 Minor 收口（设置页旧文案、KPI 标签、ARCHITECTURE 掩码示例、`maskKey` <4 字符边界）| Completed: 2026-11-14
