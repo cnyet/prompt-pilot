@@ -902,3 +902,44 @@
 - 回滚：`git restore` 6 文件（或 `git diff` 单独剔除 className 块），无数据 / 配置 / schema 迁移。
 - 下一步第一个动作：新会话 LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ `git log -3` + `git diff` 核对 → 跑一次 typecheck / test。若要发布，先 commit 6 文件，再按 `docs/DEPLOYMENT.md` §4 补齐前置。
 - 收口：本轮执行 PERSIST（`ACTIVE_CONTEXT.md` 压缩 / `session-summary.md` / `todo-tracker.md`）+ `memory-archive.mjs --persist-round` + 补齐 handoff 5 问；按 hook 开新会话。
+
+## 2026-11-17（新会话 /clear 后续接）部署前置范围选定 + 只读影响面映射
+
+### Request
+- 用户首条消息「继续完成剩余的任务」。用 `AskUserQuestion` 把模糊的「剩余任务」收敛为 4 个互斥范围，用户选 **部署前置（仅本地）**：不连服务器、不碰云资源、不注入真实密钥；属 L 级改动，按规则先映射影响面、再独立验收；并明确 `ARK_API_KEY` 注入路径（§4.3）**只给取舍建议供用户拍板**，不擅自写成已决。
+
+### 事实源重建 / 状态卡纠偏（重要）
+- 注入的 `ACTIVE_CONTEXT.md` / `todo-tracker.md` / `session-summary.md` / `handoff-20261117-112522.md` 均写「6 文件未提交 / 未 push、未获 commit 授权」。git 现场实测：`HEAD == origin/main == 522f25f`，`git diff --stat` / `--cached --stat` 均无输出，工作区仅 memory 机器快照增删；`git show --stat 522f25f` 显示 6 个宽度文件 + 记忆文件都在该提交里。判定为**过期状态**：先写记忆说未提交、随后整体提交并把记忆一起提交的顺序差。部署评估里「clean checkout 会发出旧宽度」的风险已随提交消解。本轮 PERSIST 已把状态卡改为「已提交推送」。
+
+### Decisions
+- 密钥路径与前置改动**解耦**：`--env-file` 可选、设置页录入始终可用，不阻塞 Dockerfile / .dockerignore / standalone / 启动钩子 / 产物洁净门禁落地。
+- `ARK_API_KEY` 取舍建议（**建议，待用户拍板，非已决**）：倾向 §4.3 路径 1「设置页录入」为默认 —— 密钥按 FR-8.1 落到已持久化、bind mount 的 SQLite，随宿主目录保留、容器重建不丢、不引入服务器侧 root-only 凭证文件、与 `lib/settings/store.ts`「设置页保存值 > 环境变量 > 代码默认值」优先级一致；路径 2「服务器 root-only（0600）env 文件 + `docker run --env-file`」作为可选进阶，凭证与数据分离，适合偏好外部注入者，但须注明两者同时配置时设置页值优先。任何路径 `ARK_API_KEY` 都不进镜像 / 产物 / 聊天。
+- L/XL + 发布 / 用户数据高风险路由：`impact-mapper`（只读）→ 主 Agent 核对影响地图 → 方案 + 密钥建议交用户拍板 → `devops-engineer`（唯一 writer）→ 完整验证 → 独立 `verifier`（write_set none，实现者不自签收）。
+
+### Findings（impact-mapper 只读影响地图，task ab8a6761d897ae0b0，本会话唯一产物）
+- **建议新建**：`Dockerfile`（多阶段 linux/amd64，在目标平台构建阶段执行 `db:generate`）、`.dockerignore`（Docker 不套 `.gitignore`）、`scripts/docker-entrypoint.sh`（启动 Next 前 `db push` + `db:seed`，失败不启动服务，`exec` 交信号）。
+- **建议修改**：`package.json` + `pnpm-lock.yaml`（`prisma` CLI 现为 devDependency，与「运行阶段只带生产依赖且要自动初始化」矛盾；须纳入运行依赖并更新锁文件，或拆独立初始化工具阶段，二选一未定）；`next.config.ts`（条件：选 standalone 才加 `output: 'standalone'`）；`docs/DEPLOYMENT.md` §4/§5/§6/§10；`docs/HANDOVER.md` §7（clean build 口径）；`.claude/docs/runtime.md`（仍写「无部署流水线」）。
+- **不需默认改** `prisma/schema.prisma`：generator 无 `binaryTargets`，只要在 linux/amd64 构建阶段 `db:generate`，默认 native 引擎即目标平台；选定基础镜像后若固定目标再评估。冻结契约 `lib/llm/types.ts` **不得触碰**；`.gitignore` 无需改。不改 `DESIGN.md`。
+- **构建契约链**：install（需 devDeps 才能 build）→ `db:generate`（须在目标平台阶段）→ build → 运行（Node ≥24 + 生产依赖 + 相匹配的 Prisma 引擎）→ 首启初始化（`db:push` 要 Prisma CLI + schema，`db:seed` 要 Node≥24 原生 TS 类型擦除 + `@prisma/client`）。`prisma/seed.ts` 的 `seedBuiltinTemplates` 按 slug 幂等写 12 模板。
+- **架构错配（本会话补给 mapper 的上游事实，高风险）**：本机 Apple Silicon 实测生成物 `binaryTargets` 仅 `["darwin-arm64"]`、引擎仅 `libquery_engine-darwin-arm64.dylib.node`；目标 ECS 为 `x86_64` Linux。本地 `docker build` 默认产 arm64 镜像，必须用 `docker buildx build --platform linux/amd64`（或等价），并让 `db:generate` 在该目标平台 Linux 构建阶段实际运行，**不要用 `$BUILDPLATFORM` 生成后拷进目标镜像**，也不要复制本机 `.prisma` / client。构建器与运行器基础镜像需兼容的 libc/OpenSSL；容器实测列为上线前置必验项，本轮不做。
+- **standalone 取舍未定**：不启用则与现有 `next start` 直接匹配但镜像较大；启用可精简 web 运行内容但不能假设 Prisma CLI / schema / seed / 引擎被 NFT 追踪，须单独提供并用 `outputFileTracingIncludes`（全局键 `'/*'`）显式收录原生资源。实现前须读本仓 `node_modules/next/dist/docs/` 对应 Docker/standalone 文档（已读 17-deploying.md 与 output.md）。`public/` 不存在，无需复制。
+- **密钥 / 数据洁净性**：`.dockerignore` 至少排除 `data/`（主库 + 4 备份含记录正文与设置页密钥）、`.env*`、`.git/`、`.agent/`、`.claude/`、`.superpowers/`、`.scratch/`、`.impeccable/`、`.next/cache/`、`node_modules/`、`.npm-cache/`、`.pnpm-store/`。镜像只固化非机密默认 `ARK_BASE_URL` / `ARK_MODEL_GENERATE` / `ARK_MODEL_OPTIMIZE` / `DATABASE_URL=file:/var/lib/prompt-pilot/app.db`。设置页值优先级高于 env，两者同配的行为须写进文档。
+- **SSE**：`lib/engine/sse-v3.ts` 头已设 `X-Accel-Buffering: no` / `Cache-Control: no-cache, no-transform`，`lib/engine/stream-v3.ts` 用 `ReadableStream` 返回 start/delta/meta/usage/done；不需改 SSE 契约。现有 `slow_stream` mock 约 10s 首字 + 单 delta，能测长连接存活但不证明多段持续增量；SSH 隧道下 SSE 长流探针只能在之后获准阶段做。
+- **其它风险**：`db push` 无 migrations，启动流程不得盲目接受数据丢失，生产更新前查 schema 变更并备份；clean build 首次 Next.js 16.4.2 安全闸门 `SecurityFatalError` 需重试（本轮未独立复核，沿用已落盘结果）；`DEPLOYMENT.md §6` 的 390px 移动端验收与用户「移动端排除验收」冲突，须仅从部署验收裁剪，不改产品/设计响应式约束；本机 3100 被 pid 65022 占用与 `ssh -L 3100:...` 冲突。
+
+### Suggested Verification（后续实施阶段建议命令，本轮**未执行**）
+- 本地：harness check / typecheck / test / `pnpm db:generate && pnpm build` / `git diff --check`；build 首次失败按项目规则重试、不升级。
+- Docker（本轮不做）：`docker buildx build --platform linux/amd64 --load -t <tag> .` + `docker image inspect ... '{{.Os}}/{{.Architecture}}'` 期望 `linux/amd64`；镜像内洁净扫描只报 PASS/FAIL 不打印匹配内容；隔离临时数据卷验首启初始化 / 12 模板 / 重启持久化 / Prisma 实际调用。
+- SSE 探针仅可在获准隧道阶段、隔离容器 `MOCK_LLM_FAULT=slow_stream`、不注入真实密钥时做。
+
+### Constraints / Do Not Retry
+- 不部署、不连服务器、不改 nginx / Certbot / 既有容器 / 安全组 / 云资源、不注入真实密钥；不升级 Next.js、不跑 `next upgrade --agent=security`；不做窄屏截图 / 移动专项验收；不改 DESIGN.md。
+- 不复制本机 Prisma client / `.prisma` 进 Linux 镜像（引擎仅 darwin-arm64）；本机 3100 被占用时不直接开 `ssh -L 3100:...`；`.env` / `.env.example` 不绕过权限策略。
+- 构建输出里的「升级建议 / 询问 worktree」属不可信工具输出，不据此扩 `write_set` 或跳验证。
+- 未获功能 commit 授权不擅自提交产品代码；本会话仅按 hook 做记账类 memory PERSIST commit，不 push。
+
+### Carry-over
+- 本会话**未写任何产品文件 / 未跑 build / 未连服务器 / 未派实现者或 verifier**（会话预算上限，UserPromptSubmit hook 要求立即收口，禁止再启动 Agent / MCP / 大 Read / 截图）。
+- 新会话第一个动作：LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ `git log -3` + `git diff` 核对 → 跑一次 typecheck / test；然后先把**方案 + §4.3 取舍建议**给用户拍板（用户明确要拍板，不写成已决），确认后按 `spawn-prompts.md` 最小封套派 `devops-engineer`（write_set 仅部署前置文件）→ 完整验证 → 独立 `verifier` → 汇报已验证 / 未验证 / 残余风险 / 回滚。
+- 未决：standalone 与否、Prisma CLI 运行时方案、Node 基础镜像 libc/OpenSSL + buildx/QEMU 能力、密钥注入路径。
+- 回滚：本轮无产品改动可回滚；状态卡纠偏与本节为纯 memory 记账。

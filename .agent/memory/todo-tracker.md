@@ -1,15 +1,19 @@
 # Todo Tracker
 
 ## In Progress
-- 无。宽度一致性已落地并验证、部署影响面评估已交付；剩余工作均为另开阶段的部署前置，见 Pending。6 文件未提交 / 未 push（未获 commit 授权）。
+- 无（会话预算上限已收口，PERSIST 后开新会话）。宽度一致性 + 部署影响面评估均已在 `522f25f` 提交并推送（HEAD == origin/main），旧「6 文件未提交 / 未 push」为过期信息，已消解。本会话完成部署前置范围选定（`部署前置（仅本地）`）与只读 `impact-mapper` 影响地图，未写产品文件 / 未跑 build / 未连服务器；方案拍板与实现顺延新会话，见 Pending。
 
 ## Pending
-- [ ] 定夺 `ARK_API_KEY` 注入路径：设置页录入 vs 服务器 root-only（0600）env 文件（文档 §4.3）| Priority: P1 | Created: 2026-11-16
+- [ ] **新会话第一步**：把部署前置方案 + `ARK_API_KEY` 注入路径（§4.3）取舍建议交用户拍板（用户明确要拍板，不写成已决）；前置改动与密钥路径解耦，不阻塞落地 | Priority: P1 | Created: 2026-11-17
+- [ ] 定夺 3 项未决：standalone 与否、Prisma CLI 运行时方案（纳入生产依赖改锁文件 vs 独立初始化阶段）、Node 基础镜像 libc/OpenSSL + buildx/QEMU 能力 | Priority: P1 | Created: 2026-11-17
+- [ ] 方案确认后按 `spawn-prompts.md` 最小封套派 `devops-engineer`（唯一 writer，write_set 仅 Dockerfile / .dockerignore / scripts/docker-entrypoint.sh / package.json / pnpm-lock.yaml / next.config.ts / DEPLOYMENT.md §4,5,6,10 / HANDOVER.md §7 / runtime.md；不改 lib/llm/types.ts / DESIGN.md / .env，不部署 / 连服务器 / 注入真实密钥 / commit-push）| Priority: P1 | Created: 2026-11-17
+- [ ] 实现后完整验证 + 独立 `verifier` 验收（L/XL + 发布高风险，实现者不自签收）：harness / typecheck / test / diff --check / build（首次失败重试、不升级）/ 产物洁净门禁 / .dockerignore 覆盖 / standalone 产物与 Prisma 引擎收录；明确标注「只能在 Linux Docker 内实测、本轮不做」项并汇报已验证 / 未验证 / 残余风险 / 回滚 | Priority: P1 | Created: 2026-11-17
+- [ ] 定夺 `ARK_API_KEY` 注入路径：设置页录入 vs 服务器 root-only（0600）env 文件（文档 §4.3）| Priority: P1 | Created: 2026-11-16 | 取舍建议已写入 session-summary（倾向设置页录入为默认，路径 2 可选进阶），待用户拍板
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 按 `docs/DEPLOYMENT.md` §4 补齐前置（Dockerfile + .dockerignore、产物洁净门禁、SQLite 绝对路径与挂载、密钥注入），再按 §5 直连步骤部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 密钥注入路径未定、前置未实施
 - [ ] 部署前置需一并解决本轮评估新发现的发布链路风险：首启 `db push` / `db:seed` 无启动钩子（`start` 仅 `next start`）；`prisma` CLI 是 devDependency 与「运行阶段只带生产依赖」矛盾；Linux 构建阶段必须重生成 Prisma 引擎（本机仅 darwin-arm64，generator 无 `binaryTargets`）；`next.config.ts` 无 `output: 'standalone'`；clean build 触发 Next.js 16.4.2 安全闸门首次失败需重试；本机 3100 占用与 `ssh -L 3100:...` 冲突；§5 step-7 增补 SSH 隧道下 SSE 长流探针 | Priority: P1 | Created: 2026-11-17 | Blocker: 前置未实施
 - [ ] 裁剪 `docs/DEPLOYMENT.md` §6 上线验证里的 390px / 移动底栏项，与用户「移动端显示排除验收」对齐（当前文档与验收范围冲突）| Priority: P2 | Created: 2026-11-17
-- [ ] 提交全部累积未提交改动（Phase 6 + impeccable 三连 + 部署文档，用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
+- [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
@@ -20,6 +24,8 @@
 - 无。
 
 ## Done
+- [x] 会话预算上限收口 PERSIST：纠偏状态卡（宽度 6 文件 + 部署文档均已在 `522f25f` 提交推送，HEAD==origin/main；旧记录里所有「未提交未 push」字样就此失效）；追加本会话 session-summary 节、补齐 handoff 5 问、跑 `memory-archive.mjs --persist-round`、记账类 memory commit（不 push）| Completed: 2026-11-17
+- [x] 部署前置范围选定（用户选「部署前置（仅本地）」）+ 只读 `impact-mapper` 影响地图（task ab8a6761d897ae0b0）：新建/条件改文件清单、构建契约链、arm64→amd64 架构错配、standalone/Prisma CLI/密钥未决项、产物洁净性与 SSE 验证建议；未写产品文件 / 未跑 build / 未连服务器 / 未派实现者 | Completed: 2026-11-17
 - [x] 部署到服务器的影响面评估（只读）：未连服务器 / 未改文件 / 未部署；结论服务器影响面小且隔离（回环 3100 + 1 容器 + 1 宿主目录 + 1 SSH 隧道），风险集中在发布链路。查明 Dockerfile/.dockerignore 缺位、首启无初始化钩子、Prisma 引擎跨平台（仅 darwin-arm64）、无 standalone、Next.js 16.4.2 构建安全闸门、本机 3100 与 SSH 隧道端口冲突、§6 390px 验收与移动端排除冲突。见 `session-summary.md` 2026-11-17 同节 | Completed: 2026-11-17
 - [x] 四页主体宽度一致性：`PageShell` 收敛为单一 1280px canonical shell（去 cva / `ShellVariant` / `reading` 变体），工作台去内层 960 与 `variant="workbench"`、settings 换 `PageShell` 去自定 1080、库/模板去 `variant="grid"`、同步两处 960px 注释。6 文件 +21−32，仅 className 与注释。核验 typecheck 0 / 59 文件 537 用例 / harness 24-0-0 / diff --check clean / build 重试后 0 / 4 页 200 / 渲染 HTML 均 1280 且 960、1080 各 0 次 / 无残留 variant 宽度字面量；移动端排除验收、未截图。未提交未 push | Completed: 2026-11-17
 - [x] `/impeccable layout` 模板页卡片统一：`TemplateCover.tsx` / `TemplateLibrary.tsx` / `TemplateCard.tsx` 改为等宽等高三列、封面共用 5:3、仅 featured 2px 金边、删除入口并入页脚；typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / build ✓ / bsk 1440 浅深 + 三类 + 390px 阅图 | Completed: 2026-11-17
