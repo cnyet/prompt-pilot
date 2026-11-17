@@ -1,0 +1,75 @@
+# PromptPilot 构建上下文排除清单。
+# Docker 不套用 .gitignore：这里必须独立列出，只把构建所需最小集合送进上下文。
+# 未列出的关键项（package.json / pnpm-lock.yaml / next.config.ts / postcss.config.mjs /
+# tsconfig.json / next-env.d.ts / prisma/ / app/ / components/ / lib/ / scripts/）必须保留。
+
+# 本机数据与备份：data/ 下 5 个文件（app.db 与 4 个 bak）含记录正文与设置页密钥，整体排除
+data/
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.bak
+*.bak-*
+
+# 环境变量与密钥类文件：绝不进镜像或传输产物
+.env
+.env.*
+*.pem
+*.key
+
+# Git 元数据与 CI 配置
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# 本机缓存与本机路径配置
+# .npmrc 实测只有 store-dir / cache-dir 两个键，无 auth / token / password / secret；
+# 但这两个值指向本机目录，进容器会让 pnpm install 用错 store 与 cache，故排除。
+.npmrc
+.nvmrc
+.editorconfig
+.npm-cache/
+.pnpm-store/
+
+# agent 工具、会话与临时产物
+.agent/
+.claude/
+.superpowers/
+.scratch/
+.impeccable/
+.tmp-*/
+.idea/
+.vscode/
+.vercel/
+.DS_Store
+*.log
+
+# 本机构建产物：镜像内重新生成，不复用本机平台相关内容
+.next/
+out/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+coverage/
+
+# 依赖：镜像内由 pnpm install --frozen-lockfile 重新安装
+node_modules/
+
+# 测试与非构建所需的体积项
+tests/
+docs/assets/
+
+# 根文档：构建不需要
+AGENTS.md
+CLAUDE.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+CONTEXT.md
+DESIGN.md
+LICENSE
+PRODUCT.md
+README.md
+SECURITY.md

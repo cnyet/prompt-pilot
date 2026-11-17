@@ -47,4 +47,9 @@ scripts/           e2e-http.mjs 等脚本
 
 ## Release Or Deployment
 
-- 演示版阶段：`pnpm build` + `pnpm start`（端口 3100）本地运行；无部署流水线。
+- 本地开发：`pnpm dev`（端口 3100）；本地验收以 `pnpm build` 的 clean build 为准。
+- 交付形态：多阶段 `Dockerfile`（`node:24-bookworm-slim`，固定 `--platform=linux/amd64`）产出镜像，
+  容器内 `next start -p 3100`（非 standalone）；入口脚本首启执行 `prisma db push` 与 `pnpm db:seed`。
+  镜像只固化非机密默认值，模型密钥由设置页录入或 `--env-file` 注入，不进镜像与产物。
+- 链路：本地构建镜像 → 传输 → `docker load` → 容器运行（仅绑 `127.0.0.1:3100`）；详见 `docs/DEPLOYMENT.md`。
+- 本轮仅落地项目侧前置文件并做静态与本地验证；amd64 实构建与服务器部署未执行，属上线前置未验证项。

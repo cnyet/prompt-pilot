@@ -1,6 +1,6 @@
 # 现有 ECS 部署方案（PromptPilot）
 
-> 状态：**文档阶段**。已对目标 ECS 做只读核验；未部署、未改动服务器、未创建云资源、未提交。
+> 状态：**项目侧前置已实施，仅静态与本地验证**。已对目标 ECS 做只读核验；未部署、未改动服务器、未创建云资源、未提交。
 > 目标由用户定为「**复用现有 ECS 直连部署**」，不走 ROS 新建资源栈。
 > 范围由用户定为「**不对外开放、仅自用、暂不申请域名**」：容器只绑 `127.0.0.1:3100`，
 > 本机经 SSH 隧道访问；不新增 nginx server block、不申请域名与 HTTPS 证书、不加公网鉴权。
@@ -62,7 +62,7 @@
 
 ## 3. 部署形态与端口
 
-- 镜像自带 Node 24 + pnpm 10.14.0 + `.next/` + 生成后的 Prisma client，`CMD` 为 `pnpm start`（3100）。
+- 镜像自带 Node 24 + pnpm 10.14.0 + `.next/` + 生成后的 Prisma client，`CMD` 为 `next start -p 3100`（3100）。
 - 宿主映射 `127.0.0.1:3100:3100`，**不对公网暴露容器端口**；服务器安全组无需为 3100 新开入站规则。
 - SQLite 用绝对路径 `file:/var/lib/prompt-pilot/app.db`，宿主目录 bind mount 到容器；
   路径在应用目录之外，替换镜像或容器都不影响数据。
@@ -75,18 +75,42 @@
 - 域名与 HTTPS：**本阶段不申请域名、不配置 HTTPS**。若将来改为对外开放，需另开阶段补域名 /
   证书覆盖与公网鉴权，并重新评估 nginx 共存方案（见 §7 与 §10）。
 
-## 4. 项目侧前置改动（本轮未实施）
+## 4. 项目侧前置改动（已实施）
 
-本轮只写方案，没有改动业务代码；以下四项需用户确认后另开阶段。
+本节范围仅是本地项目侧前置文件：已按用户 2026-11-17 的四项拍板落地，只做静态与本地验证。
+服务器部署、镜像传输、容器运行与 `docker load` 仍未执行，也未提交；amd64 实构建列为上线前置未验证项（见 §10）。
+`Dockerfile`、`.dockerignore`、`scripts/docker-entrypoint.sh` 为新增文件；`package.json` 把 `prisma` 从
+devDependencies 移入 dependencies（固定 6.19.3，未改动约束），`pnpm-lock.yaml` 随之只更新该依赖分类。
 
 ### 4.1 Dockerfile 与 .dockerignore
 
-多阶段镜像：Node 24 + pnpm 10.14.0 → `pnpm install --frozen-lockfile` → `pnpm db:generate` →
-`pnpm build`；运行阶段只带 `.next/`、生产依赖与生成后的 Prisma client。
-`db push` 与 `db:seed` 在首次启动时执行（12 条内置模板按 slug `upsert` 幂等，可重复）。
+`Dockerfile` 已落地，三阶段同用 `node:24-bookworm-slim`（Debian glibc / OpenSSL 3，对应 Prisma
+`debian-openssl-3.0.x`），并固定 `--platform=linux/amd64`：本机是 darwin-arm64，目标 ECS 是 x86_64，
+Prisma native 引擎必须在目标平台阶段内生成，绝不复制本机 `.prisma` / `@prisma/client` 产物。
 
-`.dockerignore` 必须排除：`data/`、`.env`、`.env.*`、`.git/`、`.agent/`、`.claude/`、
-`.superpowers/`、`.scratch/`、`.impeccable/`、`.next/cache/`，以及任何本地部署状态文件。
+- 基础阶段 `base`：corepack 固定 `pnpm@10.14.0`；写一份 `pnpm-workspace.yaml` 的
+  `onlyBuiltDependencies`（`@prisma/client` / `@prisma/engines` / `prisma`）放行 pnpm 10 默认拦截的
+  构建脚本，把目标平台 native 引擎固化进镜像，运行时不再联网下载。
+- 构建阶段 `builder`：`pnpm install --frozen-lockfile`（构建需 devDependencies）→
+  `pnpm db:generate` → `pnpm build`。本阶段不带 `.env`、不设数据库地址，也不访问数据库；
+  `prisma generate` 无需 `DATABASE_URL`，`next build` 的数据库访问是请求期的惰性读取。
+- 运行阶段 `runner`：只带 `.next/`、生产依赖、`package.json`、`next.config.ts`、`prisma/`
+  （schema 与 seed.ts）与在本阶段重新生成的目标平台 Prisma client；`prisma` CLI 已移入 dependencies。
+  `CMD ["next", "start", "-p", "3100"]`，不启用 standalone，不加 `outputFileTracingIncludes`，
+  不注入任何 agent 标记变量，不升级 Next.js。
+- `ENTRYPOINT` 为 `scripts/docker-entrypoint.sh`：首启 `prisma db push`（不带
+  `--accept-data-loss`，破坏性变更报错即停，须人工备份确认）与 `pnpm db:seed`（12 条内置模板按
+  slug 幂等 upsert，自定义模板不受影响，可重复执行），任一步失败都不启动服务，末尾 `exec "$@"`
+  让 `next start` 成为 PID 1 正确接收 SIGTERM。镜像 `EXPOSE 3100`，实际只映射宿主回环。
+
+`.dockerignore` 已落地，整体排除 `data/`（含 5 个含记录正文与密钥的本机库）、`.env` / `.env.*`、
+`.git/`、`.agent/`、`.claude/`、`.superpowers/`、`.scratch/`、`.impeccable/`、`.next/`（整体而非仅
+cache）、`node_modules/`、`.npm-cache/`、`.pnpm-store/`、`.npmrc`、`.nvmrc`、`.editorconfig`、
+`.gitattributes`、`.github/`、`docs/assets/`、`tests/`、`*.tsbuildinfo`、`coverage/` 与根文档。
+`.npmrc` 实测只有 `store-dir` / `cache-dir` 两个键，无凭据，但指向本机目录，故排除；镜像内
+`pnpm install` 用镜像默认 store，不依赖本机路径。保留的最小集合：
+`package.json`、`pnpm-lock.yaml`、`next.config.ts`、`postcss.config.mjs`、`tsconfig.json`、
+`next-env.d.ts`、`prisma/`、`app/`、`components/`、`lib/`、`scripts/`（含入口脚本）、`.dockerignore`。
 
 不能直接把源码丢到宿主上 `yarn install --production` 再 `next start`：宿主无 Node（项目要
 >=24），`--production` 会跳过 prisma CLI 与 tailwind 等 devDeps，且必须执行 `prisma generate` /
@@ -94,22 +118,34 @@
 
 ### 4.2 产物洁净性：密钥与数据不得进镜像或传输包
 
-`data/app.db` 含全部记录正文与设置页保存的 `ARK_API_KEY`（FR-8.1），仓库另有 4 个备份库；
-`.env` / `.env.local` 也可能含密钥。`docker build` 的构建上下文必须是干净目录，
-或由 `.dockerignore` 完整排除。`docker save` 产物只有镜像层，天然不含宿主机目录。
-若用源码 tar 传输，同样先建干净暂存目录，且**不要把 tar 放进 OSS 或 git**。
+`data/` 下 5 个本机库（app.db 与 4 个 bak）含全部记录正文与设置页保存的模型密钥（FR-8.1）；
+`.env` / `.env.local` 也可能含密钥。`.dockerignore` 已整体排除 `data/` 与 `.env*`，镜像定义、
+入口脚本与 `.dockerignore` 三份新文件里密钥变量零出现，也没有任何密钥值。`.npmrc` 实测无凭据，
+只有两个指向本机目录的路径键，已排除，镜像内安装不依赖本机 store 或 cache（见 §4.1）。
+
+洁净门禁（构建镜像前，本地执行）：`git status --short` 核对无 `data/`、`data/*.db*`、`.env*`、
+密钥类文件被新增或改动；逐项核对 `.dockerignore` 覆盖与 Dockerfile 静态项（多阶段、
+linux/amd64、目标平台内 `db:generate`、非 standalone、入口初始化、只固化非机密默认值）。
+`docker save` 产物只有镜像层，天然不含宿主机目录。若用源码 tar 传输，同样先建干净暂存目录，
+且**不要把 tar 放进 OSS 或 git**。
 
 ### 4.3 密钥注入
 
-镜像里只固化**非机密**默认值：`ARK_BASE_URL`、`ARK_MODEL_GENERATE`、`ARK_MODEL_OPTIMIZE`、
-`DATABASE_URL=file:/var/lib/prompt-pilot/app.db`。
+镜像里只固化**非机密**默认值：`ARK_BASE_URL`、`ARK_MODEL_GENERATE`、
+`DATABASE_URL=file:/var/lib/prompt-pilot/app.db`。优化模型**不固化**：未单独配置时按 FR-8.3
+回落复用生成模型；需要单独指定时，在设置页或 `--env-file` 配置 `ARK_MODEL_OPTIMIZE`。
+模型密钥**不进镜像、不进产物、不进聊天**，镜像定义里不带任何密钥默认值。
 
-`ARK_API_KEY` **不进镜像、不进产物、不进聊天**。两条可选路径（本轮未定，见 §10）：
+注入路径已由用户 2026-11-17 拍板，三条事实：
 
-1. 部署后在设置页录入，密钥按 FR-8.1 落到已持久化的 SQLite 里，随宿主目录保留；
-   设置页 > 环境变量的优先级已覆盖这条路径。
-2. 在服务器写 root-only（0600）的 env 文件，`docker run --env-file` 注入；
-   容器重建时仍有效，不能只在首次运行时临时 `-e` 传入。
+1. **默认：部署后在设置页录入**。密钥按 FR-8.1 落到已持久化的 SQLite 里，随宿主 bind mount
+   目录保留；不引入服务器凭证文件，容器重建不丢。
+2. **可选进阶：root-only（0600）的 env 文件配 `docker run --env-file` 注入**。容器重建时仍有效，
+   不能只在首次运行时临时 `-e` 传入。
+3. **两条同时配置时，设置页写入的值优先**，与 `lib/settings/store.ts` 的
+   「设置页 > 环境变量 > 代码默认值」一致。
+
+变量名与其映射见 `lib/settings/store.ts`；本阶段不注入、不读取、不回显任何真实密钥值。
 
 ### 4.4 与现有服务隔离
 
@@ -120,13 +156,13 @@
 
 | 步 | 动作 |
 |---|---|
-| 1 | 本地：`pnpm install --frozen-lockfile` → `pnpm db:generate` → `pnpm build` → `docker build` → `docker save -o image.tar` |
+| 1 | 本地：按 §6 跑 clean build 与三项检查、`git status --short` 洁净门禁 → `docker build --platform=linux/amd64 -t <tag> .` → `docker save -o image.tar <tag>`；`install` / `db:generate` / `build` 都在 Dockerfile 构建阶段内完成 |
 | 2 | 用 SSH/SCP 把 `image.tar` 传到服务器临时目录；本地与服务器两侧校验 sha256；产物不进 git、不进 OSS |
-| 3 | 服务器：`docker load -i image.tar`，**保留上一版 tag** 以便回滚 |
-| 4 | 建 `/var/lib/prompt-pilot` 并设权限；首次执行 `prisma db push` + `pnpm db:seed` |
+| 3 | 服务器：`docker load -i image.tar`，**保留上一镜像 tag** 以便回滚 |
+| 4 | 建 `/var/lib/prompt-pilot` 并设权限；`prisma db push` 与 `pnpm db:seed` 由入口脚本在容器首启自动执行，无需手动，失败即不启动服务 |
 | 5 | 启动容器：`127.0.0.1:3100:3100`、`-v /var/lib/prompt-pilot:/var/lib/prompt-pilot`、可选 `--env-file`、`--restart unless-stopped` |
 | 6 | 本机建立 SSH 本地端口转发（形如 `ssh -N -L 3100:127.0.0.1:3100 <host>`），确认隧道可用 |
-| 7 | 逐层探活：容器内 `127.0.0.1:3100` → 服务器回环 `127.0.0.1:3100` → 本机隧道 `127.0.0.1:3100` → 四个页面 → SSE 流式 → 重启容器后数据仍在 |
+| 7 | 逐层探活：容器内 `127.0.0.1:3100` → 服务器回环 `127.0.0.1:3100` → 本机隧道 `127.0.0.1:3100` → 四个页面 → SSE 流式 → 重启容器后数据仍在；另加「SSH 隧道下的 SSE 长流探针」，属之后获准阶段的待验项（见 §10），本阶段不执行 |
 | 8 | 记录镜像 digest、db 备份路径与部署时间；**不记录任何密钥、IP 与密钥路径** |
 | 9 | 失败则按 §8 回滚 |
 
@@ -135,12 +171,15 @@
 ## 6. 上线验证
 
 本地（构建镜像前）：按 `docs/HANDOVER.md` 第 7 节以 clean build 为准，并执行
-`node ~/.claude/scripts/claude-project-harness-check.mjs .`、`pnpm run typecheck`、`pnpm test`。
+`node ~/.claude/scripts/claude-project-harness-check.mjs .`、`pnpm run typecheck`、`pnpm test`、
+`git diff --check`。再加**产物洁净门禁**：`git status --short` 核对无 `data/`、`data/*.db*`、
+`.env*`、密钥类文件被新增或改动；逐项核对 `.dockerignore` 覆盖（含 `.npmrc` 无凭据但含本机路径已排除）
+与 Dockerfile 静态项；确认三份新文件与镜像定义里密钥变量零出现。本轮只做静态与本地验证，
+不启动 Docker daemon、不做 amd64 实构建（见 §10）。
 
 线上（部署后）：
 
-- 四个页面 `/studio` `/library` `/templates` `/settings` 在 1440 与 390 宽度下无横向溢出，
-  底部四项标签可达，键盘主路径可达。
+- 四个页面 `/studio` `/library` `/templates` `/settings` 在 1440 宽度下无横向溢出，键盘主路径可达。
 - AC-15 无密钥时生成与优化禁用且给出原因与设置入口；AC-16 断网时仍可浏览库与模板；
   AC-17 客户端产物不含 `sk-`、`Bearer` 与 API key 变量名（分模式核验，不用裸 `grep "sk-"`）。
 - 模板页三类各不少于 4 个真实模板（seed 的 12 条已写入）。
@@ -167,7 +206,7 @@
 
 - 部署前备份 `/var/lib/prompt-pilot/app.db`（含密钥与全部记录），脱敏保管；
   ECS 系统盘是唯一副本，无快照、无异地备份。
-- **回滚清单**：停新容器 → 用上一版 tag 重启 → 必要时恢复 db 备份 → 复测 §6 的关键项。
+- **回滚清单**：停新容器 → 用上一镜像 tag 重启 → 必要时恢复 db 备份 → 复测 §6 的关键项。
   本方案不改 nginx 配置，无需 reload。
 - **卸载**：停并删容器、删镜像；没有新增 nginx block 需要清理，无需 reload；
   按需要保留或删除 `/var/lib/prompt-pilot`。本方案没有创建云资源，**不要手动删 ECS 相关资源**。
@@ -186,16 +225,22 @@
 | 对外范围 | **已决（2026-11-16）**：不对外开放、仅自用；容器只绑 `127.0.0.1:3100`，本机 SSH 隧道访问 |
 | 新站的域名 / 子域 / HTTPS 证书覆盖 | **已决（2026-11-16）**：暂不申请域名、不配置 HTTPS |
 | 公网鉴权方案 | **已决（2026-11-16）**：无公网入口，不需要公网鉴权 |
-| `Dockerfile` 与 `.dockerignore` | 未创建，需用户确认后单独阶段实施 |
-| `ARK_API_KEY` 注入路径 | 未定（设置页录入 vs 服务器 root-only env 文件），见 §4.3 |
+| 基础镜像与目标平台 | **已决（2026-11-17）**：`node:24-bookworm-slim`，构建与运行同一基座，`--platform=linux/amd64` |
+| 运行时形态 | **已决（2026-11-17）**：不启用 standalone，保留 `next start -p 3100`；`prisma` CLI 移入 dependencies，入口脚本首启 `db push` + `db:seed` |
+| `Dockerfile`、`.dockerignore`、`scripts/docker-entrypoint.sh` | **已实施（2026-11-17）**：三份新文件已落地，仅静态与本地验证；amd64 实构建未做，见下方未验证项 |
+| 模型密钥注入路径 | **已决（2026-11-17）**：设置页录入为默认，root-only 0600 env 文件配 `--env-file` 为可选进阶；同配时设置页值优先，见 §4.3 |
+| `.claude/docs/runtime.md` | **已同步（2026-11-17）**：「无部署流水线」已改写为 Docker 镜像交付说明 |
 | 将来改为对外开放的前置 | 另开阶段补域名 / 证书覆盖、公网鉴权、nginx 共存方案；本阶段不做 |
 | 服务器 `aliyun` CLI 凭证 | 未就绪（无 region、sts 无有效身份）；直连部署不依赖它 |
 | `.env` 权限 | 本地为 `644`，含云凭证应改 `600`；本轮未改 |
 | `.env` / `.env.example` 内容 | 权限策略阻止，未读取、未绕过、未重试，记为未验证项 |
 | SQLite 单点 | ECS 系统盘唯一副本，无快照、无异地备份 |
 | 磁盘与内存余量 | 剩余 11G / 可用 1.2Gi；镜像与构建产物需控制体积 |
-| 真实 ARK 密钥端到端 | 未验证（流式 usage、错误码映射） |
-| `.claude/docs/runtime.md` | 仍写「无部署流水线」，为控范围本轮未改，待同步 |
+| amd64 实构建与镜像架构核对 | **本轮未验证，上线前置**：未启动 Docker daemon，未跑 `docker buildx build --platform linux/amd64`，未核对镜像架构 |
+| 容器内首启与 12 条模板 | **本轮未验证，上线前置**：`db push` + `db:seed` 只在本地 scratch 目录验证；容器内首启未实测 |
+| 重启持久化与 Prisma 实际调用 | **本轮未验证，上线前置**：bind mount 重启后数据仍在、容器内真实 Prisma 调用未实测 |
+| SSH 隧道下的 SSE 长流探针 | **本轮未验证，上线前置**：属之后获准阶段的待验项，见 §5 第 7 步 |
+| 真实密钥端到端 | **本轮未验证，上线前置**：未注入真实密钥，流式 usage 落库、限流与额度错误码映射未实测 |
 
 ## 11. 参考
 

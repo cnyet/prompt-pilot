@@ -168,7 +168,11 @@ v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化�
 - 集成测试共用独立 `data/test.db`，文件串行执行（共享同一 SQLite）。
 - 测试基线数在 v3 中会先增（Phase 1 新测试）后减（Phase 6 删旧测试），不追求数量，以 ROADMAP-V3 各阶段验收为准。
 - 视觉：改样式先看 `components/ui/` 与 `DESIGN.md`；改令牌跑 `pnpm check:contrast`；改 DESIGN.md 跑 design-parser。
-- 验收一律以 clean build 为准：`rm -rf .next && pnpm build`。
+- 验收一律以 clean build 为准：`rm -rf .next && pnpm build`。这是本地交付前置的必跑项。
+- 交付镜像走 `Dockerfile` 多阶段构建：固定 `--platform=linux/amd64`，在目标平台构建阶段内依次
+  `pnpm install --frozen-lockfile` → `pnpm db:generate` → `pnpm build`；运行阶段只带 `.next/`、
+  生产依赖与在本阶段重新生成的目标平台 Prisma client，入口脚本首启执行 `prisma db push` 与
+  `pnpm db:seed`。镜像不复用本机 `.next/` 或本机 Prisma 引擎。详见 `docs/DEPLOYMENT.md` 第 4 节。
 
 ---
 
