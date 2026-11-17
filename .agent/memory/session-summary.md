@@ -980,3 +980,30 @@
 - 回滚（已文档化、未执行）：`git checkout -- package.json pnpm-lock.yaml docs/DEPLOYMENT.md docs/HANDOVER.md .claude/docs/runtime.md` 后 `rm -f Dockerfile .dockerignore scripts/docker-entrypoint.sh`。
 - 未验证 / 上线前置：amd64 实机构建 + 镜像架构、容器首启 `db push` + seed + 12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1 / SIGTERM、hadolint。
 - HEAD `ddb37d6`（记账 commit，未 push），`origin/main 522f25f`；注入卡旧值「HEAD==origin/main==522f25f / 6 文件未提交未 push」为过期，本轮已纠偏。
+
+## 2026-11-17（部署前置定向修复 + 独立复验 Accept）
+
+### Request
+- 用户 `/clear` 后 handoff：LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ git 核对 8 文件 → 跑一次 typecheck/test → resume `devops-engineer` 定向修复 Important（可顺带收 2 Minor）→ 独立 `verifier` 复验 → Accept 后由用户授权功能 commit/push。上一会话 agent 已随 `/clear` 销毁，按同一封套起新实现者并喂入 Reject 上下文。
+
+### Implementation（唯一 writer `devops-engineer`，7 处 / 3 文件）
+- `Dockerfile`：ENV 块整行删 `ARK_MODEL_OPTIMIZE="deepseek-v4.1-flash" \`（原 L32），剩 5 行逐字不变、续行链完整、无新增 ENV、无 `ARK_API_KEY`；L26 注释改「优化模型刻意不固化；未单独配置时由 lib/llm/registry.ts 回落复用生成模型（FR-8.3）」。
+- `docs/DEPLOYMENT.md`：§4.3 移除该项默认值并写明回落 +「设置页 / `--env-file`」单独配置路径；§3 CMD 改 `next start -p 3100`；头状态改「项目侧前置已实施，仅静态与本地验证」；§8「上一镜像 tag」与 §5 一致。
+- `.dockerignore`：仅 L23 注释 `# 版本控制与 CI 元数据` → `# Git 元数据与 CI 配置`，四条排除项逐条未动。
+- 改前 3 份字节一致备份 `/tmp/prompt-pilot-fix-{Dockerfile,DEPLOYMENT.md,.dockerignore}.bak-20261117` + sha256；定向回滚为三行 `cp`。
+
+### Verification
+- 主 Agent 基线（修前）与收口（修后）各跑一次：typecheck 0 / 59 文件 537 用例 / harness 24 pass 0 warn 0 fail / `git diff --check` / `sh -n` clean。修后独立核对 3 份备份隔离 diff 恰好 7 处、无夹带、全树恰好 8 个未提交路径。
+- 独立 `verifier`（fresh context，非实现者）：全套 per-gate + `npx vitest run tests/unit/llm/registry-optimize.test.ts` 4/4；harness 记 25/0（与主 Agent 24/0 计数口径差异，均 0 fail）；语义核对 `lib/llm/registry.ts:162`、`lib/settings/store.ts:279-297`、`:335-353`，确认设置页与 `--env-file` 双路径回落成立、FR-8.3 无阻塞。verdict **Accept**（0 Critical / 0 Important；2 info 非阻塞：`.dockerignore:23` 新措辞准确、`DEPLOYMENT.md:76`「重新评估」为普通动词且本轮未改动、非 v2 回归）。
+- 未起 Docker daemon；本轮未重跑 `pnpm build`（未改构建输入，避免覆盖既有 `.next`）。
+
+### Decisions
+- 用户 `AskUserQuestion` 选「授权 commit + push」：本会话依次做 PERSIST（记账 commit，仅 `.agent/memory/`）→ 8 产品文件功能 commit → 一次 `git push origin main`。远端 `main` 仍在 `522f25f`，本地领先 2 笔记账 commit、无分叉，push 为快进。
+
+### 残余风险 / 未验证（上线前置，按拍板 4 授权外）
+- amd64 实构建与镜像架构、容器首启 `db push`+`db:seed`+12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端（usage 落库 / 限流 / 额度错误码）、`next start` PID1 / SIGTERM、hadolint / Dockerfile lint、容器内 FR-8.3 运行时实测。
+
+### Carry-over（下一会话第一动作）
+- LOAD（最新 handoff → ACTIVE_CONTEXT → todo-tracker）→ `git log -3` + `git status -sb` 核对 HEAD 与 `origin/main`（本会话已 commit+push，以现场为准）→ 跑一次 typecheck/test。
+- 剩余 Pending 见 `todo-tracker.md`：上线前置实机构建与容器内验证、`.env` 644→600、Next.js 16.4.2 安全提示（升级未执行）、DESIGN.md:327 960px、模板卡文档、真实网关密钥端到端等。
+- 回滚：提交前 `git checkout -- package.json pnpm-lock.yaml docs/DEPLOYMENT.md docs/HANDOVER.md .claude/docs/runtime.md` 后 `rm -f Dockerfile .dockerignore scripts/docker-entrypoint.sh`；提交后改用 `git revert`；定向回滚用三份 `/tmp` 备份。

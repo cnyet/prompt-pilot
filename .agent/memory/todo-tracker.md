@@ -1,12 +1,11 @@
 # Todo Tracker
 
 ## In Progress
-- 无（会话预算上限已收口，PERSIST + 记账 commit 后开新会话）。本会话完成 4 项拍板 → `devops-engineer` 单 writer 实现 8 文件 → 完整验证 → 独立 `verifier` **Reject**（1 Important / 2 Minor）。8 产品文件为未提交工作区改动，未 push、未部署。修复与复验顺延新会话，见 Pending 首项。详见 `session-summary.md` 2026-11-17「部署前置实现 + 独立验收 Reject」节。
+- 无（本会话已收口定向修复与独立复验 Accept，PERSIST 与功能 commit + push 随即执行）。8 产品文件不再是未提交工作区改动；下一会话以 `git log` / `origin/main` 核对实际结果。详见 `session-summary.md` 2026-11-17「定向修复 + 独立复验 Accept」节。
 
 ## Pending
-- [ ] **新会话第一动作**：resume `devops-engineer` 定向修复 verifier 的 Important（`Dockerfile:32` 去掉 `ARK_MODEL_OPTIMIZE` ENV，订正 `Dockerfile:26` 注释与 `DEPLOYMENT.md:134` 措辞，可顺带收 2 条 Minor）→ 独立 `verifier` 复验 → Accept 后由用户授权功能 commit/push；实现者不自签收 | Priority: P1 | Created: 2026-11-17
 - [ ] 上线前置（本轮按拍板 4 未做、均属未验证）：amd64 实机构建 + 镜像架构、容器首启 `db push`+seed+12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1/SIGTERM、hadolint | Priority: P1 | Created: 2026-11-17
-- [ ] 修复复验 Accept 且获功能 commit 授权后，按 `docs/DEPLOYMENT.md` §5 直连部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: verifier 未 Accept、无 commit 授权
+- [ ] 按 `docs/DEPLOYMENT.md` §5 直连部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 上线前置实机构建与容器内验证未做、真实密钥未就绪
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
@@ -19,9 +18,10 @@
 - 无。
 
 ## Done
+- [x] 部署前置定向修复 + 独立复验 Accept + PERSIST：去 `Dockerfile` 固化的 `ARK_MODEL_OPTIMIZE`（恢复 FR-8.3 回落）、订正注释与 `DEPLOYMENT.md` §4.3/§3/文件头/§8、`.dockerignore:23` 注释，共 7 处 / 3 文件；独立 `verifier` **Accept**（0 Critical / 0 Important，2 info 非阻塞）；主 Agent 实跑 harness 24-0-0 / typecheck 0 / 537 用例 / `git diff --check` / `sh -n` clean。用户授权「PERSIST + 功能 commit + push main」，本会话执行（记账 commit 仅 `.agent/memory/`，8 产品文件单独提交，一次 push）| Completed: 2026-11-17
 - [x] 用户 4 项拍板（AskUserQuestion，均 recommended）：`ARK_API_KEY` 设置页默认 + 0600 `--env-file` 可选 + 设置页优先；非 standalone + `prisma` CLI 入 dependencies + `next start -p 3100`；`node:24-bookworm-slim` / linux/amd64；验证仅静态+本地不起 Docker | Completed: 2026-11-17
 - [x] 部署前置实现（`devops-engineer` 唯一 writer，8 文件**未提交**）：新建 Dockerfile / .dockerignore / scripts/docker-entrypoint.sh（0755）；改 package.json + pnpm-lock.yaml（prisma 6.19.3 devDeps→deps）、DEPLOYMENT.md §4/5/6/10、HANDOVER.md §7、runtime.md；§6 390px 验收裁剪已做 | Completed: 2026-11-17
-- [x] 完整验证 + 独立 `verifier`（L/XL + 发布高风险）：typecheck 0 / 59 文件 537 用例 / harness 23-1（既存本卡 4601/4096 字节，非回归）/ `sh -n` / `git diff --check` clean / `pnpm build` 首次 SecurityFatalError 重试同命令 exit0；verdict **Reject**（1 Important `Dockerfile:32` 固化 `ARK_MODEL_OPTIMIZE` 破坏 FR-8.3 回落 + 2 Minor，其余 11 条 PASS）| Completed: 2026-11-17 | **未修复、未复验、未自签收、未提交产品文件**
+- [x] 完整验证 + 独立 `verifier`（L/XL + 发布高风险）：typecheck 0 / 59 文件 537 用例 / harness 23-1（既存本卡 4601/4096 字节，非回归）/ `sh -n` / `git diff --check` clean / `pnpm build` 首次 SecurityFatalError 重试同命令 exit0；verdict **Reject**（1 Important `Dockerfile:32` 固化 `ARK_MODEL_OPTIMIZE` 破坏 FR-8.3 回落 + 2 Minor，其余 11 条 PASS）| Completed: 2026-11-17 | **已在后续会话修复并复验 Accept**
 - [x] 会话预算上限收口 PERSIST：ACTIVE_CONTEXT 瘦身到 3980B（修掉唯一 harness fail）、session-summary 追加本节、todo 更新、handoff 5 问补齐、`memory-archive.mjs --persist-round`、记账类 memory commit（不 push）| Completed: 2026-11-17
 - [x] 会话预算上限收口 PERSIST：纠偏状态卡（宽度 6 文件 + 部署文档均已在 `522f25f` 提交推送，HEAD==origin/main；旧记录里所有「未提交未 push」字样就此失效）；追加本会话 session-summary 节、补齐 handoff 5 问、跑 `memory-archive.mjs --persist-round`、记账类 memory commit（不 push）| Completed: 2026-11-17
 - [x] 部署前置范围选定（用户选「部署前置（仅本地）」）+ 只读 `impact-mapper` 影响地图（task ab8a6761d897ae0b0）：新建/条件改文件清单、构建契约链、arm64→amd64 架构错配、standalone/Prisma CLI/密钥未决项、产物洁净性与 SSE 验证建议；未写产品文件 / 未跑 build / 未连服务器 / 未派实现者 | Completed: 2026-11-17
@@ -34,7 +34,7 @@
 - [x] 卸载不再使用的全栈部署技能：技能目录移入本机归档（可逆）、移除 `~/.openclaw/skills/` 软链、从 `~/.agents/.skill-lock.json` 删除条目；`docs/DEPLOYMENT.md` 清掉全部工具/脚本引用并重写为独立直连方案（189 行）。同源 observe/operate 两技能未动，待用户定夺。核验 lock valid 34 技能 / 归档 37 文件 / diff --check clean / README 0 broken / 无工具引用与字面 IP | Completed: 2026-11-16
 - [x] 部署目标定为**复用现有 ECS 直连部署**（不走 ROS 新建栈）；两次 SSH 只读核验服务器现状；`docs/DEPLOYMENT.md` 重写为 196 行直连方案 + README 索引行同步。核验 diff --check clean、README 链接 0 broken、无字面 IP/域名/密钥路径入库 | Completed: 2026-11-16
 - [x] 阿里云部署文档阶段：新增 `docs/DEPLOYMENT.md` + README 索引行；仅文档，未部署/未建云资源/未提交。核验 skill 模板声明逐条重验、seed 幂等确认 | Completed: 2026-11-16
-- [x] `/impeccable` 三连：A layout（工作台 960px 上下单列、优化/生成 tabs、280px 输入）→ B polish 工作台（默认优化、now-pulse/stream-caret、停止按钮保留焦点、ADR-0002 增补）→ C polish 其他页面（settings 两处输入统一 `inputStyles`，修焦点环/危险态/缺失状态与重复）。核验：typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / 深浅主题浏览器实测；未提交未 push | Completed: 2026-11-16
+- [x] `/impeccable` 三连：A layout（工作台 960px 上下单列、优化/生成 tabs、280px 输入）→ B polish 工作台（默认优化、now-pulse/stream-caret、停止按钮保留焦点、ADR-0002 增补）→ C polish 其他页面（settings 两处输入统一 `inputStyles`，修焦点环/危险态/缺失状态与重复）。核验：typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / diff --check clean；深浅主题浏览器实测；未提交未 push | Completed: 2026-11-16
 - [x] Phase 6：v2 清理与收口。Tasks 1-5 完成；harness 25-0-0 / typecheck 0 / 59 文件 537 用例 / build ✓ / e2e ✓ / contrast ✓ / 浏览器冒烟 ✓；最终 verifier Accept with minors，无 Critical/Important；旧表备份 `data/app.db.bak-20261114-2027` 后删除，保留五张表；未提交未 push | Completed: 2026-11-14
 - [x] Batch H 4 条 Minor 收口（设置页旧文案、KPI 标签、ARCHITECTURE 掩码示例、`maskKey` <4 字符边界）| Completed: 2026-11-14
 - [x] Batch H：Phase 5 设置/成本。实现 + 全量验证 + 独立 verifier 验收通过（Accept：AC-12/13/14/17/26 + Review Focus 8/8）；HEAD `f4d3749`；verifier 自跑 harness 24-0-0 / typecheck 0 / 906 用例 / build ✓ / contrast ✓ / AC-17 clean | Completed: 2026-11-14
