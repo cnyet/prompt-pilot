@@ -113,7 +113,7 @@ export function TemplateLibrary({
   const showFilters = !loadFailed && !loading
 
   return (
-    <PageShell variant="grid">
+    <PageShell>
       <div className="flex flex-col gap-5">
         <div className="flex min-h-6 flex-wrap items-start justify-between gap-3">
           <p className="max-w-[68ch] text-balance text-body text-ink-muted">

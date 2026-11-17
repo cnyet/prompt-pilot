@@ -194,7 +194,7 @@ export function LibraryV3({ optimizeAvailable }: LibraryV3Props) {
   const hasMore = offset < total
 
   return (
-    <PageShell variant="grid">
+    <PageShell>
       <div className="flex flex-col gap-4">
         <LibraryFilters
           query={query}

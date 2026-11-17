@@ -64,7 +64,7 @@ function toTargetType(value: string): TargetType {
 /**
  * 工作台（PRODUCT.md 核心旅程 + DESIGN.md Workspace Result Surface）。
  *
- * 输入区与结果面上下排在一条 960px 居中单列里：先在上方说明需求，再在下方
+ * 输入区与结果面上下排在统一的居中单列里：先在上方说明需求，再在下方
  * 读结果。首次提交按当前模式走 `postGenerate`（生成或优化），结果区展示
  * `draftOutput || committedOutput`。流式进行中可停止并保留正文；详情到达后
  * 用 `detail.record` 驱动元信息、收藏与评分；重新生成追加迭代。
@@ -484,8 +484,8 @@ export function StudioWorkspace({
   )
 
   return (
-    <PageShell variant="workbench">
-      <div className="mx-auto flex w-full max-w-[960px] flex-col gap-5 lg:gap-6">
+    <PageShell>
+      <div className="flex w-full flex-col gap-5 lg:gap-6">
         <BudgetNotice />
         <PromptComposer
           state={composer}

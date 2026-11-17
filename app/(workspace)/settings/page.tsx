@@ -3,6 +3,7 @@ import { CostBucketTable } from '@/components/settings/CostBucketTable'
 import { CostTrend } from '@/components/settings/CostTrend'
 import { LlmSettingsForm } from '@/components/settings/LlmSettingsForm'
 import { SettingsNav } from '@/components/settings/SettingsNav'
+import { PageShell } from '@/components/ui/PageShell'
 import { Section } from '@/components/ui/Section'
 import { formatBudgetUsage } from '@/lib/budget'
 import { modelDisplayLabel } from '@/lib/llm/registry'
@@ -49,7 +50,7 @@ export default async function SettingsPage() {
     })) ?? []
 
   return (
-    <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-6 py-8 lg:flex-row lg:gap-10 lg:px-10">
+    <PageShell className="flex flex-col gap-6 lg:flex-row lg:gap-10">
       <SettingsNav />
       <div className="flex min-w-0 flex-1 flex-col gap-12">
         <p className="max-w-[68ch] text-balance text-body text-ink-muted">
@@ -164,6 +165,6 @@ export default async function SettingsPage() {
           </Section>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

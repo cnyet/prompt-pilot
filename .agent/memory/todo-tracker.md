@@ -1,23 +1,27 @@
 # Todo Tracker
 
 ## In Progress
-- [ ] 工作台主体宽度与提示词库、模版、设置页面不一致：只读排查完成（960 / 1080 / 1280 三套宽度 + 两套 padding），四页统一 1280px 方案未批准、未实现、未验证；按 hook 收口，开新会话先读 `session-summary.md` 2026-11-17「页面宽度一致性」节 | Priority: P1 | Created: 2026-11-17
+- 无。宽度一致性已落地并验证、部署影响面评估已交付；剩余工作均为另开阶段的部署前置，见 Pending。6 文件未提交 / 未 push（未获 commit 授权）。
 
 ## Pending
 - [ ] 定夺 `ARK_API_KEY` 注入路径：设置页录入 vs 服务器 root-only（0600）env 文件（文档 §4.3）| Priority: P1 | Created: 2026-11-16
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 按 `docs/DEPLOYMENT.md` §4 补齐前置（Dockerfile + .dockerignore、产物洁净门禁、SQLite 绝对路径与挂载、密钥注入），再按 §5 直连步骤部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 密钥注入路径未定、前置未实施
+- [ ] 部署前置需一并解决本轮评估新发现的发布链路风险：首启 `db push` / `db:seed` 无启动钩子（`start` 仅 `next start`）；`prisma` CLI 是 devDependency 与「运行阶段只带生产依赖」矛盾；Linux 构建阶段必须重生成 Prisma 引擎（本机仅 darwin-arm64，generator 无 `binaryTargets`）；`next.config.ts` 无 `output: 'standalone'`；clean build 触发 Next.js 16.4.2 安全闸门首次失败需重试；本机 3100 占用与 `ssh -L 3100:...` 冲突；§5 step-7 增补 SSH 隧道下 SSE 长流探针 | Priority: P1 | Created: 2026-11-17 | Blocker: 前置未实施
+- [ ] 裁剪 `docs/DEPLOYMENT.md` §6 上线验证里的 390px / 移动底栏项，与用户「移动端显示排除验收」对齐（当前文档与验收范围冲突）| Priority: P2 | Created: 2026-11-17
 - [ ] 提交全部累积未提交改动（Phase 6 + impeccable 三连 + 部署文档，用户确认后），再删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区 | Priority: P1 | Created: 2026-11-14
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
-- [ ] 同步 DESIGN.md Template Card 段（异构网格 / 禁止等尺寸网格 / Featured 金边）与 `.impeccable/design.json` 到本轮统一网格实现；宽度任务落地后再补 DESIGN.md:327 的 960px 单列漂移；按 impeccable skill 未在设计任务中顺手修 | Priority: P2 | Created: 2026-11-17
+- [ ] 同步 DESIGN.md Template Card 段（异构网格 / 禁止等尺寸网格 / Featured 金边）与 `.impeccable/design.json` 到统一网格实现；并修 DESIGN.md:327 的 960px 单列漂移（宽度任务已落地，四页统一 1280px，该句已过时）；按 impeccable skill 未在设计任务中顺手修 | Priority: P2 | Created: 2026-11-17
 
 ## Blocked
 - 无。
 
 ## Done
+- [x] 部署到服务器的影响面评估（只读）：未连服务器 / 未改文件 / 未部署；结论服务器影响面小且隔离（回环 3100 + 1 容器 + 1 宿主目录 + 1 SSH 隧道），风险集中在发布链路。查明 Dockerfile/.dockerignore 缺位、首启无初始化钩子、Prisma 引擎跨平台（仅 darwin-arm64）、无 standalone、Next.js 16.4.2 构建安全闸门、本机 3100 与 SSH 隧道端口冲突、§6 390px 验收与移动端排除冲突。见 `session-summary.md` 2026-11-17 同节 | Completed: 2026-11-17
+- [x] 四页主体宽度一致性：`PageShell` 收敛为单一 1280px canonical shell（去 cva / `ShellVariant` / `reading` 变体），工作台去内层 960 与 `variant="workbench"`、settings 换 `PageShell` 去自定 1080、库/模板去 `variant="grid"`、同步两处 960px 注释。6 文件 +21−32，仅 className 与注释。核验 typecheck 0 / 59 文件 537 用例 / harness 24-0-0 / diff --check clean / build 重试后 0 / 4 页 200 / 渲染 HTML 均 1280 且 960、1080 各 0 次 / 无残留 variant 宽度字面量；移动端排除验收、未截图。未提交未 push | Completed: 2026-11-17
 - [x] `/impeccable layout` 模板页卡片统一：`TemplateCover.tsx` / `TemplateLibrary.tsx` / `TemplateCard.tsx` 改为等宽等高三列、封面共用 5:3、仅 featured 2px 金边、删除入口并入页脚；typecheck 0 / 537 用例 / harness 25-0-0 / detect [] / build ✓ / bsk 1440 浅深 + 三类 + 390px 阅图 | Completed: 2026-11-17
 - [x] 项目级启用 `local-tools` 三个插件（`.claude/settings.json` 的 `enabledPlugins`）；不新建项目根 `.mcp.json`，`enabledMcpjsonServers` 保持 `[]`；备份 `/tmp/prompt-pilot-settings.json.bak-20261117`；json.tool / plugin validate / plugin list 通过 | Completed: 2026-11-17
 - [x] 定夺部署对外范围：不对外开放、仅自用、暂不申请域名；域名/HTTPS 证书与公网鉴权两项消解。仍复用现有 ECS，容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不新增 nginx block、不动 Certbot/既有服务；§7 公网暴露风险不成立。`docs/DEPLOYMENT.md` 收敛为私网方案（§1/§3/§5/§6/§7/§8/§10），README 索引行同步 | Completed: 2026-11-16
