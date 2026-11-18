@@ -1,7 +1,7 @@
 {
   "enabledMcpjsonServers": [],
   "enabledPlugins": {
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": false,
     "qwen-harness-tools@local-tools": true,
     "redfox-data@local-tools": true,
     "quark-scan-ocr@local-tools": true

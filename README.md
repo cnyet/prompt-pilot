@@ -34,7 +34,7 @@
 | 项 | 决定 |
 |---|---|
 | 形态 | Next.js App Router + React 19 + TypeScript 全栈单体，单机可跑，SQLite 落盘 |
-| 模型 | 火山方舟为默认，OpenAI 兼容适配层可切任意端点；无 key 时界面禁用模型操作并说明原因 |
+| 模型 | 默认 OpenAI 兼容网关（deepseek-v4.1-flash），适配层可切任意端点含火山方舟；无 key 时界面禁用模型操作并说明原因 |
 | 范式 | v3 结果优先：输出 Markdown 正文 + diff + 最多 3 条改动说明，不做结构化字段与评估 |
 | 数据 | PromptRecord / PromptIteration / Template；完成自动入库，收藏与评分为事后动作 |
 | 导航 | 工作台、提示词库、模板、设置，共 4 项 |

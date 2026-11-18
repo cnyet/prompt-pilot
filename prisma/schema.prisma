@@ -1,8 +1,8 @@
 // PromptPilot 数据模型
 //
-// 状态：M0 只作为契约文件存在，尚未执行 migrate。
-// M1 接入 SQLite 时按此建库；如 Prisma 大版本对 generator 或 record 类型有变化，
-// 以 `docs/ARCHITECTURE.md` 第七节为准，这里的字段与关系必须一致。
+// 状态：已接入 SQLite，用 `db push` 同步（无 `prisma/migrations/`）。
+// 字段与关系以 `docs/ARCHITECTURE.md` 第七节为准，必须一致；
+// 如 Prisma 大版本对 generator 或 record 类型有变化，先备份并确认再改。
 
 generator client {
   provider = "prisma-client-js"
@@ -17,7 +17,7 @@ datasource db {
 model LlmCall {
   id              String   @id @default(cuid())
   traceId         String?
-  // compose | interview | evaluate | refine | run | judge
+  // 现行落库值：generate | optimize | repair；历史 compose/interview/evaluate/refine/run/judge 仅只读保留
   stage           String
   promptId        String?
   versionId       String?

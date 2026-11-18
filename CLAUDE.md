@@ -12,7 +12,7 @@
 
 PromptPilot · 提示词工坊：把一句话需求变成结构完整、可直接投产的标准提示词。
 Next.js App Router + React 19 + TypeScript 全栈单体（`pnpm dev`，端口 3100），
-Prisma + SQLite（`data/`），火山方舟为默认 LLM 适配，无 key 时走 L1 离线模板模式。
+Prisma + SQLite（`data/`），默认走 OpenAI 兼容网关（生成模型 deepseek-v4.1-flash，设 ARK_BASE_URL 可切回火山方舟）；无 key 时按 AC-15 禁用模型操作并返回 503 NO_MODEL，不伪造输出。
 
 ## Sources Of Truth
 

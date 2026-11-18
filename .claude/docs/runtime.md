@@ -7,7 +7,7 @@
 - Runtime: Node.js + Next.js 16 App Router（全栈单体），dev/start 端口 3100。
 - Package manager: pnpm（`pnpm@10.14.0`，见 package.json `packageManager`）。
 - Version pinning: `pnpm-lock.yaml`；Prisma 6.19.3、Next ^16.4.2、React ^19.3.1、zod ^4.6.7。
-- CI baseline: 无 CI；本地验证 = harness check + `pnpm run typecheck` + `pnpm test`。
+- CI baseline: `.github/workflows/ci.yml`（push main / PR / 手动触发）的 verify job：pnpm 10.14.0 + node（`.nvmrc`）+ `--frozen-lockfile` 安装、`db:push`、`check:contrast`、`next typegen`、typecheck、test、build；`permissions: contents:read`。本地验证 = harness check + `pnpm run typecheck` + `pnpm test`。
 
 ## Build And Test
 

@@ -1,0 +1,36 @@
+{
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  },
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "app/globals.css",
+          "components/shell/AppShell.tsx",
+          "components/shell/MobileNav.tsx",
+          "components/ui/Card.tsx"
+        ],
+        "createdAt": "2026-11-18T03:30:55.831Z",
+        "reason": "Agent: DESIGN.md pins state-only Glow Gold (active/selected/focus, <=2/screen) defined in globals.css and used by nav/Card; pinned brief wins"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-11-18T03:30:55.867Z",
+        "reason": "Agent: DESIGN.md pins Parchment Background #f3ead8 as the page background in globals.css; pinned brief wins"
+      }
+    ]
+  }
+}

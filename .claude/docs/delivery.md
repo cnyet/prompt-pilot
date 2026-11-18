@@ -36,6 +36,6 @@ pnpm test            # vitest run
 
 ## Backlog Placement
 
-- Product requirements:
-- Technical debt:
-- Durable task state:
+- Product requirements: `PRODUCT.md`（FR / NFR / AC）。
+- Technical debt: `.agent/memory/todo-tracker.md` 的 Pending / Blocked 与 `docs/HANDOVER.md` 未完成工作。
+- Durable task state: `.agent/memory/ACTIVE_CONTEXT.md`（当前态）与 `session-summary.md`（历史决策）。

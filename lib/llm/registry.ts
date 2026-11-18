@@ -22,7 +22,8 @@ export { MODEL_DISPLAY_LABELS, modelDisplayLabel }
  * 模型注册表：把 ChatRequest.modelConfigId 解析成具体 provider 与 model。
  *
  * 只存 Model ID / ep- 接入点 ID 与价格，不存密钥；密钥永远从环境变量读取。
- * 有 ARK_API_KEY 时生成走方舟，没有时由路由继续走离线 heuristic composer。
+ * 有可用 Key 时走真实模型（默认 OpenAI 兼容网关，设 ARK_BASE_URL 可切回方舟）；
+ * 无 Key 时 getGenerateProvider/getOptimizeProvider 返回 null，路由按 AC-15 返回 503 NO_MODEL，不伪造输出。
  */
 
 /**
@@ -240,7 +241,7 @@ export function getApiKey(
   return envValue(env, config.apiKeyEnvVar)
 }
 
-/** 方舟是否具备可用 Key；路由用它决定走真实模型还是离线模板。 */
+/** 是否配置了 ARK_API_KEY；无 Key 时 provider 为 null，路由按 AC-15 返回 503 NO_MODEL（v3 已删除离线模板）。 */
 export function hasArkApiKey(env: RegistryEnv = process.env): boolean {
   return Boolean(envValue(env, 'ARK_API_KEY'))
 }

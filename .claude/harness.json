@@ -1,8 +1,8 @@
 {
   "version": 1,
   "budgets": {
-    "projectClaudeMdMaxBytes": 8192,
-    "projectClaudeMdAdvisoryBytes": 8192,
+    "projectClaudeMdMaxBytes": 6144,
+    "projectClaudeMdAdvisoryBytes": 6144,
     "activeContextMaxBytes": 4096
   },
   "memoryBudgets": {

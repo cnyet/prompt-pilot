@@ -282,7 +282,7 @@ export function ResultPanel({
             <ChangeNotes notes={notes} />
           </>
         ) : (
-          <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-panel border border-line-subtle bg-bg-sunken px-6 py-10 text-center">
+          <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-6 py-10 text-center">
             <Icon name="studio" size={20} className="text-ink-faint" />
             <p className="max-w-[44ch] text-balance text-body text-ink-muted">
               {t('studio.result.empty')}

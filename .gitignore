@@ -20,8 +20,9 @@ data/
 *.sqlite
 *.sqlite-journal
 
-# agent 临时产物（浏览器配置、构建副本）
+# agent 临时产物（浏览器配置、构建副本、issue 工作区）
 .tmp-*/
+.scratch/
 
 # 测试与系统文件
 coverage/
