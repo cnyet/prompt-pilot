@@ -930,3 +930,10 @@
 - 待用户：阿里云控制台安全组入站 TCP 3100 → 出口 IP/32（curl 测得 180.152.46.10，浏览器若走代理出口可能不同）；加完主 Agent 实测公网可达。白名单 IP 不入库（文档/memory 占位）。
 - 本地未提交改动增至 6 文件（deploy.sh 两轮修改 + DEPLOYMENT.md 白名单节）；仍零 commit 零 push。
 - 闭环：用户控制台加规则后，本机公网实测（--noproxy 直连）四页面 200 + /api/templates builtin=12。访问免隧道成立。
+
+## 2026-11-18（续：hosts 域名映射 + 会话收口）
+
+- 用户本机 /etc/hosts 加 `120.26.172.45 promptpilot.com`（sudo 须真实终端，会话 ! shell 无交互终端读不了密码）；dscacheutil 解析与 http://promptpilot.com:3100/studio、/settings 实测 200。hosts 只映射 IP 不映射端口，:3100 省不掉（80 被既有 nginx 占用不动）；须 http（HSTS 风险时改 promptpilot.test）、浏览器直连不走代理。
+- 用户问 settings 密钥存储与共享：答全局设置落服务器 SQLite、无账号体系、任何可达者可用其模型/读写删数据；白名单是唯一边界，共享出口 IP 的设备等同白名单内。
+- 提交闭环：用户自行 commit+push `20282dc feat: enhance deployment process with backup and verification`（11 文件：6 产品 + memory），HEAD=origin/main=20282dc。「6 文件待授权」待办消解。服务器镜像 tag 仍 64e1868，脚本内容已 scp 同步与 20282dc 一致。
+- 本会话收口：部署 + 独立验收 Accept + 公网白名单 + hosts 映射全闭环；剩余待办仅用户录入密钥后补验 AC-1/4/13/14 与观察项（openssl / AC-17 口径 / 悬空镜像）。会话预算上限，PERSIST 后开新会话。
