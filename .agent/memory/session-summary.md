@@ -882,3 +882,51 @@
 - handoff 按「只留最新 1 个」清理：删 3 个今日较早 untracked 快照，保留 handoff-20261118-113450.md 并补齐五问；10 个旧 tracked handoff 删除随记账 commit 入库。
 - 部署基线更新为 f60bcfe：三件套（Dockerfile/.dockerignore/entrypoint）未变；计划步骤 2 的 HEAD 校验改为当前 main HEAD。本轮 commit/push 授权已用尽，后续需新授权。
 - 记账 commit（本笔）随后 push；会话收口，新会话从 ACTIVE_CONTEXT + handoff-113450 恢复，第一动作是 SSH host key 核验授权。
+
+## 2026-11-18（续：首次服务器部署闭环 + 独立验收 Accept）
+
+### 编排与前置
+- 用户指令：backend-architect 搭方案（数据库/迁移/脚本）→ devops-engineer 预检评估 → 执行部署 → 全程回报。主 Agent 加派独立 verifier（发布高风险）。
+- SSH host key 闭环：用户选带外核对，VNC 取真实 ED25519 指纹与远端出示一致 → ssh-keygen -R 旧 ECDSA + 固定已核验 ED25519（写入前再比对指纹，不等即中止）→ SSH 连通测试通过。连接方式运维本机保管，不入库。
+- DEPLOYMENT.md 重写 250→约 100 行（删决策日期流水账/审计叙事/重复声明），backend-architect 增补「数据库与迁移」「部署脚本」节；主 Agent 修正过时事实：服务器实际已有 2G swapfile（旧基线「无 swap」失效）、GitHub SSH 未配信任走 scp 回退；README/HANDOVER/runtime 三处交叉引用同步。
+
+### backend-architect 交付（本地，未提交）
+- scripts/deploy.sh 新增：precheck/build/run/verify/rollback/status；set -euo pipefail；OOM/Killed/137 即停零重试（SecurityFatalError 单次原样重试例外）；build 日志强制源码目录外；镜像 linux/amd64 + Env 凭据计数断言；verify 按 builtin:true 计数 12 + 四页面 200 + RestartCount/OOMKilled + 拒绝 0.0.0.0/[::] 绑定 + 既有容器在运行；run 保留上一镜像到 /var/lib/prompt-pilot-deploy/previous-image；rollback 不自动覆盖 db。
+- scripts/docker-entrypoint.sh +16 行：db push 前滚动备份守卫（app.db.pre-push.bak + WAL/SHM 侧车，仅最近一份，首启无库跳过），set -e 与 exec "$@" 语义不变。
+- 验证：bash -n / sh -n / shellcheck 零告警 / typecheck 0；幂等（三轮 seed 12 内置 + 自定义不受影响）、破坏性变更拒止（删列 db push exit 1 阻止启动）、备份守卫逐字节一致，均临时目录实演。
+
+### devops 预检与裁决
+- 首轮 NO-GO：pull 基础镜像后 MemAvailable 0.976Gi < 1Gi 阈值（缺口 25MiB）；主 Agent 复测回升 1.09Gi → 按 devops 自设判据落回 GO-WITH-RISK。发现既有 2G swap（SwapFree 1.6G）显著缓解 OOM。
+- GitHub git ls-remote 失败于 host key verification（服务器无 GitHub 主机密钥）→ scp 源码包回退，无需用户 deploy key。基础镜像 node:24-bookworm-slim 预热 amd64/linux。磁盘 9.9G、3100 空闲、既有容器 healthy。
+
+### 部署执行（GO-WITH-RISK，全部断言通过）
+- git archive 64e1868（379 文件，无 data/无真实 .env；含 HEAD 跟踪 .env.example，.dockerignore 排除不进镜像）scp sha256 全等 → /opt/prompt-pilot-src；deploy.sh 与 entrypoint 单独 scp sha256 逐一全等。
+- build 前 MemAvailable 1.22Gi 过门；nohup 服务端构建约 4.5 分钟，全程零 OOM（最低 568Mi，swap 吸收峰值）；镜像 prompt-pilot:64e1868 1.33GB amd64/linux，Id sha256:af1d7fe0…70abd（本地构建无 RepoDigests，此为 config ID）；Env 凭据计数 0。
+- run 只绑 127.0.0.1:3100:3100 + bind mount + unless-stopped，无 --memory/--cpus，无密钥注入；就绪约 8s。
+- verify：12/12 内置模板、四页面 200、RestartCount=0、OOMKilled=false、仅回环、既有容器在运行。
+- 补充：restart 持久化通过且备份守卫实际生效（app.db.pre-push.bak 生成）；优雅退出 0.435s ExitCode 143；AC-15 POST /api/generate → 503 NO_MODEL；AC-17 容器内 /app/.next/static 词边界复扫零命中（初扫 34 命中均 mask-/task- 词内误报）；本机 3110 隧道四页面 200 + 12 模板，用完即关，3100 未占用。
+- 既有服务终检：community-affairs/community-db Up (healthy)，3001 有应答（根 404 正常）、5432 open、nginx active、swap 无新增、监听面无新增（额外端口均长驻既有进程）。
+- 偏差记录：restart 后 1.2s 内探活空响应一次（时序，等就绪后全绿）；AC-17 扫描路径适配为容器内真实产物；Prisma openssl-1.1.x 回退警告（功能实测正常）。
+
+### 独立 verifier：Accept（10/10 断言独立复测）
+- 含自建隧道复验、镜像 Env 变量名形态审查（无敏感名/值）、两脚本 sha256 两侧全等、监听面进程 elapsed 核对（均早于部署）。
+- Findings：[low] 客户端产物 camelCase apiKey 字段名 17 处（设置页表单键，空初始值 + 末四位掩码，无凭据值）与 AC-17 字面「API key 变量名无命中」口径偏差，建议明确口径为凭据值 + snake_case 零命中或改字段名；[info] 3001 根 404 正常；[info] digest 措辞实为 config ID。
+- 观察项：Prisma openssl 警告（建议后续 Dockerfile 补 openssl）；certbot renew timer inactive（既有）；悬空镜像约 2.7G 未清理（清理需批准，不动 community-affairs 相关）；.env.example 内容权限拒读未验证。
+- 未验证：真实密钥 SSE 长流/费用落库/预算提示、宿主重启后 unless-stopped 自启、公网路径（不在范围）、DevTools 实测（词边界扫描等价覆盖）。
+
+### 纪律与待办
+- 零 commit 零 push（HEAD=64e1868=origin/main）；未注入/读取/打印密钥；未加 swap/改 daemon/动 nginx/Certbot/安全组/清理镜像；落盘文字无 IP/域名/密钥路径。
+- 本地未提交 6 文件：scripts/deploy.sh（新）、scripts/docker-entrypoint.sh、docs/DEPLOYMENT.md、README.md、docs/HANDOVER.md、.claude/docs/runtime.md。待用户授权 commit+push。
+- 待用户：经 3110 隧道在设置页录入模型密钥 → 补验 AC-1/4/13/14 真实链路。
+- 临时产物：服务器 /tmp/prompt-pilot-build-64e1868-*.log、/tmp/pp-build-wrapper-64e1868.log、/tmp/pp-ac15-body.json；本机 /tmp/pp-src-64e1868.tar.gz、/tmp/pp-src-list.txt、/tmp/pp-tunnel-templates.json、/tmp/pp-rehearsal.Essq1s（演练，可删）。
+- 本机 dev server 3100 已停（bzwn8buw8 exit 143）；Docker daemon 仍坏（不影响服务器部署路径）。
+
+## 2026-11-18（续：访问模式改公网 + 安全组 IP 白名单）
+
+- 用户否决隧道方案，理由「无密钥无损失」；主 Agent 纠正事实：应用无鉴权，录密钥后任何人可耗额度/读写删记录，无密钥也可灌数据。用户选「安全组 IP 白名单」（AskUserQuestion recommended）。
+- 实施：deploy.sh verify 公网绑定断言改条件式（BIND_ADDR=127.0.0.1 才拒绝 0.0.0.0）+ BIND_ADDR 注释；DEPLOYMENT.md 头部/访问/run/verify/步骤/红线更新 + 新增「公网访问与 IP 白名单」节（严禁全网放行、出口 IP 变化更新规则、回退回环模式路径）。
+- 坑（实测）：服务器有 mihomo 系统代理，curl http://0.0.0.0:3100 被拦截返 502，deploy.sh run 就绪等待超时 exit 124；应用本身健康（回环 200）。修复：BASE_URL 恒走 http://127.0.0.1（服务器本机探活），BIND_ADDR 仅用于 docker -p 与绑定断言。
+- 容器经 deploy.sh run（BIND_ADDR=0.0.0.0）重建：旧镜像记入 previous-image，数据无损，Ready 664ms，RestartCount=0；脚本 scp 同步 sha256 全等；verify 公网模式全绿（12 模板/四页面 200/绑定 0.0.0.0:3100/既有容器在运行）。
+- 待用户：阿里云控制台安全组入站 TCP 3100 → 出口 IP/32（curl 测得 180.152.46.10，浏览器若走代理出口可能不同）；加完主 Agent 实测公网可达。白名单 IP 不入库（文档/memory 占位）。
+- 本地未提交改动增至 6 文件（deploy.sh 两轮修改 + DEPLOYMENT.md 白名单节）；仍零 commit 零 push。
+- 闭环：用户控制台加规则后，本机公网实测（--noproxy 直连）四页面 200 + /api/templates builtin=12。访问免隧道成立。

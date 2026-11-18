@@ -172,7 +172,7 @@ v3 词表在 `CONTEXT.md`：**记录、迭代、生成、优化、继续优化�
 - 交付镜像走 `Dockerfile` 多阶段构建：固定 `--platform=linux/amd64`，在目标平台构建阶段内依次
   `pnpm install --frozen-lockfile` → `pnpm db:generate` → `pnpm build`；运行阶段只带 `.next/`、
   生产依赖与在本阶段重新生成的目标平台 Prisma client，入口脚本首启执行 `prisma db push` 与
-  `pnpm db:seed`。镜像不复用本机 `.next/` 或本机 Prisma 引擎。详见 `docs/DEPLOYMENT.md` 第 4 节。
+  `pnpm db:seed`。镜像不复用本机 `.next/` 或本机 Prisma 引擎。详见 `docs/DEPLOYMENT.md`「项目侧文件」节。
 
 ---
 

@@ -15,7 +15,7 @@
 | [docs/ROADMAP-V3.md](docs/ROADMAP-V3.md) | v3 实施计划：Phase 0 到 6 共 16 人日、数据模型、SSE 协议、每阶段验收 | 想确认"先做什么、做到哪了"时 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技术方案：v3 数据模型、API、SSE 与元数据协议、diff、检查规则 | 想确认"怎么实现"时 |
 | [docs/adr/](docs/adr/) | 架构决策记录；0007 是本次结果优先重置 | 想知道"为什么这么定"时 |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 现有 ECS 私网部署方案：服务器现状、回环监听与 SSH 隧道访问、前置改动、备份回滚与安全约束 | 部署、更新或卸载时 |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 现有 ECS 部署指南：服务器内构建、回环监听与 SSH 隧道访问、密钥注入、验证清单、备份回滚与红线 | 部署、更新或卸载时 |
 | [CONTEXT.md](CONTEXT.md) | 领域词表与废弃词 | 拿不准术语时 |
 | [HANDOVER.md](docs/HANDOVER.md) | 交接说明：怎么跑、代码在哪、哪些约定不能碰、哪里还没做完 | **接手时先读这份** |
 

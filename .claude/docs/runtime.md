@@ -51,5 +51,5 @@ scripts/           e2e-http.mjs 等脚本
 - 交付形态：多阶段 `Dockerfile`（`node:24-bookworm-slim`，固定 `--platform=linux/amd64`）产出镜像，
   容器内 `next start -p 3100`（非 standalone）；入口脚本首启执行 `prisma db push` 与 `pnpm db:seed`。
   镜像只固化非机密默认值，模型密钥由设置页录入或 `--env-file` 注入，不进镜像与产物。
-- 链路：本地构建镜像 → 传输 → `docker load` → 容器运行（仅绑 `127.0.0.1:3100`）；详见 `docs/DEPLOYMENT.md`。
+- 链路：服务器内 `docker build`（2026-11-17 授权，本机 Docker daemon 损坏）→ 容器运行（仅绑 `127.0.0.1:3100`）→ 本机 3110 SSH 隧道访问；详见 `docs/DEPLOYMENT.md`。
 - 本轮仅落地项目侧前置文件并做静态与本地验证；amd64 实构建与服务器部署未执行，属上线前置未验证项。
