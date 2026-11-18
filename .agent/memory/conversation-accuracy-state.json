@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "persistRounds": 49,
+  "persistRounds": 56,
   "archiveEveryRounds": 30,
-  "lastArchiveRound": 0,
-  "lastArchiveAt": null
+  "lastArchiveRound": 51,
+  "lastArchiveAt": "2026-11-17T09:50:39.295Z"
 }

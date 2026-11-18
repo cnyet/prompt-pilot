@@ -1,23 +1,29 @@
 # Todo Tracker
 
 ## In Progress
-- 无（本会话已收口定向修复与独立复验 Accept，PERSIST 与功能 commit + push 随即执行）。8 产品文件不再是未提交工作区改动；下一会话以 `git log` / `origin/main` 核对实际结果。详见 `session-summary.md` 2026-11-17「定向修复 + 独立复验 Accept」节。
+- （当前无进行中任务；审计修复已提交推送 f60bcfe，会话收口。新会话待用户：部署 SSH host key 核验授权。）
 
 ## Pending
-- [ ] 上线前置（本轮按拍板 4 未做、均属未验证）：amd64 实机构建 + 镜像架构、容器首启 `db push`+seed+12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1/SIGTERM、hadolint | Priority: P1 | Created: 2026-11-17
-- [ ] 按 `docs/DEPLOYMENT.md` §5 直连部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 上线前置实机构建与容器内验证未做、真实密钥未就绪
+- [ ] 上线前置（均属未验证，本轮尝试本地实测被 daemon 阻塞）：amd64 实机构建 + 镜像架构、容器首启 `db push`+seed+12 模板、bind mount 重启持久化、容器内真实 Prisma 调用、SSH 隧道下 SSE 长流、真实密钥端到端、`next start` PID1/SIGTERM、hadolint | Priority: P1 | Created: 2026-11-17
+- [ ] 按 `docs/DEPLOYMENT.md` §5 直连部署；容器只绑 `127.0.0.1:3100` + 本机 SSH 隧道，不动 nginx | Priority: P1 | Created: 2026-11-16 | Blocker: 本地 Docker 实测、真实密钥端到端及服务器侧审批未就绪
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
 - [ ] 真实网关密钥端到端验证（生成 → 优化 usage → 成本页，v3 语义）| Priority: P1 | Created: 2026-11-10 | Blocker: 无 ARK/opencode 真实密钥
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
-- [ ] 同步 DESIGN.md Template Card 段（异构网格 / 禁止等尺寸网格 / Featured 金边）与 `.impeccable/design.json` 到统一网格实现；并修 DESIGN.md:327 的 960px 单列漂移（宽度任务已落地，四页统一 1280px，该句已过时）；按 impeccable skill 未在设计任务中顺手修 | Priority: P2 | Created: 2026-11-17
+- [ ] 同步 DESIGN.md Template Card 段（异构网格 / 禁止等尺寸网格 / Featured 金边）与 `.impeccable/design.json` 到统一网格实现（Template Card 段同步仍待办；DESIGN.md:327 的 960px 单列漂移本轮 F3 修复中）| Priority: P2 | Created: 2026-11-17 | Updated: 2026-11-18
 
 ## Blocked
-- 无。
+- [ ] 本地 Docker 实构建与容器验证 | Blocker: Docker Desktop 4.75.0 在 macOS 27.2 上 backend start-request 子进程全线 EOF，`diagnose`/`start`/`restart`/`open -a Docker` 均无 socket；需授权升级或重装 Docker、改系统权限，或改用可用 amd64 主机
 
 ## Done
+- [x] 审计修复提交推送：用户授权，代码 commit f60bcfe（57 文件）push origin/main；推送前门禁 harness 24/0/0、typecheck 0、537 测试全过；handoff 只留最新 1 个并补五问；记账 commit 随后推送 | Completed: 2026-11-18
+- [x] 审计决策项收口：impeccable hook 启用接线 + 2 条 pinned 误报 file-scoped ignore；PNG 裁剪 41 张孤儿（约 5MiB，用户选全部，27 张被引用保留，无断链，git D 可恢复）。harness 复跑 24/0/0；无 commit/push | Completed: 2026-11-18
+- [x] /impeccable 审计问题修复（F1-F7 + P3 + 渲染 R1，15 文件）：安全文档校正、DESIGN 1280、默认 provider 措辞、CI 描述、registry/schema 注释、ResultPanel 空态拍平、delivery/domain 文档、harness 预算 6144、.gitignore .scratch/、禁用 ui-ux-pro-max。验证 harness 24/0/0 / typecheck 0 / 537 tests / contrast min 4.70 / detect nested-cards 清除（余 2 pinned 误报）/ diff-check clean。决策项 hook/PNG 未改；无 commit/push | Completed: 2026-11-18
+- [x] 本机 Docker daemon 启动故障定位：排除 Aqua/签名/资源/单二进制/settings/陈旧状态，收敛到 start-request 协议；官方恢复手段穷尽仍失败，按停止条件诚实回退，六部署文件未改、无 commit/push | Completed: 2026-11-17
+- [x] 本地 Docker daemon 启动尝试后静态回退：harness 24/0/0、typecheck 0、59 文件 537 测试、FR-8.3 单测 4/4、`sh -n` 与 `git diff --check` clean；独立 verifier Accept（仅回退，不是 Docker 验收）；六部署文件未改、未提交推送 | Completed: 2026-11-17
+- [x] 按用户「不提交」选择完成本轮 PERSIST：恢复 todo-tracker 历史、补齐 handoff 五问、运行 `memory-archive.mjs --persist-round`；无 commit/push | Completed: 2026-11-17
 - [x] 部署前置定向修复 + 独立复验 Accept + PERSIST：去 `Dockerfile` 固化的 `ARK_MODEL_OPTIMIZE`（恢复 FR-8.3 回落）、订正注释与 `DEPLOYMENT.md` §4.3/§3/文件头/§8、`.dockerignore:23` 注释，共 7 处 / 3 文件；独立 `verifier` **Accept**（0 Critical / 0 Important，2 info 非阻塞）；主 Agent 实跑 harness 24-0-0 / typecheck 0 / 537 用例 / `git diff --check` / `sh -n` clean。用户授权「PERSIST + 功能 commit + push main」，本会话执行（记账 commit 仅 `.agent/memory/`，8 产品文件单独提交，一次 push）| Completed: 2026-11-17
 - [x] 用户 4 项拍板（AskUserQuestion，均 recommended）：`ARK_API_KEY` 设置页默认 + 0600 `--env-file` 可选 + 设置页优先；非 standalone + `prisma` CLI 入 dependencies + `next start -p 3100`；`node:24-bookworm-slim` / linux/amd64；验证仅静态+本地不起 Docker | Completed: 2026-11-17
 - [x] 部署前置实现（`devops-engineer` 唯一 writer，8 文件**未提交**）：新建 Dockerfile / .dockerignore / scripts/docker-entrypoint.sh（0755）；改 package.json + pnpm-lock.yaml（prisma 6.19.3 devDeps→deps）、DEPLOYMENT.md §4/5/6/10、HANDOVER.md §7、runtime.md；§6 390px 验收裁剪已做 | Completed: 2026-11-17
