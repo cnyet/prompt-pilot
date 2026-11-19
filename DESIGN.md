@@ -282,7 +282,7 @@ PromptPilot 是一张会发光的羊皮纸工作台，v3 把光从流程移到�
 - **Primary:** 金色底、`on-candle` 深字、1px 深金边、轻阴影。每屏最多一个。
 - **Secondary:** 透明底、金色文字、1px 金色边，用于次要动作。
 - **Ghost:** 透明底、`ink-muted` 文字、无边框，悬停有 `surface-raised` 底。工具栏与图标按钮用它。
-- **Destructive:** 深红底、浅色文字，只用于删除与不可逆操作。
+- **Destructive:** 深红底、浅色文字，用于删除与停止中断这类需要醒目警示的操作。
 - **States:** default / hover / focus-visible / active / disabled 全部实现。disabled 为 40% 透明度，边框降为 `border-subtle`。focus-visible 用 2px 金色环，offset 2px。
 
 ### Inputs / Fields

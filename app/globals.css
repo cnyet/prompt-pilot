@@ -277,6 +277,16 @@
   }
 }
 
+/* 进行中输入面顶边扫描线：只动 transform，宽度 1/3，-100% 到 300% 恰好扫过整条边 */
+@keyframes pp-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
 /* 流式输入符：光标式硬闪烁（steps 前半段实、后半段空），只动 opacity */
 @keyframes pp-caret-blink {
   0%,
@@ -312,6 +322,11 @@
     animation: pp-caret-blink 1.1s steps(1, end) infinite;
   }
 
+  /* 进行中输入面的顶边扫描线：功能性状态信号，只动 transform */
+  .scan-line {
+    animation: pp-scan 1.8s ease-in-out infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -325,7 +340,8 @@
     .rise,
     .reveal,
     .now-pulse,
-    .stream-caret {
+    .stream-caret,
+    .scan-line {
       animation: none;
     }
   }

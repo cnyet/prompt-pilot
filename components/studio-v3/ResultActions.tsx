@@ -66,7 +66,7 @@ export function ResultActions({
         {t('studio.actions.download')}
       </Button>
       {active ? (
-        <Button variant="secondary" size="sm" icon="stop" onClick={onStop}>
+        <Button variant="destructive" size="sm" icon="stop" onClick={onStop}>
           {t('studio.stop')}
         </Button>
       ) : (

@@ -9,7 +9,7 @@ import { Icon, type IconName } from './Icon'
  * - primary     当前页面唯一的主操作，一屏最多一个
  * - secondary   次要操作，金色描边
  * - ghost       工具栏操作，无边框，hover 有底
- * - destructive 危险操作，深红底配浅色文字
+ * - destructive 警示操作（删除、停止中断），深红底配浅色文字
  */
 export type ButtonVariant =
   | 'primary'

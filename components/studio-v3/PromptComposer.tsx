@@ -45,7 +45,7 @@ export interface PromptComposerProps {
  * 模式 tabs 置于卡片顶部（优化在前，默认选中优化），两侧草稿互不影响；
  * 目标类型只在生成模式出现。主输入面在居中单列里尽量放大。
  * ⌘Enter 提交、Esc 停止；输入法合成中不触发提交。进行中主按钮原位切换为停止；
- * 两份草稿同时只读，输入面退到 sunken 层，底部给出进行中的状态信号；
+ * 两份草稿同时只读，输入面退到 sunken 层，顶边扫描线与底部圆点给出进行中信号；
  * 没有可用模型时禁用主操作，就地说明原因并给出设置入口，绝不伪造输出。
  */
 export function PromptComposer({
@@ -207,21 +207,35 @@ export function PromptComposer({
               })}
             </span>
           </div>
-          <Textarea
-            id={sourceId}
-            value={draft.sourceInput}
-            onChange={(event) => updateDraft({ sourceInput: event.target.value })}
-            onKeyDown={handleKeyDown}
-            readOnly={active}
-            placeholder={
-              state.mode === 'generate'
-                ? t('studio.source.generatePlaceholder')
-                : t('studio.source.optimizePlaceholder')
-            }
-            invalid={sourceOver}
-            aria-describedby={sourceCountId}
-            className="mt-2 min-h-[280px] resize-y bg-surface py-3.5 text-body-lg leading-[1.75]"
-          />
+          <div className="relative mt-2">
+            <Textarea
+              id={sourceId}
+              value={draft.sourceInput}
+              onChange={(event) =>
+                updateDraft({ sourceInput: event.target.value })
+              }
+              onKeyDown={handleKeyDown}
+              readOnly={active}
+              placeholder={
+                state.mode === 'generate'
+                  ? t('studio.source.generatePlaceholder')
+                  : t('studio.source.optimizePlaceholder')
+              }
+              invalid={sourceOver}
+              aria-describedby={sourceCountId}
+              className="min-h-[280px] resize-y bg-surface py-3.5 text-body-lg leading-[1.75]"
+            />
+            {active ? (
+              // 进行中沿输入面顶边的扫描线：只动 transform，功能性状态信号，
+              // 与底部 now-pulse 圆点同一纪律；减少动效偏好下静止。
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-px top-px h-0.5 overflow-hidden rounded-t-[3px]"
+              >
+                <span className="scan-line block h-full w-1/3 bg-accent/70" />
+              </span>
+            ) : null}
+          </div>
           {sourceOver && !unavailable ? (
             <p role="alert" className="mt-1.5 text-caption text-danger">
               {t('studio.count.over', { limit: sourceLimit })}
@@ -317,7 +331,8 @@ export function PromptComposer({
             {active ? (
               // 进行中原位切换为停止：两个分支都是同一位置的 Button，React 调和
               // 后 DOM 节点不变，焦点不会弹到 BODY（M2）。
-              <Button variant="secondary" icon="stop" onClick={onCancel}>
+              // 停止是醒目警示动作，用深红底与次要动作拉开（DESIGN.md Destructive）。
+              <Button variant="destructive" icon="stop" onClick={onCancel}>
                 {t('studio.stop')}
               </Button>
             ) : (
