@@ -733,3 +733,14 @@
 - 部署决策：用户 2026-11-19「接收建议」= 值得单独部署一次（按钮文字色对比度属 a11y 缺陷），流程 commit → scp /opt/prompt-pilot-src → deploy.sh → verify，**在新会话执行**（本会话到 checkpoint 轮转）；commit 授权覆盖 6 个产品文件：DESIGN.md、app/globals.css、components/studio-v3/PromptComposer.tsx、components/studio-v3/ResultActions.tsx、components/ui/Button.tsx、lib/utils.ts。服务器镜像仍 64e1868。
 - 会话开头插曲：用户要求删本机 hosts `120.26.172.45 promptpilot.com`；sudo 被权限拒绝，已给 ! sudo 备份+sed 命令，**用户未回执行结果，不得假定已删**。
 - 本地 dev DB（data/app.db）已配置模型密钥（只查存在性未读值）；本轮验证留下几条记录（含一条已中断）可在提示词库删；dev server 3100 会话末仍在运行（背景任务）。
+
+### 2026-11-19 续 · 新会话部署闭环
+
+- git：commit `fb6874d`（6 产品文件，顺手补回 lib/utils.ts 末尾换行）；push 实际区间 `20282dc..fb6874d`（交接卡称 origin/main=e05af97 有漂移，远端起点实为 20282dc）；记账笔后本地=远端。
+- 连接闭环：`aliyun` ssh 别名指向**另一台机器**（ECDSA host key 冲突，勿用于本项目）；部署机固定的 ED25519 仍有效；~/.ssh 全部 7 把私钥被拒、ssh-agent 无身份 → 用户提供 ~/.ssh 之外的密钥并给出完整命令，已记入**仓库外**密钥同目录运维备忘 `prompt-pilot-deploy.md`（位置引用，IP/密钥路径不入库）；`.env` 未动（相关命令被权限拒绝，遵守不读 .env 铁律）。
+- hosts：会话末复核映射**仍在**；用户选「我自己删」（sudo sed 备份+删除命令已给），不得假定已删。
+- 部署执行：git archive fb6874d（314 文件，无 data/ 无 .env）sha256 `cd5c7f6c…` 两侧全等；`sqlite3 .backup` 留 `app.db.pre-deploy-20261119.bak`（110592B，运行中安全备份）；precheck 过（MemAvailable 1143Mi / 磁盘 7Gi / 既有容器 healthy）；build 约 6 分钟零 OOM，镜像 `prompt-pilot:fb6874d` Id `sha256:3e51208c…` 1.33GB linux/amd64，Env 凭据名计数 0；run（BIND_ADDR=0.0.0.0）就绪约 8s；verify 全绿：12 内置模板 / 四页面 200 / RestartCount=0 / OOMKilled=false / 绑定 0.0.0.0:3100 / 既有容器运行。
+- 补充验收：AC-17 容器内 /app/.next/static 词边界扫描零命中；`pp-scan` 在部署 CSS chunk、`destructive` 在 JS chunks（停止配色与扫描线随包上线）；容器替换后 1 条 PromptRecord 仍在（数据无损）；本机公网直连 /studio 200 + 12 模板（当前出口 IP 在白名单内）。
+- 回滚路径：`previous-image=prompt-pilot:64e1868`（deploy.sh rollback 可用）；db 备份如上；两侧传输包已删。
+- 坑（不要重试）：① `pgrep -f "deploy.sh build"` 在远端 bash -c 里自匹配命令串 → 假 STILL_BUILDING 空等 9 分钟，判定构建结束看 wrapper 日志完成行或用 `[.]` 断词模式；② ssh 远端 nohup 启动必须 `< /dev/null`，否则通道不闭合本地挂起（本次挂起任务 TaskStop，远端 nohup 构建不受影响）；③ 本项目部署一律用用户提供的连接命令，不走 aliyun 别名。
+- 剩余：待用户公网 /settings 录密钥 → 补验 AC-1/4/13/14；hosts 用户自删；观察项清单不变（openssl / AC-17 camelCase 口径 / 悬空镜像约 2.7G + 保留的 64e1868 回滚镜像 / certbot timer / Tabs 滚动条 / design.json 漂移 / 本地 dev DB 清理）。
