@@ -744,3 +744,4 @@
 - 回滚路径：`previous-image=prompt-pilot:64e1868`（deploy.sh rollback 可用）；db 备份如上；两侧传输包已删。
 - 坑（不要重试）：① `pgrep -f "deploy.sh build"` 在远端 bash -c 里自匹配命令串 → 假 STILL_BUILDING 空等 9 分钟，判定构建结束看 wrapper 日志完成行或用 `[.]` 断词模式；② ssh 远端 nohup 启动必须 `< /dev/null`，否则通道不闭合本地挂起（本次挂起任务 TaskStop，远端 nohup 构建不受影响）；③ 本项目部署一律用用户提供的连接命令，不走 aliyun 别名。
 - 剩余：待用户公网 /settings 录密钥 → 补验 AC-1/4/13/14；hosts 用户自删；观察项清单不变（openssl / AC-17 camelCase 口径 / 悬空镜像约 2.7G + 保留的 64e1868 回滚镜像 / certbot timer / Tabs 滚动条 / design.json 漂移 / 本地 dev DB 清理）。
+- 连接记录归位（用户追问后补齐）：DEPLOYMENT.md 头部加指针「连接命令见本机 .env PP_DEPLOY_SSH 与运维备忘」；.env 确认 gitignored（.gitignore:13）且未跟踪，但 Agent 对 .env 的读写均被权限拒绝，PP_DEPLOY_SSH 追加命令已交用户 ! 自行执行，**未回执行结果前不得假定已写入**。

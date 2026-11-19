@@ -19,7 +19,7 @@
 ## Hard Constraints
 - types.ts 冻结；不升级 Next；不读 .env 内容；密钥只存 SQLite 只回末四位；不写 IP/域名/凭据进文档/memory；界面禁旧术语/感叹号/em dash/emoji/空词；未知「—」未评分「未评分」未设置「未设置」。
 - 部署隔离：不动 community-affairs/nginx/Certbot；3100 严禁 0.0.0.0/0 全网放行；不加 swap、不改 daemon、不装软件；OOM 即停零重试；备用隧道只用 3110。
-- SSH：部署机 ED25519 已带外固定；连接命令见仓库外运维备忘（密钥同目录 prompt-pilot-deploy.md）；`aliyun` ssh 别名是另一台机器，勿用；host key 变更告警即停重新核验。
+- SSH：部署机 ED25519 已带外固定；连接命令见仓库外运维备忘（密钥同目录 prompt-pilot-deploy.md）与本机 .env 的 PP_DEPLOY_SSH（.env 对 Agent 禁读禁写，追加由用户执行）；DEPLOYMENT.md 只留指针；`aliyun` ssh 别名是另一台机器，勿用；host key 变更告警即停重新核验。
 
 ## Next
 - 无进行中任务。等用户录入密钥后补验 AC-1/4/13/14；或接新任务。
