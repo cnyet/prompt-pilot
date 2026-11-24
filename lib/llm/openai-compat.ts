@@ -29,6 +29,7 @@ import type {
   LLMProvider,
   PingResult,
   StructuredOptions,
+  ThinkingMode,
   TokenUsage,
 } from './types'
 
@@ -36,8 +37,9 @@ import type {
  * 基于 openai npm 包的 OpenAI 兼容实现。
  *
  * 方舟官方没有 Node SDK，数据面又走 OpenAI 协议，所以这一层是 Ark 与
- * 其他 OpenAI 兼容端点的共同底座。协议差异（thinking、reasoning_content 等）
- * 通过受保护的钩子留给子类收口，业务层不需要知道。
+ * 其他 OpenAI 兼容端点的共同底座。thinking.type 是事实标准字段，在这一层
+ * 统一下发（默认 disabled）；reasoning_content 等其余协议差异通过受保护的
+ * 钩子留给子类收口，业务层不需要知道。
  */
 
 export interface ModelPricingCny {
@@ -68,6 +70,22 @@ export interface OpenAICompatConfig {
 export type OpenAIRequestParams = ChatCompletionCreateParamsBase & {
   stream?: boolean
   stream_options?: ChatCompletionStreamOptions | null
+}
+
+/**
+ * 业务层的 ThinkingMode 映射到事实标准的 thinking.type（方舟、DeepSeek、
+ * opencode 网关通用）。默认显式关闭：思维链模型不关思维链时，推理 token
+ * 可能吃满 max_tokens 预算，导致可见输出为 0、finish_reason=length。
+ */
+function mapThinking(mode: ThinkingMode | undefined): 'enabled' | 'disabled' | 'auto' {
+  switch (mode) {
+    case 'on':
+      return 'enabled'
+    case 'auto':
+      return 'auto'
+    default:
+      return 'disabled'
+  }
 }
 
 function mapFinishReason(reason: string | null | undefined): FinishReason {
@@ -292,9 +310,12 @@ export class OpenAICompatProvider implements LLMProvider {
       )
     }
 
-    const body: OpenAIRequestParams = {
+    const body: OpenAIRequestParams & {
+      thinking?: { type: 'enabled' | 'disabled' | 'auto' }
+    } = {
       model: this.config.model,
       messages: toOpenAIMessages(req.messages),
+      thinking: { type: mapThinking(req.thinking) },
       ...(req.maxCompletionTokens !== undefined
         ? { max_completion_tokens: req.maxCompletionTokens }
         : { max_tokens: req.maxTokens ?? 4096 }),

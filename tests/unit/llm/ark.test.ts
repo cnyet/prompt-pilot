@@ -272,6 +272,25 @@ describe('finish_reason=length 的三种成因', () => {
     ).toBe('max_tokens')
   })
 
+  it('端点把思维链计入 max_tokens 时，总输出顶到上限也能归因（可见输出为 0）', () => {
+    expect(
+      classifyLengthCause({
+        maxTokens: 8192,
+        usage: { tokensIn: 1031, tokensOut: 8192, reasoningTokens: 8192 },
+      }),
+    ).toBe('max_tokens_with_reasoning')
+  })
+
+  it('已知上下文窗口顶满时优先归因 context_window，而非总输出 fallback', () => {
+    expect(
+      classifyLengthCause({
+        maxTokens: 8192,
+        contextWindow: 9000,
+        usage: { tokensIn: 8000, tokensOut: 1000, reasoningTokens: 900 },
+      }),
+    ).toBe('context_window')
+  })
+
   it('max_completion_tokens 直接比较输出 token', () => {
     expect(
       classifyLengthCause({

@@ -138,3 +138,43 @@ describe('OpenAICompatProvider', () => {
     expect(fake.calls).toHaveLength(0)
   })
 })
+
+describe('OpenAICompatProvider thinking 开关', () => {
+  it('默认显式下发 thinking.type=disabled，防止思维链吃满 max_tokens 预算', async () => {
+    const fake = createScriptedFetch(() =>
+      sseResponse([chatChunk({ content: '好' }, 'stop')]),
+    )
+    const provider = createProvider(fake.fetch)
+
+    await collectChunks(provider.stream(baseRequest))
+
+    expect(fake.calls[0]?.body.thinking).toEqual({ type: 'disabled' })
+  })
+
+  it('off / on / auto 分别映射为 disabled / enabled / auto', async () => {
+    const responses = [
+      sseResponse([chatChunk({ content: 'off' }, 'stop')]),
+      sseResponse([chatChunk({ content: 'on' }, 'stop')]),
+      sseResponse([chatChunk({ content: 'auto' }, 'stop')]),
+    ]
+    const fake = createScriptedFetch(() => responses.shift() ?? responses[0]!)
+    const provider = createProvider(fake.fetch)
+
+    await collectChunks(provider.stream({ ...baseRequest, thinking: 'off' }))
+    await collectChunks(provider.stream({ ...baseRequest, thinking: 'on' }))
+    await collectChunks(provider.stream({ ...baseRequest, thinking: 'auto' }))
+
+    expect(fake.calls[0]?.body.thinking).toEqual({ type: 'disabled' })
+    expect(fake.calls[1]?.body.thinking).toEqual({ type: 'enabled' })
+    expect(fake.calls[2]?.body.thinking).toEqual({ type: 'auto' })
+  })
+
+  it('非流式 chat 同样下发 thinking 开关', async () => {
+    const fake = createScriptedFetch(() => completionResponse('好'))
+    const provider = createProvider(fake.fetch)
+
+    await provider.chat(baseRequest)
+
+    expect(fake.calls[0]?.body.thinking).toEqual({ type: 'disabled' })
+  })
+})

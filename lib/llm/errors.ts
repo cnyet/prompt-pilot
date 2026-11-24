@@ -220,6 +220,7 @@ export function errorCodeForKind(kind: ErrorKind): string {
 
 export type LengthCause =
   | 'max_tokens'
+  | 'max_tokens_with_reasoning'
   | 'max_completion_tokens'
   | 'context_window'
   | 'unknown'
@@ -232,14 +233,17 @@ export interface LengthCauseInput {
 }
 
 /**
- * 区分 length 的三种成因。
+ * 区分 length 的几种成因。
  *
- * 方舟不在响应里直接给出原因，只能靠「用量是否顶到某个上限」反推：
- * - max_tokens 不包含思维链，所以用「输出 token - 思维链 token」比较；
+ * 上游不在响应里直接给出原因，只能靠「用量是否顶到某个上限」反推：
+ * - 方舟语义的 max_tokens 不包含思维链，用「输出 token - 思维链 token」比较；
  * - max_completion_tokens 包含思维链，直接比输出 token；
- * - 两者都没顶到、但输入加输出接近上下文窗口，才归因到上下文窗口。
+ * - 输入加输出顶到上下文窗口时归因 context_window；
+ * - 部分网关（如 opencode）把思维链计入 max_tokens：可见输出没顶到、
+ *   但总输出顶到 max_tokens 时归因 max_tokens_with_reasoning，
+ *   典型现象是思维链吃满预算、可见输出为 0。
  *
- * 拿不到 usage、或三项都对不上时返回 unknown，不猜。
+ * 拿不到 usage、或各项都对不上时返回 unknown，不猜。
  */
 export function classifyLengthCause(input: LengthCauseInput): LengthCause {
   const usage = input.usage
@@ -271,6 +275,13 @@ export function classifyLengthCause(input: LengthCauseInput): LengthCause {
   ) {
     return 'context_window'
   }
+  if (
+    input.maxTokens !== undefined &&
+    input.maxTokens > 0 &&
+    usage.tokensOut >= input.maxTokens
+  ) {
+    return 'max_tokens_with_reasoning'
+  }
 
   return 'unknown'
 }
@@ -280,6 +291,8 @@ export function describeLengthCause(cause: LengthCause): string {
   switch (cause) {
     case 'max_tokens':
       return '输出达到 max_tokens 上限（不含思维链），可调大 maxTokens 后重试。'
+    case 'max_tokens_with_reasoning':
+      return '输出（含思维链）达到 max_tokens 上限，该端点把思维链计入预算；关闭思维链或调大 maxTokens 后重试。'
     case 'max_completion_tokens':
       return '输出达到 max_completion_tokens 上限（含思维链），可调大 maxCompletionTokens 后重试。'
     case 'context_window':
