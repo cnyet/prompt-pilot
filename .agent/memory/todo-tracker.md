@@ -10,7 +10,7 @@
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
 - [ ] 真实网关端到端剩余：成本页核对（AC-13/14）；生成 → 优化 usage 已验（2026-11-24，reasoning 0 / stop / 9.45s）| Priority: P1 | Created: 2026-11-10 | Updated: 2026-11-24
-- [ ] 部署残留清理（需批准）：服务器 /opt/prompt-pilot-src-prev-fb6874d 旧源码、/tmp/pp-src-17b0601.tar.gz 与构建日志、本机 /tmp/pp-src-17b0601.tar.gz | Priority: P2 | Created: 2026-11-24
+- [ ] 部署残留清理（需批准）：服务器 /opt/prompt-pilot-src-prev-fb6874d 与 -prev-17b0601 旧源码、/tmp/pp-src-17b0601/18e9613.tar.gz 与构建日志、本机 /tmp/pp-src-*.tar.gz 与 /tmp/pp-drawer-*.png | Priority: P2 | Created: 2026-11-24 | Updated: 2026-11-24
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
@@ -22,6 +22,7 @@
 - （无。原「本地 Docker 实构建」阻塞项已被服务器内构建路径取代，见 Done。）
 
 ## Done
+- [x] 抽屉继续优化动画与滚动：18e9613 补 scan-line/stream-caret + 滚动条件修（工作台同修），bsk 实测 + 部署 verify 全绿 | Completed: 2026-11-24
 - [x] 视频继续优化截断 bug：根因（通用适配层漏发 thinking 开关，思维链吃满 max_tokens）修复 17b0601 + push + 部署，verify 全绿 + 原失败记录线上 e2e completed；typecheck 0 / vitest 542/542 | Completed: 2026-11-24
 - [x] 复核 hosts 映射删除：/etc/hosts promptpilot 0 命中，用户已自删 | Completed: 2026-11-24
 - [x] polish 6 文件 commit fb6874d + push + 单独部署：服务器镜像 fb6874d，verify 全绿 + AC-17 零命中 + 扫描线/destructive 在产物 + 数据持久 + 公网直连 200；回滚镜像 64e1868 与 db 备份已留 | Completed: 2026-11-19

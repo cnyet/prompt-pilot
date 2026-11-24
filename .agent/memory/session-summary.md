@@ -756,3 +756,14 @@
 - 线上 e2e 实测（原失败记录「Vox海边vlog分镜」cmwudoctc0004pi01jjo5so8s，API 发「更具体」）：249 delta、done completed、3 条改动说明、tokensIn 1026 / tokensOut 1384 / reasoningTokens 0 / finish stop / 9.45s。**该测试给这条记录追加了一个迭代**（用户可在时间线查看或删除）。
 - 复核：/etc/hosts promptpilot 映射已删（0 命中），用户自删待办消解。
 - 遗留：服务器 /tmp/pp-src-17b0601.tar.gz 与构建日志、本机 /tmp/pp-src-17b0601.tar.gz 未清；旧源码目录与悬空镜像清理需批准；AC-13/14（成本页/预算）本轮未专项补验。
+
+## 2026-11-24 续 · 抽屉继续优化动画与滚动修复（18e9613 部署闭环）
+
+- 症状（/debug 转入产品排查）：库抽屉迭代时间线处执行继续优化，无进行中过渡动画、流式结果在视野外。
+- 根因：① scan-line/stream-caret 只在工作台渲染，抽屉结果面缺失；② 滚入视野条件 prev==='idle'，而流结束 phase 停 completed（settled 不重置 idle），第二次起提交不再滚动；工作台同隐患。
+- 修复 18e9613（已 push）：RecordDetailDrawer 结果面补 scan-line（active 时顶边）+ rendered 视图 stream-caret；抽屉与 StudioWorkspace 滚动条件改「非进行中→starting」（!isRequestActive(prevPhase)）。
+- 验证：typecheck 0 / vitest 542/542；bsk 实测：进行中 .scan-line/.stream-caret exists=true、status「正在生成」；从时间线底部提交后截图确认结果面滚回顶部、MetaRow 3.0s/91 输出 token（thinking off 生效）、时间线追加轮次。
+- bsk 坑（不要重试盲撞）：写操作报「cooperate sync」时先 `bsk cooperate sync` 再重新 snapshot 取 ref；evaluate 被 strict observation 锁，被动 DOM 用 `bsk read --selector ... --fields-json`；截图 --ref 需 observe 过的 ref，整_tab 截图不需要；session stop 会中断进行中的流（留下已中断迭代）。
+- 部署：sha256 全等；源码 mv 换名（旧目录 prompt-pilot-src-prev-17b0601 留存）；db 备份 app.db.pre-deploy-20261124-ui.bak；build 零 OOM；run+verify 全绿；previous-image=17b0601。
+- 本地 dev 库「部门年度总结十章节提示词」被实测追加第 3–7 轮（第 2、6 轮已中断），沙箱数据可删。
+- 遗留清理清单增：服务器 /opt/prompt-pilot-src-prev-17b0601、/tmp/pp-src-18e9613.tar.gz 与构建日志、本机 /tmp/pp-src-18e9613.tar.gz、/tmp/pp-drawer-*.png。

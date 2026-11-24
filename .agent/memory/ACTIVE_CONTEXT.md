@@ -1,14 +1,14 @@
 # Active Context
 
-> Last updated: 2026-11-24T08:10:00Z
+> Last updated: 2026-11-24T08:40:00Z
 
 ## Current Task
-- 视频继续优化截断 bug 已修复部署闭环：commit 17b0601（通用适配层下发 thinking.type=disabled + length 成因新增 max_tokens_with_reasoning）已 push，服务器镜像 prompt-pilot:17b0601 上线，verify 全绿 + 原失败记录线上 e2e 实测 completed（reasoningTokens 0）。详见 session-summary 2026-11-24 节。无未提交产品变更（.claude/settings.json 有会话前既有改动，未触碰）。
+- 两项修复均已部署闭环：① 17b0601 截断根因（通用适配层下发 thinking.type=disabled + length 成因 max_tokens_with_reasoning）；② 18e9613 抽屉继续优化动画与滚动（scan-line/stream-caret 补抽屉；滚动条件改非进行中→starting，工作台同修）。均已 push，服务器镜像 prompt-pilot:18e9613 上线 verify 全绿。详见 session-summary 2026-11-24 两节。无未提交产品变更（.claude/settings.json 会话前既有改动未触碰）。
 - 根因备忘：hy4-flash-free（DB 设置覆盖 env）经 opencode 网关默认开思维链且 reasoning 计入 max_tokens；旧代码通用适配层不发 thinking 开关 → 思维链吃满 8192 预算、可见输出 0 → 截断。网关只认 thinking:{"type":"disabled"}，必带 x-opencode-session；宿主直连网关被 403/1010，探针在容器内跑。
-- 服务器终态：容器 prompt-pilot Up（RestartCount=0 / OOMKilled=false），绑 0.0.0.0:3100（公网 + 安全组 IP 白名单），数据 /var/lib/prompt-pilot，源码 /opt/prompt-pilot-src；回滚镜像 fb6874d（previous-image）；db 备份 app.db.pre-deploy-20261124.bak。
+- 服务器终态：容器 prompt-pilot Up（RestartCount=0 / OOMKilled=false），绑 0.0.0.0:3100（公网 + 安全组 IP 白名单），数据 /var/lib/prompt-pilot，源码 /opt/prompt-pilot-src；回滚镜像 17b0601（previous-image）；db 备份 app.db.pre-deploy-20261124.bak 与 -ui.bak。
 
 ## Verification
-- 本轮：typecheck 0 / vitest 542/542；部署 verify 全绿；线上 optimize e2e：tokensOut 1384 / reasoning 0 / stop / 9.45s（测试给记录 cmwudoctc0004pi01jjo5so8s 追加了一个迭代，已告知用户）。
+- 本轮：typecheck 0 / vitest 542/542（两轮）；部署 verify 全绿（两次）；线上 optimize e2e：tokensOut 1384 / reasoning 0 / stop / 9.45s（给记录 cmwudoctc0004pi01jjo5so8s 追加迭代，已告知）；bsk 实测抽屉 scan-line/caret/滚动全中（本地 dev 库追加第 3–7 轮沙箱数据）。
 - 历史断言 10/10 Accept 见 session-summary 2026-11-18 续节。
 
 ## Deferred / Blocked
