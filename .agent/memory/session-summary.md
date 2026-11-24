@@ -745,3 +745,14 @@
 - 坑（不要重试）：① `pgrep -f "deploy.sh build"` 在远端 bash -c 里自匹配命令串 → 假 STILL_BUILDING 空等 9 分钟，判定构建结束看 wrapper 日志完成行或用 `[.]` 断词模式；② ssh 远端 nohup 启动必须 `< /dev/null`，否则通道不闭合本地挂起（本次挂起任务 TaskStop，远端 nohup 构建不受影响）；③ 本项目部署一律用用户提供的连接命令，不走 aliyun 别名。
 - 剩余：待用户公网 /settings 录密钥 → 补验 AC-1/4/13/14；hosts 用户自删；观察项清单不变（openssl / AC-17 camelCase 口径 / 悬空镜像约 2.7G + 保留的 64e1868 回滚镜像 / certbot timer / Tabs 滚动条 / design.json 漂移 / 本地 dev DB 清理）。
 - 连接记录归位（用户追问后补齐）：DEPLOYMENT.md 头部加指针「连接命令见本机 .env PP_DEPLOY_SSH 与运维备忘」；.env 确认 gitignored（.gitignore:13）且未跟踪，但 Agent 对 .env 的读写均被权限拒绝，PP_DEPLOY_SSH 追加命令已交用户 ! 自行执行，**未回执行结果前不得假定已写入**。
+
+## 2026-11-24（视频继续优化截断 bug：根因修复 + 部署闭环 17b0601）
+
+- 症状：工作台生成视频首次成功，继续优化报「模型输出被截断，没有拿到完整提示词，缩短输入后再试」。
+- 根因链（服务器账本 + 容器日志 + 网关探针实证）：实际模型 hy4-flash-free（DB 设置 llm.modelGenerate 覆盖容器 env ARK_MODEL_GENERATE=deepseek-v4.1-flash）是思维链模型，走 opencode 网关 OpenAICompatProvider；路由都传 thinking:'off' 但通用适配层 buildBody 从未下发（只有 Ark 子类发），模型默认开思维链；该网关把 reasoning token 计入 max_tokens（默认 8192）。失败 optimize：tokensOut=8192=reasoningTokens，可见输出 0 → finish_reason=length → stream-v3 抛截断。生成输入短、思维链没吃满所以成功。
+- 网关探针结论（容器内 node fetch，max_tokens 512）：thinking:{"type":"disabled"} 有效（reasoning 86→0，流式/非流式均验）；enable_thinking:false 与 chat_template_kwargs 被忽略；网关必带 x-opencode-session 头否则 400 MissingSessionID；宿主直连网关被边缘 403/1010（UA 指纹），探针必须在容器内跑。
+- 修复 commit 17b0601（已 push origin/main）：① lib/llm/openai-compat.ts mapThinking 下沉基类 buildBody，默认 disabled（Ark 子类行为不变）；② lib/llm/errors.ts LengthCause 新增 max_tokens_with_reasoning（总输出顶到 max_tokens 但可见输出没顶到；排在 context_window 之后），不再误报 unknown；③ 新增 5 测试。验证：typecheck 0 / vitest 542/542。
+- 部署：git archive sha256 两侧全等；源码替换改用「新目录解包 + mv 改名」（pre-tool hook 禁 rm 工作区外路径，旧源码留在 /opt/prompt-pilot-src-prev-fb6874d，清理需批准）；db 备份 app.db.pre-deploy-20261124.bak；precheck 过（磁盘 6Gi）；build 零 OOM 镜像 prompt-pilot:17b0601（1.33GB amd64）；run BIND_ADDR=0.0.0.0 就绪 8s；verify 全绿（12 模板/四页面 200/RestartCount=0/OOMKilled=false/既有容器运行）；previous-image=prompt-pilot:fb6874d。
+- 线上 e2e 实测（原失败记录「Vox海边vlog分镜」cmwudoctc0004pi01jjo5so8s，API 发「更具体」）：249 delta、done completed、3 条改动说明、tokensIn 1026 / tokensOut 1384 / reasoningTokens 0 / finish stop / 9.45s。**该测试给这条记录追加了一个迭代**（用户可在时间线查看或删除）。
+- 复核：/etc/hosts promptpilot 映射已删（0 命中），用户自删待办消解。
+- 遗留：服务器 /tmp/pp-src-17b0601.tar.gz 与构建日志、本机 /tmp/pp-src-17b0601.tar.gz 未清；旧源码目录与悬空镜像清理需批准；AC-13/14（成本页/预算）本轮未专项补验。
