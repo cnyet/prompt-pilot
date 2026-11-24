@@ -119,6 +119,28 @@ export function RecordDetailDrawer({
   const active = isRequestActive(streamState.phase)
   const busy = active || streamState.settling
 
+  const resultRef = useRef<HTMLElement>(null)
+  const prevPhaseRef = useRef(streamState.phase)
+
+  // 每次提交（非进行中 → starting）把结果面滚到视野顶部：流结束后 phase
+  // 停在 completed 等终态而非 idle，只判 idle 会让继续优化不再滚动。
+  // 尊重系统的减弱动效设置。
+  useEffect(() => {
+    if (
+      streamState.phase === 'starting' &&
+      !isRequestActive(prevPhaseRef.current)
+    ) {
+      const reduced = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      resultRef.current?.scrollIntoView({
+        behavior: reduced ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    }
+    prevPhaseRef.current = streamState.phase
+  }, [streamState.phase])
+
   // 关闭抽屉时中断仍在进行的生成；服务端把该轮标记为已中断并保留正文。
   useEffect(
     () => () => {
@@ -497,9 +519,20 @@ export function RecordDetailDrawer({
         ) : detail ? (
           <>
             <section
+              ref={resultRef}
               aria-label={t('library.detail.result')}
-              className="px-5 py-4"
+              className="relative scroll-mt-4 px-5 py-4"
             >
+              {active ? (
+                // 进行中沿结果面顶边的扫描线：与工作台输入面同一功能性信号，
+                // 只动 transform；减少动效偏好下静止。
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-px top-px h-0.5 overflow-hidden rounded-t-[3px]"
+                >
+                  <span className="scan-line block h-full w-1/3 bg-accent/70" />
+                </span>
+              ) : null}
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-label font-medium text-ink">
@@ -606,7 +639,17 @@ export function RecordDetailDrawer({
               ) : null}
 
               {view === 'rendered' ? (
-                <MarkdownView source={output} />
+                <>
+                  <MarkdownView source={output} />
+                  {active ? (
+                    // 流式进行中的输入符：与工作台结果面同一纪律，
+                    // 状态语义由上方 status 文本承担，这里 aria-hidden。
+                    <span
+                      aria-hidden
+                      className="stream-caret mt-1 inline-block h-[1.1em] w-[0.5em] rounded-[2px] bg-accent align-baseline"
+                    />
+                  ) : null}
+                </>
               ) : (
                 <pre className="max-w-full overflow-x-auto whitespace-pre rounded-control border border-line bg-bg-sunken p-4 font-mono text-[0.875rem] leading-6 text-ink">
                   {output}

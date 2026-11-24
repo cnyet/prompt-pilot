@@ -152,9 +152,11 @@ export function StudioWorkspace({
 
   const { phase, detail } = streamState
 
-  // 全新提交（idle → starting）把结果面滚到视野顶部；尊重系统的减弱动效设置。
+  // 每次提交（非进行中 → starting）把结果面滚到视野顶部：流结束后 phase
+  // 停在 completed 等终态而非 idle，只判 idle 会让继续优化不再滚动。
+  // 尊重系统的减弱动效设置。
   useEffect(() => {
-    if (phase === 'starting' && prevPhaseRef.current === 'idle') {
+    if (phase === 'starting' && !isRequestActive(prevPhaseRef.current)) {
       const reduced = window.matchMedia?.(
         '(prefers-reduced-motion: reduce)',
       ).matches
