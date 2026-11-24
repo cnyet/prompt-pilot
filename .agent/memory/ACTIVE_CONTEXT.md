@@ -3,7 +3,7 @@
 > Last updated: 2026-11-24T08:40:00Z
 
 ## Current Task
-- 两项修复均已部署闭环：① 17b0601 截断根因（通用适配层下发 thinking.type=disabled + length 成因 max_tokens_with_reasoning）；② 18e9613 抽屉继续优化动画与滚动（scan-line/stream-caret 补抽屉；滚动条件改非进行中→starting，工作台同修）。均已 push，服务器镜像 prompt-pilot:18e9613 上线 verify 全绿。详见 session-summary 2026-11-24 两节。无未提交产品变更（.claude/settings.json 会话前既有改动未触碰）。
+- 两项修复均已部署闭环：① 17b0601 截断根因（通用适配层下发 thinking.type=disabled + length 成因 max_tokens_with_reasoning）；② 18e9613 抽屉继续优化动画与滚动（scan-line/stream-caret 补抽屉；滚动条件改非进行中→starting，工作台同修）。均已 push，服务器镜像 prompt-pilot:18e9613 上线 verify 全绿。遗留清理与 AC-13/14 本地补验闭环（见续节）。详见 session-summary 2026-11-24 各节。无未提交产品变更（.claude/settings.json 会话前既有改动未触碰）。
 - 根因备忘：hy4-flash-free（DB 设置覆盖 env）经 opencode 网关默认开思维链且 reasoning 计入 max_tokens；旧代码通用适配层不发 thinking 开关 → 思维链吃满 8192 预算、可见输出 0 → 截断。网关只认 thinking:{"type":"disabled"}，必带 x-opencode-session；宿主直连网关被 403/1010，探针在容器内跑。
 - 服务器终态：容器 prompt-pilot Up（RestartCount=0 / OOMKilled=false），绑 0.0.0.0:3100（公网 + 安全组 IP 白名单），数据 /var/lib/prompt-pilot，源码 /opt/prompt-pilot-src；回滚镜像 17b0601（previous-image）；db 备份 app.db.pre-deploy-20261124.bak 与 -ui.bak。
 
@@ -13,7 +13,9 @@
 
 ## Deferred / Blocked
 - 观察项：Prisma openssl 警告；AC-17 camelCase 口径；悬空镜像 + 回滚镜像 64e1868/fb6874d、旧源码目录 /opt/prompt-pilot-src-prev-fb6874d、两侧 /tmp 传输包与构建日志（清理需批准）；certbot timer inactive；Tabs 移动模拟竖向滚动条；design.json sidecar 漂移；本地 dev DB 验证记录待清理。
-- AC-13/14（成本页/预算）未专项补验；密钥已录入（设置页 llm.apiKey + hy4-flash-free），AC-1/4 已由本轮生成/优化实测覆盖。
+- AC-13/14 已本地夹具法补验全绿；线上触发待用户给真实单价（hy4-flash-free / deepseek-v4.1-flash 元/百万 token）加 ARK_MODEL_PRESETS 并部署。
+- 服务器磁盘 90%（剩 3.8G），下次部署 precheck 3GiB 阈值勉强够；回滚镜像仅留 17b0601。
+- .env 644→600 命令交用户执行（Agent 禁读写 .env）。
 - 本机 Docker daemon 仍坏；dev server 3100 仍在运行（可停）。
 
 ## Hard Constraints

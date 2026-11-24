@@ -767,3 +767,12 @@
 - 部署：sha256 全等；源码 mv 换名（旧目录 prompt-pilot-src-prev-17b0601 留存）；db 备份 app.db.pre-deploy-20261124-ui.bak；build 零 OOM；run+verify 全绿；previous-image=17b0601。
 - 本地 dev 库「部门年度总结十章节提示词」被实测追加第 3–7 轮（第 2、6 轮已中断），沙箱数据可删。
 - 遗留清理清单增：服务器 /opt/prompt-pilot-src-prev-17b0601、/tmp/pp-src-18e9613.tar.gz 与构建日志、本机 /tmp/pp-src-18e9613.tar.gz、/tmp/pp-drawer-*.png。
+
+## 2026-11-24 续 · 遗留清理与 AC-13/14 补验
+
+- 清理（用户批准）：服务器旧源码 prev-fb6874d/prev-17b0601（mv 入 /tmp 再 rm，hook 删除边界）、两侧传输包与构建日志、本机 /tmp 截图；dangling 过滤器为空（<none> 条目是带 tag 镜像的父层，prune 0B 正确）；删被取代回滚镜像 64e1868/fb6874d（保留 17b0601），层共享释放有限，磁盘仍 90%/3.8G。
+- 本地 dev 库清空验证记录：PromptRecord/PromptIteration 全删（9 条沙箱），Template 12 与 AppSetting 保留，LlmCall 账本保留（匿名用量口径）。
+- AC-13/14 补验（本地沙箱夹具法）：注入 20 条已知成本 LlmCall（0.03/条，月合 0.6）→ KPI ¥0.6/41 次/¥0.03、未知注明「21 次未拿到价格未按 0 计入」、14 天折线+替代表、两表；预算 0.75→80% 提示、0.5→120% 强提示不阻断 + 工作台超预算提示；验毕删夹具、预算回 null。
+- 真依赖结论：线上无价格表 → costCny null → budgetUsage null → AC-14 线上真实链路永不触发。用户选「提供真实单价」，**数字未给，待用户提供 hy4-flash-free 与 deepseek-v4.1-flash 元/百万 token 单价**后加 ARK_MODEL_PRESETS 并部署。
+- bsk 坑续：navigate/reload 等写操作在会话中段常报 cooperate sync；可靠路径是 tab create --url + tab select + read；sync→snapshot→click 仅会话初段可靠。
+- 仍挂起：.env 644→600（Agent 禁读写 .env，命令交用户）；openssl/AC-17 口径/design sidecar/Tabs 滚动条/SDD 工作区删除/design-parser 恢复等 P2 观察项未动。

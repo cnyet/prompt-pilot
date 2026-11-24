@@ -4,13 +4,11 @@
 - （无）
 
 ## Pending
-- [ ] 补验 AC-13/14（成本页 KPI/趋势/预算提示）；密钥已录入（hy4-flash-free），AC-1/4 已由 2026-11-24 生成/优化线上实测覆盖 | Priority: P1 | Created: 2026-11-18 | Updated: 2026-11-24
+- [ ] 线上价格表：用户已选「提供真实单价」，待给 hy4-flash-free 与 deepseek-v4.1-flash 元/百万 token 数字 → 加 ARK_MODEL_PRESETS + 部署；此前线上成本「—」、预算提示不触发属缺数据非 bug | Priority: P1 | Created: 2026-11-11 | Updated: 2026-11-24
 - [ ] 上线前置剩余项：公网/隧道下 SSE 长流、真实密钥端到端（AC-1/4/13/14）、宿主重启后 unless-stopped 自启、hadolint。已验项移入 Done（amd64 实构建/首启 seed/持久化/Prisma 调用/SIGTERM）| Priority: P1 | Created: 2026-11-17 | Updated: 2026-11-18 | Blocker: 模型密钥由用户在设置页录入
 - [ ] 观察项处置：Dockerfile 补 openssl 消 Prisma 回退警告；AC-17 口径明确（凭据值 + snake_case 零命中）或改 camelCase 字段名；悬空镜像约 2.7G 清理（需批准，不动 community-affairs 相关）| Priority: P2 | Created: 2026-11-18
 - [ ] 把本地 `.env` 权限从 644 改 600（配置改动走备份→改→校验）；直连部署不依赖 `aliyun` CLI，服务器上 CLI 凭证未就绪仅在需要调云 API 时处理 | Priority: P1 | Created: 2026-11-16
 - [ ] 删除 `.superpowers/sdd/2026-11-14-v3-phase-6/` 工作区（用户确认后）；「提交全部累积未提交改动」部分已随 `522f25f` 消解，勿再按旧描述重提 | Priority: P2 | Created: 2026-11-14 | Updated: 2026-11-17
-- [ ] 真实网关端到端剩余：成本页核对（AC-13/14）；生成 → 优化 usage 已验（2026-11-24，reasoning 0 / stop / 9.45s）| Priority: P1 | Created: 2026-11-10 | Updated: 2026-11-24
-- [ ] 部署残留清理（需批准）：服务器 /opt/prompt-pilot-src-prev-fb6874d 与 -prev-17b0601 旧源码、/tmp/pp-src-17b0601/18e9613.tar.gz 与构建日志、本机 /tmp/pp-src-*.tar.gz 与 /tmp/pp-drawer-*.png | Priority: P2 | Created: 2026-11-24 | Updated: 2026-11-24
 - [ ] 为 DeepSeek V4.1 Flash / GPT 5.6 Luna 补价格表或设置覆盖 | Priority: P1 | Created: 2026-11-11
 - [ ] 可选：处理 Phase 6 final review 的 4 条 deferred minors（HANDOVER mock fault、mock 输出 v2 词、ARCHITECTURE 备份措辞、`.env.example` 权限阻塞）| Priority: P2 | Created: 2026-11-14
 - [ ] 恢复 design-parser.mjs（本机缺失）或改用替代结构校验 | Priority: P2 | Created: 2026-11-13
@@ -22,6 +20,8 @@
 - （无。原「本地 Docker 实构建」阻塞项已被服务器内构建路径取代，见 Done。）
 
 ## Done
+- [x] 遗留清理：服务器旧源码/传输包/日志、本机 /tmp 残留、被取代回滚镜像 64e1868/fb6874d（留 17b0601）；本地 dev 库验证记录清空（模板/设置/账本保留）| Completed: 2026-11-24
+- [x] AC-13/14 补验：本地沙箱已知成本夹具法全绿（KPI/未知注明/折线+替代表/两表/80% 提示/120% 强提示不阻断/工作台提示），验毕夹具与预算复原 | Completed: 2026-11-24
 - [x] 抽屉继续优化动画与滚动：18e9613 补 scan-line/stream-caret + 滚动条件修（工作台同修），bsk 实测 + 部署 verify 全绿 | Completed: 2026-11-24
 - [x] 视频继续优化截断 bug：根因（通用适配层漏发 thinking 开关，思维链吃满 max_tokens）修复 17b0601 + push + 部署，verify 全绿 + 原失败记录线上 e2e completed；typecheck 0 / vitest 542/542 | Completed: 2026-11-24
 - [x] 复核 hosts 映射删除：/etc/hosts promptpilot 0 命中，用户已自删 | Completed: 2026-11-24
