@@ -62,7 +62,7 @@
 |---|---|---|
 | `precheck` | 只读采集 Docker 版本、架构、MemAvailable、swap 现状、`/` 与 Docker 根目录磁盘余量、3100 监听、既有容器状态 | Docker 不可用、磁盘低于 3GiB、3100 被其他进程占用、既有容器非运行：停止。MemAvailable 低于 800MiB 只标高风险，不阻断（授权一次构建，OOM 即停） |
 | `build [src-dir]` | `docker build --platform=linux/amd64 -t prompt-pilot:<commit>`，tag 取 git 短哈希或 `IMAGE_TAG`；日志写 `LOG_DIR`（默认 `/tmp`，强制在源码目录之外）；有界超时（默认 1200s） | 日志命中 OOM / Killed / exit 137 形态：立即非零退出，零重试。仅 `SecurityFatalError` 原样重试同一命令一次。构建后断言 linux/amd64、Env 无 `*KEY*` / `*SECRET*` / `*TOKEN*` 变量（只输出计数，不回显值） |
-| `run [tag]` | `mkdir -p` 数据目录；旧容器存在时先记录其镜像到 `previous-image` 再停删；`docker run -d --name prompt-pilot --restart unless-stopped -p ${BIND_ADDR}:3100:3100 -v /var/lib/prompt-pilot:/var/lib/prompt-pilot`（`BIND_ADDR` 默认 127.0.0.1，公网白名单模式设 0.0.0.0）；有界等待就绪（默认 180s） | 不加 `--memory` / `--cpus`，不注入密钥。端口仍被其他进程占用即停 |
+| `run [tag]` | `mkdir -p` 数据目录；旧容器存在时先记录其镜像到 `previous-image` 再停删；`docker run -d --name prompt-pilot --restart always -p ${BIND_ADDR}:3100:3100 -v /var/lib/prompt-pilot:/var/lib/prompt-pilot`（`BIND_ADDR` 默认 127.0.0.1，公网白名单模式设 0.0.0.0）；有界等待就绪（默认 180s） | 不加 `--memory` / `--cpus`，不注入密钥。端口仍被其他进程占用即停。restart=always 是 2026-11-25 宿主 OOM 整改：daemon 崩溃/重启后容器必须自动拉起（配合 daemon.json live-restore=true） |
 | `verify` | curl 真实路由：`/api/templates` 断言 12 条内置模板（`"builtin":true` 计数），`/studio` `/library` `/templates` `/settings` 均 200；`docker inspect` 断言 `RestartCount=0`、`OOMKilled=false`、端口绑定与 `BIND_ADDR` 一致（回环模式拒绝公网绑定）；既有容器仍在运行 | 任一不满足即非零退出。总数超过 12 时提示存在自定义模板，内置断言不受影响 |
 | `rollback` | 停新容器，用 `previous-image` 重启，复测 verify 全部关键项 | 无上一镜像记录即停。数据库恢复只打印人工操作路径（停容器、留存当前库、用备份覆盖、重启复测），绝不自动覆盖数据 |
 | `status` | 只读查看容器、镜像、部署状态文件、数据库是否存在、磁盘与内存余量 | 无写入 |
@@ -82,7 +82,7 @@
 5. 启动：
 
    ```bash
-   docker run -d --name prompt-pilot --restart unless-stopped \
+   docker run -d --name prompt-pilot --restart always \
      -p 3100:3100 \
      -v /var/lib/prompt-pilot:/var/lib/prompt-pilot \
      prompt-pilot:<commit>

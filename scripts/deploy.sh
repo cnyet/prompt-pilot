@@ -237,7 +237,10 @@ start_container() {
   mkdir -p "$DATA_DIR"
   # 不加 --memory / --cpus：硬上限会把正常 next start 误杀成伪 OOM 并触发重启循环。
   # 不注入密钥：无密钥版按 AC-15 禁用模型操作，密钥由设置页事后录入。
-  docker run -d --name "$CONTAINER_NAME" --restart unless-stopped \
+  # restart=always（2026-11-25 宿主 OOM 整改）：除非显式 stop，daemon 重启后必须
+  # 自动拉起；unless-stopped 会把 daemon 崩溃时 graceful 停掉的容器当作手动停止，
+  # 导致宿主 OOM 后全站过夜不可用（live-restore 已同时在 daemon.json 开启）。
+  docker run -d --name "$CONTAINER_NAME" --restart always \
     -p "${BIND_ADDR}:${HOST_PORT}:${CONTAINER_PORT}" \
     -v "${DATA_DIR}:${DATA_DIR}" \
     "$ref" >/dev/null
