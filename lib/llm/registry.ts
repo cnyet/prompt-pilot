@@ -71,8 +71,30 @@ export interface ModelPricing extends ModelPricingCny {
   contextWindow?: number
 }
 
-/** 价格单位：元 / 百万 token；上下文窗口单位：token。 */
+/**
+ * 价格单位：元 / 百万 token；上下文窗口单位：token。
+ *
+ * opencode 网关两款默认模型的价格取自官网 models 元数据（USD/百万 token，
+ * 2026-11-25 抓取）：deepseek-v4.1-flash 输入 0.15 / 缓存读 0.003 / 输出 0.6，
+ * hy4-flash-free 全 0（免费档）。按同日 USD/CNY=6.678179 换算为人民币估算价；
+ * 汇率是估算假设，网关调价或汇率大幅变动时需更新本表。
+ * deepseek 峰值 ×2 窗口来自元数据 multipliers（UTC 工作日 01–04 / 06–10，
+ * 即北京 09–12 / 14–18）。
+ */
 export const ARK_MODEL_PRESETS: Readonly<Record<string, ModelPricing>> = {
+  'deepseek-v4.1-flash': {
+    contextWindow: 1_000_000,
+    inputCnyPerMillion: 1.0017,
+    cachedInputCnyPerMillion: 0.02,
+    outputCnyPerMillion: 4.0069,
+    peak: { factor: 2, utcWeekdayHourRanges: [[1, 4], [6, 10]] },
+  },
+  'hy4-flash-free': {
+    contextWindow: 1_048_576,
+    inputCnyPerMillion: 0,
+    cachedInputCnyPerMillion: 0,
+    outputCnyPerMillion: 0,
+  },
   'doubao-seed-2-1-pro-260915': {
     contextWindow: 1_048_576,
     inputCnyPerMillion: 6,

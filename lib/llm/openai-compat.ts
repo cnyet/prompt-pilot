@@ -49,6 +49,14 @@ export interface ModelPricingCny {
   cachedInputCnyPerMillion?: number
   /** 元 / 百万输出 token */
   outputCnyPerMillion?: number
+  /**
+   * 峰值计费：UTC 工作日落在小时区间 [start, end) 内时价格乘 factor。
+   * 来源网关 models 元数据的 multipliers（opencode 为 ×2）。
+   */
+  peak?: {
+    factor: number
+    utcWeekdayHourRanges: readonly (readonly [number, number])[]
+  }
 }
 
 export interface OpenAICompatConfig {
@@ -398,7 +406,21 @@ export class OpenAICompatProvider implements LLMProvider {
         cached * cachedPrice +
         usage.tokensOut * pricing.outputCnyPerMillion) /
       1_000_000
-    return Math.round(cost * 1_000_000) / 1_000_000
+    return Math.round(cost * this.peakFactor(pricing) * 1_000_000) / 1_000_000
+  }
+
+  /** 峰值窗口内返回 factor，否则 1；按调用发生时刻（UTC）判断。 */
+  protected peakFactor(pricing: ModelPricingCny): number {
+    const peak = pricing.peak
+    if (!peak) return 1
+    const now = new Date()
+    const day = now.getUTCDay()
+    if (day === 0 || day === 6) return 1
+    const hour = now.getUTCHours()
+    const inWindow = peak.utcWeekdayHourRanges.some(
+      ([start, end]) => hour >= start && hour < end,
+    )
+    return inWindow ? peak.factor : 1
   }
 
   /** 映射单个流式 chunk；子类可覆盖 extractReasoningDelta 收口思维链。 */

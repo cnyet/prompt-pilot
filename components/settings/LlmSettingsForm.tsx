@@ -124,6 +124,8 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
     Partial<Record<FieldKey, string>>
   >({})
   const [saving, setSaving] = useState(false)
+  // 端点地址默认隐藏，避免网关地址常驻屏幕；展开后可编辑（FR-8.2）。
+  const [baseUrlVisible, setBaseUrlVisible] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
@@ -465,21 +467,53 @@ export function LlmSettingsForm({ initial }: { initial: LlmSettingsView }) {
         {field(
           'baseUrl',
           '数据面端点',
-          '默认走 opencode 推理网关，OpenAI 兼容端点以 /openai/v1 结尾。换成方舟、代理或自建网关时改这里，必须是 http(s) 完整地址。',
+          '默认走 opencode 推理网关，OpenAI 兼容端点以 /openai/v1 结尾。换成方舟、代理或自建网关时改这里，必须是 http(s) 完整地址。地址默认隐藏，点「显示并编辑」后才可见。',
           view.baseUrl.source,
-          <input
-            id="setting-baseUrl"
-            aria-invalid={fieldErrors.baseUrl ? true : undefined}
-            aria-describedby={
-              fieldErrors.baseUrl ? 'setting-baseUrl-error' : 'setting-baseUrl-hint'
-            }
-            value={values.baseUrl}
-            onChange={(event) => {
-              markTouched('baseUrl')
-              setValues((prev) => ({ ...prev, baseUrl: event.target.value }))
-            }}
-            className={cn(inputClass, 'font-mono')}
-          />,
+          baseUrlVisible || fieldErrors.baseUrl ? (
+            <div className="flex items-center gap-2">
+              <input
+                id="setting-baseUrl"
+                aria-invalid={fieldErrors.baseUrl ? true : undefined}
+                aria-describedby={
+                  fieldErrors.baseUrl ? 'setting-baseUrl-error' : 'setting-baseUrl-hint'
+                }
+                value={values.baseUrl}
+                onChange={(event) => {
+                  markTouched('baseUrl')
+                  setValues((prev) => ({ ...prev, baseUrl: event.target.value }))
+                }}
+                className={cn(inputClass, 'flex-1 font-mono')}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBaseUrlVisible(false)}
+              >
+                隐藏
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                id="setting-baseUrl"
+                readOnly
+                value={
+                  view.baseUrl.source === 'settings'
+                    ? '自定义端点，地址已隐藏'
+                    : '默认网关，地址已隐藏'
+                }
+                aria-describedby="setting-baseUrl-hint"
+                className={cn(inputClass, 'flex-1 bg-bg-sunken text-ink-muted')}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBaseUrlVisible(true)}
+              >
+                显示并编辑
+              </Button>
+            </div>
+          ),
         )}
 
         <div>

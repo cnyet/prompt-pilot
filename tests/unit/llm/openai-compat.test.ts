@@ -178,3 +178,67 @@ describe('OpenAICompatProvider thinking 开关', () => {
     expect(fake.calls[0]?.body.thinking).toEqual({ type: 'disabled' })
   })
 })
+
+describe('峰值计费与免费档', () => {
+  const usage = {
+    prompt_tokens: 1_000_000,
+    completion_tokens: 1_000_000,
+    total_tokens: 2_000_000,
+  }
+  const peakPricing = {
+    inputCnyPerMillion: 1,
+    outputCnyPerMillion: 2,
+    peak: {
+      factor: 2,
+      utcWeekdayHourRanges: [[1, 4], [6, 10]] as readonly (readonly [
+        number,
+        number,
+      ])[],
+    },
+  }
+  function priced(fetchImpl: typeof globalThis.fetch, pricing: object) {
+    return new OpenAICompatProvider({
+      id: 'compat',
+      label: 'OpenAI 兼容',
+      baseURL: 'https://compat.test/v1',
+      apiKey: 'test-key',
+      model: 'test-model',
+      fetch: fetchImpl,
+      pricing,
+      retry: { maxAttempts: 1, sleep: async () => {} },
+    })
+  }
+
+  it('UTC 工作日峰值窗口内价格乘 factor，窗口外与周末不乘', async () => {
+    vi.useFakeTimers()
+    try {
+      const at = (iso: string) => vi.setSystemTime(new Date(iso))
+      const run = async () => {
+        const fake = createScriptedFetch(() => completionResponse('好', { usage }))
+        return (await priced(fake.fetch, peakPricing).chat(baseRequest)).usage
+          .costCny
+      }
+      at('2026-11-25T02:00:00Z') // 周三 UTC 02，落在 [1,4)
+      expect(await run()).toBe(6)
+      at('2026-11-25T05:00:00Z') // 周三 UTC 05，窗口外
+      expect(await run()).toBe(3)
+      at('2026-11-28T02:00:00Z') // 周六，不乘
+      expect(await run()).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('免费档价格 0 时成本为已知 0，不是未知', async () => {
+    const fake = createScriptedFetch(() => completionResponse('好', { usage }))
+    const provider = priced(fake.fetch, {
+      inputCnyPerMillion: 0,
+      cachedInputCnyPerMillion: 0,
+      outputCnyPerMillion: 0,
+    })
+
+    const result = await provider.chat(baseRequest)
+
+    expect(result.usage.costCny).toBe(0)
+  })
+})

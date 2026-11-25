@@ -17,6 +17,30 @@ import {
 
 const withKey = { ARK_API_KEY: 'test-key' }
 
+describe('默认网关模型价格表', () => {
+  it('deepseek-v4.1-flash 有人民币价格、上下文窗口与峰值 ×2 配置', () => {
+    const config = getModelConfig('ark-generate', {})
+    expect(config?.modelId).toBe(DEFAULT_GENERATE_MODEL_ID)
+    expect(config?.pricing?.inputCnyPerMillion).toBe(1.0017)
+    expect(config?.pricing?.outputCnyPerMillion).toBe(4.0069)
+    expect(config?.pricing?.cachedInputCnyPerMillion).toBe(0.02)
+    expect(config?.contextWindow).toBe(1_000_000)
+    expect(config?.pricing?.peak).toEqual({
+      factor: 2,
+      utcWeekdayHourRanges: [[1, 4], [6, 10]],
+    })
+  })
+
+  it('hy4-flash-free 免费档价格全 0 且带上下文窗口', () => {
+    const config = listModelConfigs({
+      ARK_MODEL_GENERATE: 'hy4-flash-free',
+    }).find((item) => item.id === 'ark-generate')
+    expect(config?.pricing?.inputCnyPerMillion).toBe(0)
+    expect(config?.pricing?.outputCnyPerMillion).toBe(0)
+    expect(config?.contextWindow).toBe(1_048_576)
+  })
+})
+
 describe('模型注册表与 provider 选择', () => {
   it('没有 ARK_API_KEY 时生成 provider 为 null', () => {
     expect(getGenerateProvider({})).toBeNull()
