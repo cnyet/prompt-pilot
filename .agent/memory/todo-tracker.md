@@ -4,6 +4,8 @@
 - （无）
 
 ## Pending
+- [ ] 用户侧：阿里云控制台 HBR 备份窗口改凌晨低峰；评估 1.8Gi 升内存（OOM 根土壤）| Priority: P1 | Created: 2026-11-25
+- [ ] 观察项：dockerd rss 1.2–1.5GB 异常膨胀（10/12 曾 30min 连杀 6 次）；下次 OOM 时取进程表定位 | Priority: P2 | Created: 2026-11-25
 - [ ] 线上价格表：用户已选「提供真实单价」，待给 hy4-flash-free 与 deepseek-v4.1-flash 元/百万 token 数字 → 加 ARK_MODEL_PRESETS + 部署；此前线上成本「—」、预算提示不触发属缺数据非 bug | Priority: P1 | Created: 2026-11-11 | Updated: 2026-11-24
 - [ ] 上线前置剩余项：公网/隧道下 SSE 长流、真实密钥端到端（AC-1/4/13/14）、宿主重启后 unless-stopped 自启、hadolint。已验项移入 Done（amd64 实构建/首启 seed/持久化/Prisma 调用/SIGTERM）| Priority: P1 | Created: 2026-11-17 | Updated: 2026-11-18 | Blocker: 模型密钥由用户在设置页录入
 - [ ] 观察项处置：Dockerfile 补 openssl 消 Prisma 回退警告；AC-17 口径明确（凭据值 + snake_case 零命中）或改 camelCase 字段名；悬空镜像约 2.7G 清理（需批准，不动 community-affairs 相关）| Priority: P2 | Created: 2026-11-18
@@ -20,6 +22,9 @@
 - （无。原「本地 Docker 实构建」阻塞项已被服务器内构建路径取代，见 Done。）
 
 ## Done
+- [x] 宿主 OOM 全停审查与整改：四环故障链定位；always×3 + live-restore + swappiness=10（用户授权突破红线，备份留）；docker 重启自愈实弹验证 | Completed: 2026-11-25
+- [x] cf30f19 部署：设置页 baseUrl 默认隐藏 + opencode 两模型价格表（含峰值 ×2）；546/546 + bsk 实测 + verify 全绿 | Completed: 2026-11-25
+- [x] 磁盘危机：builder prune 释放 19G + 删被取代 17b0601，95%→46%；本轮部署残留已清 | Completed: 2026-11-25
 - [x] 遗留清理：服务器旧源码/传输包/日志、本机 /tmp 残留、被取代回滚镜像 64e1868/fb6874d（留 17b0601）；本地 dev 库验证记录清空（模板/设置/账本保留）| Completed: 2026-11-24
 - [x] AC-13/14 补验：本地沙箱已知成本夹具法全绿（KPI/未知注明/折线+替代表/两表/80% 提示/120% 强提示不阻断/工作台提示），验毕夹具与预算复原 | Completed: 2026-11-24
 - [x] 抽屉继续优化动画与滚动：18e9613 补 scan-line/stream-caret + 滚动条件修（工作台同修），bsk 实测 + 部署 verify 全绿 | Completed: 2026-11-24

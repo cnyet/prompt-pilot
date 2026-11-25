@@ -776,3 +776,13 @@
 - 真依赖结论：线上无价格表 → costCny null → budgetUsage null → AC-14 线上真实链路永不触发。用户选「提供真实单价」，**数字未给，待用户提供 hy4-flash-free 与 deepseek-v4.1-flash 元/百万 token 单价**后加 ARK_MODEL_PRESETS 并部署。
 - bsk 坑续：navigate/reload 等写操作在会话中段常报 cooperate sync；可靠路径是 tab create --url + tab select + read；sync→snapshot→click 仅会话初段可靠。
 - 仍挂起：.env 644→600（Agent 禁读写 .env，命令交用户）；openssl/AC-17 口径/design sidecar/Tabs 滚动条/SDD 工作区删除/design-parser 恢复等 P2 观察项未动。
+
+## 2026-11-25 · 宿主 OOM 全停审查 + 整改 + cf30f19 部署
+
+- 故障链四环：① 1.8Gi 超卖 + vm.swappiness=0（2G swap 不用，宁可 OOM）；② 全局 OOM 按 rss 挑中 dockerd（1.2–1.5GB 异常膨胀，adj -500 不够）；③ LiveRestore=false，新 dockerd 在 Loading containers 阶段 graceful stop 遗留容器（证据 community-db FinishedAt 落在 journal Loading 窗口内）；④ unless-stopped 不拉起 daemon 启动时已 stopped 的容器 → 全停 13h。对照：容器运行中退出（今早 09:58 OOM 杀 next-server）走策略自愈路径自动 Up。
+- OOM 案底 recurring：8/31、9/26、10/12（30min 连杀 6 次 dockerd）、11/19、11/24、11/25；触发器含阿里云 HBR 备份全盘扫描（今早 05:45 起跑 4h+ 与业务重叠）。dmesg -T 有分钟级漂移，以 journalctl/inspect 为准。
+- 整改（用户 2026-11-25 授权突破原红线）：三容器 docker update --restart always（docker 重启后自动 Up 实弹验证）；daemon.json 加 live-restore=true（备份 daemon.json.bak-20261125）；/etc/sysctl.d/99-vm-swappiness.conf vm.swappiness=10（systemd-sysctl 实跑验证压过 /etc/sysctl.conf 与 50-aliyun.conf 的 0）。红线修订：不改 daemon/不调 sysctl 已被本次显式授权取代；不加 swap/不装软件仍有效。
+- 用户侧待办：HBR 备份窗口改凌晨（阿里云控制台）；1.8Gi 升内存根除超卖；dockerd 膨胀观察。
+- cf30f19 部署：设置页 baseUrl 默认隐藏（只读掩码行 + 显示并编辑，错误时自动展开）；ARK_MODEL_PRESETS 加 deepseek-v4.1-flash（USD 0.15/0.003/0.6 × 汇率 6.678179@2026-11-25 = 1.0017/0.02/4.0069 元/百万，峰值 ×2 UTC 工作日 01–04/06–10）与 hy4-flash-free 全 0；estimateCost 按调用时刻计峰值。历史账本行成本仍「—」，新调用起有金额。546/546 + bsk 隐藏/展开实测。
+- 磁盘：部署后 95%/2.2G（低于 precheck 3GiB）→ docker builder prune -f 释放约 19G build cache + 删被取代 17b0601 → 46%/21G。镜像仅 cf30f19 + 回滚 18e9613。本轮残留（prev-18e9613 源码、传输包、日志）已清。
+- bsk/ssh 坑续：docker system df / builder prune 在满盘上分钟级慢，放后台；写操作 cooperate sync 门槛见前节。
