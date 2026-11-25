@@ -95,7 +95,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const width = expanded ? 208 : 64
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden bg-bg text-ink">
+    // overflow-clip 而非 overflow-hidden：hidden 仍生成滚动容器，
+    // 锚点跳转（#settings-cost）会把整个根容器滚离原位，页面出现断层空白。
+    <div className="fixed inset-0 flex overflow-clip bg-bg text-ink">
       <aside
         className="hidden shrink-0 flex-col border-r border-line bg-sidebar lg:flex"
         style={{ width }}
