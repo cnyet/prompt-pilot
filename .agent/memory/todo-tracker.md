@@ -22,6 +22,7 @@
 - （无。原「本地 Docker 实构建」阻塞项已被服务器内构建路径取代，见 Done。）
 
 ## Done
+- [x] 设置页锚点断层修复：AppShell overflow-clip（e309888）+ deploy.sh restart=always 固化（30fe0f4）双上线，verify 全绿，磁盘回落 52% | Completed: 2026-11-25
 - [x] 宿主 OOM 全停审查与整改：四环故障链定位；always×3 + live-restore + swappiness=10（用户授权突破红线，备份留）；docker 重启自愈实弹验证 | Completed: 2026-11-25
 - [x] cf30f19 部署：设置页 baseUrl 默认隐藏 + opencode 两模型价格表（含峰值 ×2）；546/546 + bsk 实测 + verify 全绿 | Completed: 2026-11-25
 - [x] 磁盘危机：builder prune 释放 19G + 删被取代 17b0601，95%→46%；本轮部署残留已清 | Completed: 2026-11-25

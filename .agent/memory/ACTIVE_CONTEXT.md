@@ -5,7 +5,8 @@
 ## Current Task
 - 两项修复均已部署闭环：① 17b0601 截断根因（通用适配层下发 thinking.type=disabled + length 成因 max_tokens_with_reasoning）；② 18e9613 抽屉继续优化动画与滚动（scan-line/stream-caret 补抽屉；滚动条件改非进行中→starting，工作台同修）。均已 push；最新服务器镜像 prompt-pilot:cf30f19（隐藏端点 + 价格表）上线 verify 全绿。遗留清理、AC-13/14 本地补验、宿主 OOM 审查整改闭环（见续节）。详见 session-summary 2026-11-24/25 各节。无未提交产品变更（.claude/settings.json 会话前既有改动未触碰）。
 - 根因备忘：hy4-flash-free（DB 设置覆盖 env）经 opencode 网关默认开思维链且 reasoning 计入 max_tokens；旧代码通用适配层不发 thinking 开关 → 思维链吃满 8192 预算、可见输出 0 → 截断。网关只认 thinking:{"type":"disabled"}，必带 x-opencode-session；宿主直连网关被 403/1010，探针在容器内跑。
-- 服务器终态：镜像 cf30f19（隐藏端点 + 价格表），三容器 restart=always，live-restore=true，vm.swappiness=10（99-vm-swappiness.conf）；绑 0.0.0.0:3100（公网 + 安全组 IP 白名单），数据 /var/lib/prompt-pilot，源码 /opt/prompt-pilot-src；回滚镜像 18e9613；磁盘 46%/21G（build cache prune 释放 19G）；db 备份 pre-deploy-20261124/-ui/20261125；daemon.json.bak-20261125。
+- 服务器终态：镜像 e309888（锚点断层修复）+ 30fe0f4（deploy.sh restart=always 固化），三容器 always（脚本已同步，新容器自带），live-restore=true，vm.swappiness=10；绑 0.0.0.0:3100（公网 + 安全组 IP 白名单），数据 /var/lib/prompt-pilot，源码 /opt/prompt-pilot-src；回滚镜像 cf30f19；磁盘 52%/18G；db 备份 20261124×2/20261125×2；daemon.json.bak-20261125。
+- 最新修复（2026-11-25）：AppShell 根 overflow-hidden→clip（锚点滚动撑离 fixed 根 104px 致断层空白），bsk 几何实测 + 截图验证。
 - 宿主 OOM 全停审查闭环（2026-11-25）：四环故障链与整改见 session-summary 当日节；always 策略经 docker 重启实弹验证。
 
 ## Verification
